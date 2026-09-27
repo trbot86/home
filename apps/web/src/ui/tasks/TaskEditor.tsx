@@ -11,6 +11,7 @@ import type {
 import { RecordDialog } from '../RecordDialog.js';
 import { useSavedForm } from '../useSavedForm.js';
 import { priorityNames, type TaskRun } from './shared.js';
+import type { TaskTemplate } from './task-template.js';
 export function TaskEditor({
   client,
   state,
@@ -23,6 +24,7 @@ export function TaskEditor({
   onError,
   asset,
   recipe,
+  template,
 }: {
   client: ClientPlatform;
   state: ClientState;
@@ -35,6 +37,7 @@ export function TaskEditor({
   onError: (error: unknown) => void;
   asset?: HomeAsset;
   recipe?: Recipe;
+  template?: TaskTemplate;
 }) {
   const session = state.session!,
     definition = mode !== 'occurrence',
@@ -47,8 +50,8 @@ export function TaskEditor({
       asset?.scopeId ??
       recipe?.scopeId ??
       session.scopes.find((scope) => scope.kind === 'shared')!.scopeId,
-    title: task?.title ?? (recipe ? `Make ${recipe.title}`.slice(0, 300) : ''),
-    instructions: task?.instructions ?? '',
+    title: task?.title ?? template?.title ?? (recipe ? `Make ${recipe.title}`.slice(0, 300) : ''),
+    instructions: task?.instructions ?? template?.instructions ?? '',
     context: task?.context ?? 'home',
     assigneeId: occurrence?.assigneeId ?? '',
     priority: String(occurrence?.priority ?? 1),
@@ -61,13 +64,14 @@ export function TaskEditor({
     repeatCount: String(task?.recurrence?.count ?? 1),
     timeZone: task?.recurrence?.timeZone ?? state.tasks.timeZone,
     maintenanceAssetId: task?.maintenance?.assetId ?? asset?.recordId ?? '',
-    maintenanceReference: task?.maintenance?.reference ?? '',
+    maintenanceReference: task?.maintenance?.reference ?? template?.maintenanceReference ?? '',
     cookingRecipeId: task?.cooking?.recipeId ?? recipe?.recordId ?? '',
   });
   const record = mode === 'occurrence' ? occurrence : task,
     key =
       record?.recordId ??
-      (asset ? `task:new:${asset.recordId}` : recipe ? `task:recipe:${recipe.recordId}:new` : 'task:new');
+      (asset ? `task:new:${asset.recordId}` : recipe ? `task:recipe:${recipe.recordId}:new` : 'task:new') +
+        (template ? `:template:${template.id}` : '');
   const buffer = useSavedForm(
       client,
       key,

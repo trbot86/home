@@ -9,6 +9,9 @@ import { LinkedText } from '../LinkedText.js';
 import { AttachmentGallery } from '../AttachmentGallery.js';
 import { AttachmentDialog, type AttachmentSaved } from '../AttachmentDialog.js';
 import { TaskEditor } from '../tasks/TaskEditor.js';
+import type { TaskTemplate } from '../tasks/task-template.js';
+import { MaintenanceIdeas } from './MaintenanceIdeas.js';
+import { maintenanceTaskTemplate } from './maintenance-ideas.js';
 import { CompletionDialog } from '../tasks/CompletionDialog.js';
 import { TaskHistory } from '../tasks/TaskHistory.js';
 import { displayDate, priorityNames, taskRecords } from '../tasks/shared.js';
@@ -16,7 +19,12 @@ import '../tasks/tasks.css';
 import './home.css';
 
 type Editor = { mode: 'asset' | 'service'; recordId?: string };
-type TaskEditing = { mode: 'create' | 'definition' | 'occurrence'; taskId?: string; occurrenceId?: string };
+type TaskEditing = {
+  mode: 'create' | 'definition' | 'occurrence';
+  taskId?: string;
+  occurrenceId?: string;
+  template?: TaskTemplate;
+};
 export function Home({
   client,
   state,
@@ -51,6 +59,7 @@ export function Home({
     [taskHistoryId, setTaskHistoryId] = useState<string | null>(null);
   const [working, setWorking] = useState<string[]>([]),
     locks = useRef(new Set<string>());
+  const [showIdeas, setShowIdeas] = useState(false);
   const session = state.session!,
     snapshot = state.home,
     records: HomeRecord[] = [...snapshot.assets, ...snapshot.serviceRecords];
@@ -367,12 +376,20 @@ export function Home({
             <section className="home-subsection">
               <div className="section-heading">
                 <h3>Maintenance tasks</h3>
-                <button
-                  disabled={disabled(asset.recordId) || asset.archived || asset.deletedAt !== null}
-                  onClick={() => setTaskEditor({ mode: 'create' })}
-                >
-                  Add maintenance task
-                </button>
+                <div className="task-actions">
+                  <button
+                    disabled={asset.archived || asset.deletedAt !== null}
+                    onClick={() => setShowIdeas(true)}
+                  >
+                    Browse maintenance ideas
+                  </button>
+                  <button
+                    disabled={disabled(asset.recordId) || asset.archived || asset.deletedAt !== null}
+                    onClick={() => setTaskEditor({ mode: 'create' })}
+                  >
+                    Add maintenance task
+                  </button>
+                </div>
               </div>
               {!linkedTasks.length && (
                 <p className="fine">Link a task to record each completion here automatically.</p>
@@ -518,17 +535,31 @@ export function Home({
       )}
       {taskEditor && asset && (
         <TaskEditor
-          key={`${taskEditor.mode}:${taskEditor.taskId ?? 'new'}`}
+          key={`${taskEditor.mode}:${taskEditor.taskId ?? 'new'}:${taskEditor.template?.id ?? ''}`}
           client={client}
           state={state}
           mode={taskEditor.mode}
           asset={asset}
+          {...(taskEditor.template ? { template: taskEditor.template } : {})}
           {...(editingTask ? { task: editingTask } : {})}
           {...(editingOccurrence ? { occurrence: editingOccurrence } : {})}
           run={run}
           close={() => setTaskEditor(null)}
           onSaved={() => {}}
           onError={onError}
+        />
+      )}
+      {showIdeas && asset && (
+        <MaintenanceIdeas
+          client={client}
+          asset={asset}
+          tasks={linkedTasks}
+          online={state.online}
+          close={() => setShowIdeas(false)}
+          choose={(idea) => {
+            setShowIdeas(false);
+            setTaskEditor({ mode: 'create', template: maintenanceTaskTemplate(idea) });
+          }}
         />
       )}
       {completion && completionTask && (

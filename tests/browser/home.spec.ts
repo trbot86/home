@@ -21,6 +21,86 @@ async function addAsset(page: Page, title: string, privateAsset = false) {
   await expect(page.locator('.home-detail-heading')).toContainText(title);
 }
 
+test('maintenance ideas preserve separate drafts, keep scheduling opt-in and create ordinary reversible tasks', async ({
+  page,
+  context,
+}) => {
+  await login(page);
+  await addAsset(page, 'Ideas test dishwasher', true);
+  await page.getByRole('button', { name: 'Add maintenance task', exact: true }).click();
+  await page.getByLabel('Task title', { exact: true }).fill('My unfinished manual task');
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  const browse = async () => {
+    await page.getByRole('button', { name: 'Browse maintenance ideas', exact: true }).click();
+    return page.getByRole('dialog', { name: 'Maintenance ideas', exact: true });
+  };
+  const filterIdea = () =>
+    page
+      .locator('.maintenance-idea')
+      .filter({ has: page.getByRole('heading', { name: 'Clean the dishwasher filter', exact: true }) });
+  await browse();
+  await expect(page.locator('.maintenance-idea')).toHaveCount(5);
+  await page.getByLabel('Maintenance idea category').selectOption('Kitchen');
+  await expect(page.locator('.maintenance-idea')).toHaveCount(3);
+  await expect(filterIdea().getByRole('link')).toHaveAttribute(
+    'href',
+    'https://www.bosch-home.com/us/owner-support/dishwashers/cleaning-maintenance',
+  );
+  for (const width of [320, 390, 820, 1440]) {
+    await page.setViewportSize({ width, height: 1100 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(await page.getByRole('dialog').evaluate((d) => d.scrollWidth <= d.clientWidth)).toBe(true);
+    await page.screenshot({ path: `test-results/maintenance-ideas-${width}.png` });
+  }
+  await filterIdea().getByRole('button', { name: 'Customize task', exact: true }).click();
+  await expect(page.getByLabel('Task title', { exact: true })).toHaveValue('Clean the dishwasher filter');
+  await expect(page.getByLabel('Who can see this', { exact: true })).toHaveValue(/.{8,}/);
+  await expect(page.getByLabel('Who can see this').locator('option:checked')).toHaveText('Just me');
+  await expect(page.getByLabel('Repeat after completion', { exact: true })).toHaveValue('off');
+  await expect(page.getByLabel('Flexible target', { exact: true })).toHaveValue('');
+  await expect(page.getByLabel('Actual deadline (optional)', { exact: true })).toHaveValue('');
+  await page.getByLabel('Instructions', { exact: true }).fill('My instructions, kept until I save.');
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.locator('.home-asset-card').filter({ hasText: 'Ideas test dishwasher' }).click();
+  await browse();
+  await filterIdea().getByRole('button', { name: 'Customize task', exact: true }).click();
+  await expect(page.getByLabel('Instructions', { exact: true })).toHaveValue(
+    'My instructions, kept until I save.',
+  );
+  await page.getByLabel('Repeat after completion', { exact: true }).selectOption('months');
+  await page.getByLabel('Repeat every', { exact: true }).fill('2');
+  await page.getByLabel('Instructions', { exact: true }).press('Control+Enter');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const task = page.locator('.home-maintenance-task').filter({ hasText: 'Clean the dishwasher filter' });
+  await expect(task).toHaveCount(1);
+  await expect(task).toContainText('Bosch suggests');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(task).toHaveCount(0);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(task).toHaveCount(1);
+  await browse();
+  await expect(filterIdea().getByRole('button')).toBeDisabled();
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.getByRole('button', { name: 'Add maintenance task', exact: true }).click();
+  await expect(page.getByLabel('Task title', { exact: true })).toHaveValue('My unfinished manual task');
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await addAsset(page, 'Other ideas test dishwasher');
+  await browse();
+  await filterIdea().getByRole('button', { name: 'Customize task', exact: true }).click();
+  await expect(page.getByLabel('Instructions', { exact: true })).not.toHaveValue(
+    'My instructions, kept until I save.',
+  );
+  await expect(page.getByLabel('Repeat after completion', { exact: true })).toHaveValue('off');
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await context.setOffline(true);
+  await page.getByRole('button', { name: 'Refresh and sync', exact: true }).click();
+  await browse();
+  await expect(filterIdea().getByRole('button')).toBeDisabled();
+  await expect(filterIdea().getByRole('link')).toBeVisible();
+});
+
 test('Home keeps asset details, past service, photos and actual-completion maintenance together with guarded undo', async ({
   page,
 }) => {

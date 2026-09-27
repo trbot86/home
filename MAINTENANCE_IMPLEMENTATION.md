@@ -100,7 +100,36 @@ linked task creates its service row within the same receipt transaction. A linke
 service cannot be independently deleted or have its completion instant changed;
 undo the completion as one action. Later relevant edits reject that undo.
 
-Suggested maintenance templates follow once the storage workflow is usable.
-Keep suggestions optional, state their basis, and research any proposed service
-interval against relevant manufacturer guidance. Fixed-calendar recurrence,
-notification channels, calendar integration and recipes remain separate slices.
+## Optional maintenance ideas
+
+The maintenance-ideas branch adds five source-backed starting points: heating
+filter checks, dishwasher filters and spray arms, washer cleaning and refrigerator
+seal inspection. Browse and filter them from an asset, then customize an ordinary
+task before saving. Dates and recurrence start unset. A title already present on
+that asset is indicated to avoid repeated clicks creating identical tasks; this
+is a title check, not a claim to recognize every renamed equivalent.
+
+No schema, scheduling engine or server command is added. Generic task templates
+provide starting text to the existing durable editor. Each asset/template gets a
+separate local draft key, so a manual draft or another idea is not overwritten.
+Source guidance is copied into the task's editable maintenance reference; future
+catalog edits do not alter saved tasks. Model manuals take precedence. Visibility,
+actual-completion recurrence, service logs, receipts and guarded undo use the
+existing task and maintenance boundaries.
+
+Sources checked 2026-09-27:
+
+- [US Department of Energy: heating filters](https://www.energy.gov/articles/5-tips-help-you-save-energy-bills-winter).
+- [Bosch dishwasher maintenance](https://www.bosch-home.com/us/owner-support/dishwashers/cleaning-maintenance).
+- [Whirlpool washer cleaning](https://www.whirlpool.com/blog/washers-and-dryers/clean-washing-machine.html).
+- [Whirlpool refrigerator maintenance](https://producthelp.whirlpool.com/Refrigeration/Full-Size_Refrigerators/Product_Info/Cleaning_and_Care/Preventative_Maintenance_for_Refrigerators).
+
+Typechecking, package boundaries and the production build pass. All 11 affected
+Home, Tasks and Food browser flows pass, including separate drafts, private scope,
+opt-in dates/recurrence, undo/redo, offline browsing and 320–1440 pixel layouts.
+The image passes all 155 Linux package tests. Android builds, in-place update
+preservation and native UI verification pass, including Back, Room draft recovery,
+private asset scope and editable recurrence. Live publication is pending.
+
+Fixed-calendar recurrence, notification channels and calendar integration remain
+separate slices.
