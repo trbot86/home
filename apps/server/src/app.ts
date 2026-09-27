@@ -84,7 +84,7 @@ export async function buildApp(options: AppOptions) {
     throw error;
   }
   const access = new AccessService(db, now);
-  const { inbox, shopping, shoppingGroups, home, tasks, recipes, records } = createRecordFeatures(
+  const { inbox, shopping, shoppingGroups, home, tasks, recipes, projects, records } = createRecordFeatures(
     db,
     access,
     options.householdTimeZone,
@@ -95,6 +95,7 @@ export async function buildApp(options: AppOptions) {
   const writes = new WriteCoordinator(db, inbox, history, now, records, undefined, [
     shopping.commands(),
     shoppingGroups.commands(),
+    projects.commands(),
     tasks.commands(),
     home.commands(),
     recipes.commands(),
@@ -231,6 +232,7 @@ export async function buildApp(options: AppOptions) {
       tasks: tasks.snapshot(context),
       home: home.snapshot(context),
       recipes: recipes.snapshot(context),
+      projects: projects.snapshot(context),
       recipeImports: recipeImports.snapshot(context),
       views: views.snapshot(context),
     };

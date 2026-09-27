@@ -54,6 +54,7 @@ test('verified 006 upgrade preserves golden requests, identity, media, human his
       '012_view_pins.sql',
       '013_recipe_tasks.sql',
       '014_shopping_groups.sql',
+      '015_projects.sql',
     ]);
     assert.deepEqual(f.snapshot(), before);
     assert.deepEqual(installation(f.db), state);

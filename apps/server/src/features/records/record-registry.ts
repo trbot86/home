@@ -16,6 +16,13 @@ export type RecordChange = { before: TrackedRecord | null; after: TrackedRecord 
 export interface RecordAdapter {
   kind: string;
   supportsAttachments?: boolean;
+  /** A content owner can reconcile owned attachment blocks in the same action. */
+  setAttachments?(
+    context: RequestContext,
+    before: TrackedRecord,
+    attachments: unknown,
+    now: number,
+  ): TrackedRecord;
   payloadTable: string;
   payloadId: string;
   get(context: RequestContext, id: string): TrackedRecord;
@@ -67,9 +74,16 @@ export class RecordRegistry {
     if (record.revision !== revision) throw new Rejection('revision_conflict');
     return record;
   }
-  setAttachments(context: RequestContext, before: TrackedRecord, attachments: unknown, now: number): TrackedRecord {
+  setAttachments(
+    context: RequestContext,
+    before: TrackedRecord,
+    attachments: unknown,
+    now: number,
+  ): TrackedRecord {
     if (!this.adapter(before.kind).supportsAttachments) throw new Rejection('attachments_not_supported');
     if (before.content.deletedAt !== null) throw new Rejection('deleted');
+    const owner = this.adapter(before.kind).setAttachments;
+    if (owner) return owner(context, before, attachments, now);
     return this.setContent(context, before, { ...before.content, attachments }, now);
   }
   setContent(

@@ -9,6 +9,7 @@ import { TasksRepository } from '../features/tasks/tasks.js';
 import { HomeRepository } from '../features/home/home.js';
 import { RecipesRepository } from '../features/recipes/recipes.js';
 import { RecordRegistry } from '../features/records/record-registry.js';
+import { ProjectsRepository } from '../features/projects/projects.js';
 
 /** One complete adapter set for every writer; constructing features grants no HTTP routes or commands. */
 export function createRecordFeatures(db: Sqlite, access: AccessService, householdTimeZone?: string) {
@@ -18,6 +19,7 @@ export function createRecordFeatures(db: Sqlite, access: AccessService, househol
   const recipes = new RecipesRepository(db, access);
   const shoppingGroups = new ShoppingGroupsRepository(db, access, shopping, recipes);
   const tasks = new TasksRepository(db, access, householdTimeZone, home, recipes);
+  const projects = new ProjectsRepository(db, access);
   const records = new RecordRegistry(db, [
     inboxRecordAdapter(inbox),
     ...shopping.adapters(),
@@ -25,6 +27,7 @@ export function createRecordFeatures(db: Sqlite, access: AccessService, househol
     ...home.adapters(),
     ...recipes.adapters(),
     shoppingGroups.adapter(),
+    ...projects.adapters(),
   ]);
-  return { inbox, shopping, shoppingGroups, tasks, home, recipes, records };
+  return { inbox, shopping, shoppingGroups, tasks, home, recipes, projects, records };
 }
