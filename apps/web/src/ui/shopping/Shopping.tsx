@@ -9,6 +9,8 @@ import { ShoppingHistory } from './ShoppingHistory.js';
 import { QuickAdd } from './QuickAdd.js';
 import { ShoppingDialog, shoppingKind, shoppingLabel, shoppingRecords, type ShoppingRun } from './shared.js';
 import './shopping.css';
+import { AttachmentDialog, type AttachmentSaved } from '../AttachmentDialog.js';
+import { AttachmentGallery } from '../AttachmentGallery.js';
 type Tab = 'needed' | 'purchased' | 'restock' | 'deleted';
 type Editor = { mode: 'list' | 'entry' | 'restock' | 'group'; record?: ShoppingRecord };
 export function Shopping({
@@ -17,6 +19,7 @@ export function Shopping({
   run,
   onError,
   onOpenRecipe,
+  onPhotosSaved,
   initialRecordId,
 }: {
   client: ClientPlatform;
@@ -24,6 +27,7 @@ export function Shopping({
   run: ShoppingRun;
   onError: (error: unknown) => void;
   onOpenRecipe: (id: string) => void;
+  onPhotosSaved: AttachmentSaved;
   initialRecordId?: string | null;
 }) {
   const initial = shoppingRecords(state.shopping).find((r) => r.recordId === initialRecordId);
@@ -54,11 +58,20 @@ export function Shopping({
     ),
     [working, setWorking] = useState<string | null>(null);
   const [removingGroup, setRemovingGroup] = useState<string | null>(null);
+  const [photosId, setPhotosId] = useState<string | null>(null);
   const snapshot = state.shopping,
     lists = snapshot.lists.filter((list) => !list.deletedAt),
     list = lists.find((item) => item.recordId === selectedList) ?? lists[0];
   const records = shoppingRecords(snapshot),
     history = records.find((record) => record.recordId === historyId);
+  const photos = records.find(
+    (record) =>
+      record.recordId === photosId && (record.kind === 'restock_item' || record.kind === 'purchase'),
+  );
+  const openPhotos = (record: ShoppingRecord) => {
+    setHistoryId(null);
+    setPhotosId(record.recordId);
+  };
   const updatedEditor = editor?.record
     ? records.find((record) => record.recordId === editor.record!.recordId)
     : undefined;
@@ -145,6 +158,7 @@ export function Shopping({
         Edit
       </button>
       <button onClick={() => setHistoryId(record.recordId)}>History</button>
+      {record.kind === 'restock_item' && <button onClick={() => openPhotos(record)}>Product photos</button>}
       <button
         aria-label={`Delete ${shoppingLabel(record)}`}
         disabled={disabled(record.recordId)}
@@ -292,6 +306,8 @@ export function Shopping({
           action={action}
           tools={tools}
           onOpenRecipe={onOpenRecipe}
+          onPhotos={openPhotos}
+          onHistory={(record) => setHistoryId(record.recordId)}
         />
       )}
       {tab === 'restock' && (
@@ -311,6 +327,7 @@ export function Shopping({
                   <span className="scope-badge">{scopeName(product.scopeId)}</span>
                 </div>
                 <h3>{product.name}</h3>
+                <AttachmentGallery client={client} attachments={product.attachments ?? []} />
                 {product.model && <p>{product.model}</p>}
                 {product.quantity && <p className="fine">Usually {product.quantity}</p>}
                 {product.notes && (
@@ -407,6 +424,18 @@ export function Shopping({
           onError={onError}
         />
       )}
+      {photos && (
+        <AttachmentDialog
+          client={client}
+          target={photos}
+          title={shoppingLabel(photos)}
+          online={state.online}
+          serverEpoch={state.session!.serverEpoch}
+          pending={state.pendingEdits.includes(photos.recordId)}
+          close={() => setPhotosId(null)}
+          onSaved={onPhotosSaved}
+        />
+      )}
       {history && (
         <ShoppingHistory
           client={client}
@@ -415,6 +444,7 @@ export function Shopping({
           run={run}
           close={() => setHistoryId(null)}
           onError={onError}
+          onPhotos={openPhotos}
         />
       )}
       {removing && (

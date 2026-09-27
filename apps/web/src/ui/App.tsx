@@ -825,6 +825,7 @@ export function App({ client }: { client: ClientPlatform }) {
                 client={client}
                 state={state}
                 run={runCommand}
+                onPhotosSaved={acceptOutcome}
                 onError={showError}
                 onOpenRecipe={(id) => {
                   setRecipeTarget(id);

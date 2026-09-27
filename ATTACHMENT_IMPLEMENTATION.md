@@ -33,6 +33,8 @@ lost replies across restart, per-user undo, profile isolation and shared byte
 downloads. `scripts/verify-android-attachments.mjs` checks the native editor;
 camera/gallery handoff was also exercised with synthetic emulator images.
 
-Maintenance assets/service records will reuse this editor and repository.
+Maintenance assets/service records, recipes/cooking records and project pages
+also reuse this editor and repository. Shopping products and purchase receipts
+are implemented and verified; see SHOPPING_PHOTOS_IMPLEMENTATION.md for publication status.
 PDF/document attachments, moving a rejected photo draft into Inbox, and changes
 to storage retention are outside this slice.

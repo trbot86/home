@@ -482,3 +482,11 @@
     margin: 0 20px 15px;
   }
 }
+.shopping-purchase {
+  margin-block: 14px;
+  padding-block: 10px;
+  border-block: 1px solid var(--line);
+}
+.shopping-dialog > .shopping-history-tools {
+  padding: 0 30px;
+}

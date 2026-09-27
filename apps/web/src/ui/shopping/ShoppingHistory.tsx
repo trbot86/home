@@ -4,6 +4,7 @@ import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { HistoryEntry, ShoppingRecord } from '@our-place/contracts';
 import { date } from '../format.js';
 import { ShoppingDialog, shoppingLabel, type ShoppingRun } from './shared.js';
+import { AttachmentGallery } from '../AttachmentGallery.js';
 export function ShoppingHistory({
   client,
   state,
@@ -11,6 +12,7 @@ export function ShoppingHistory({
   run,
   close,
   onError,
+  onPhotos,
 }: {
   client: ClientPlatform;
   state: ClientState;
@@ -18,6 +20,7 @@ export function ShoppingHistory({
   run: ShoppingRun;
   close: () => void;
   onError: (error: unknown) => void;
+  onPhotos: (record: ShoppingRecord) => void;
 }) {
   const [history, setHistory] = useState<HistoryEntry<ShoppingRecord>[]>([]);
   useEffect(() => {
@@ -35,6 +38,13 @@ export function ShoppingHistory({
   }, [client, record.recordId, record.revision, state.online]);
   return (
     <ShoppingDialog client={client} title="Shopping history" close={close}>
+      {record.deletedAt === null && (record.kind === 'purchase' || record.kind === 'restock_item') && (
+        <div className="shopping-history-tools">
+          <button onClick={() => onPhotos(record)}>
+            {record.kind === 'purchase' ? 'Receipt photos' : 'Product photos'}
+          </button>
+        </div>
+      )}
       <div className="history-list">
         {!history.length && (
           <p className="fine">{state.online ? 'Loading history…' : 'Connect to read history.'}</p>
@@ -48,21 +58,23 @@ export function ShoppingHistory({
                 <span>{date(item.recordedAt)}</span>
               </div>
               <p className="fine">
-                {item.kind === 'PurchaseShoppingEntry'
-                  ? 'Marked purchased'
-                  : item.kind === 'UndoChangeSet'
-                    ? 'Undid a change'
-                    : item.kind === 'RedoChangeSet'
-                      ? 'Redid a change'
-                      : item.kind.startsWith('Delete')
-                        ? 'Deleted'
-                        : item.kind.startsWith('Restore')
-                          ? 'Restored'
-                          : item.kind.startsWith('Update')
-                            ? 'Changed details'
-                            : item.kind === 'MoveShoppingEntry'
-                              ? 'Moved to another list'
-                              : 'Added'}
+                {item.kind === 'SetRecordAttachments'
+                  ? 'Updated photos'
+                  : item.kind === 'PurchaseShoppingEntry'
+                    ? 'Marked purchased'
+                    : item.kind === 'UndoChangeSet'
+                      ? 'Undid a change'
+                      : item.kind === 'RedoChangeSet'
+                        ? 'Redid a change'
+                        : item.kind.startsWith('Delete')
+                          ? 'Deleted'
+                          : item.kind.startsWith('Restore')
+                            ? 'Restored'
+                            : item.kind.startsWith('Update')
+                              ? 'Changed details'
+                              : item.kind === 'MoveShoppingEntry'
+                                ? 'Moved to another list'
+                                : 'Added'}
               </p>
               <p className="historical-text">
                 {shoppingLabel(item.version)}
@@ -72,6 +84,9 @@ export function ShoppingHistory({
                 <p className="historical-text fine">
                   <LinkedText client={client} text={item.version.notes} />
                 </p>
+              )}
+              {'attachments' in item.version && (
+                <AttachmentGallery client={client} attachments={item.version.attachments ?? []} />
               )}
               <div className="history-actions">
                 <button

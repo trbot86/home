@@ -4,7 +4,15 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { CommandKind, CommandOutcome, Envelope, ShoppingRecord } from '@our-place/contracts';
+import type {
+  Attachment,
+  RestockItem,
+  Purchase,
+  CommandKind,
+  CommandOutcome,
+  Envelope,
+  ShoppingRecord,
+} from '@our-place/contracts';
 import {
   initialiseInstallation,
   installation,
@@ -137,6 +145,218 @@ function fixture() {
     },
   };
 }
+
+// Attachment ownership/retention tests need metadata; byte transport is exercised by HTTP/browser tests.
+function photo(f: ReturnType<typeof fixture>, scopeId = f.shared): Attachment {
+  const mediaId = randomUUID();
+  f.db
+    .prepare(
+      `INSERT INTO media_objects(media_id,scope_id,creator_client_id,digest,byte_length,mime_type,
+    storage_key,generation,state,created_at,unreferenced_at,protected_until)
+    VALUES (?,?,?, ?,1,'image/png',?,?,'ready',?,?,0)`,
+    )
+    .run(mediaId, scopeId, f.a.clientId, 'a'.repeat(64), mediaId, randomUUID(), f.now(), f.now());
+  return {
+    attachmentId: randomUUID(),
+    mediaId,
+    digest: 'a'.repeat(64),
+    byteLength: 1,
+    mimeType: 'image/png',
+    position: 0,
+    caption: 'Product label',
+  };
+}
+const photos = (f: ReturnType<typeof fixture>, id: string) =>
+  (f.get(id) as RestockItem | Purchase).attachments;
+
+test('restock photos survive old-client detail edits and follow deletion, restore and history retention', () => {
+  const f = fixture();
+  try {
+    const id = f.product(),
+      image = photo(f);
+    applied(f.run('SetRecordAttachments', { recordId: id, expectedRevision: 1, attachments: [image] }));
+    applied(
+      f.run('UpdateRestockItem', {
+        recordId: id,
+        expectedRevision: 2,
+        name: 'Brush heads',
+        model: 'New size',
+        quantity: '2 packs',
+        notes: 'Soft',
+        productUrl: null,
+      }),
+    );
+    assert.deepEqual(photos(f, id), [image], 'Old request without attachments must preserve them');
+    assert.deepEqual(f.shopping.snapshot(f.b).restockItems[0]!.attachments, [image]);
+    const retention = () =>
+      (
+        f.db.prepare('SELECT unreferenced_at FROM media_objects WHERE media_id=?').get(image.mediaId) as {
+          unreferenced_at: number | null;
+        }
+      ).unreferenced_at;
+    assert.equal(retention(), null);
+    applied(f.run('DeleteShoppingRecord', { recordId: id, expectedRevision: 3 }));
+    assert.ok(retention());
+    applied(f.run('RestoreShoppingRecord', { recordId: id, expectedRevision: 4 }));
+    assert.equal(retention(), null);
+    const removed = applied(
+      f.run('SetRecordAttachments', { recordId: id, expectedRevision: 5, attachments: [] }),
+    );
+    assert.ok(retention());
+    const restored = applied(f.run('UndoChangeSet', { changeSetId: removed.changeSetId }));
+    assert.deepEqual(photos(f, id), [image]);
+    assert.equal(retention(), null);
+    applied(f.run('RedoChangeSet', { changeSetId: restored.changeSetId }));
+    assert.deepEqual(photos(f, id), []);
+    const history = f.history.list<RestockItem>(f.a, id, 'restock_item');
+    assert.deepEqual(history[1]!.version.attachments, [image]);
+    assert.deepEqual(history.at(-1)!.version.attachments, []);
+  } finally {
+    f.close();
+  }
+});
+
+test('receipt edits leave immutable purchase facts intact, replay once and reject stale partner changes', () => {
+  const f = fixture();
+  try {
+    const entry = f.add(f.list()),
+      buy = f.buy(entry);
+    applied(f.run('PurchaseShoppingEntry', buy));
+    const image = photo(f),
+      request = f.envelope({ recordId: buy.purchaseId, expectedRevision: 1, attachments: [image] });
+    const before = f.db.prepare('SELECT * FROM purchases').all();
+    const lines = f.db.prepare('SELECT * FROM purchase_items').all();
+    const saved = applied(f.writes.execute(f.a, 'SetRecordAttachments', request));
+    assert.equal(applied(f.writes.execute(f.a, 'SetRecordAttachments', request)).replayed, true);
+    assert.equal(f.get(buy.purchaseId).revision, 2);
+    assert.equal(f.get(entry).revision, 2);
+    assert.deepEqual(f.db.prepare('SELECT * FROM purchases').all(), before);
+    assert.deepEqual(f.db.prepare('SELECT * FROM purchase_items').all(), lines);
+    assert.throws(
+      () =>
+        f.db.transaction(() => {
+          const record = f.shopping.get(f.a, buy.purchaseId);
+          f.records.setContent(f.a, record, { ...record.content, boughtAt: 0 }, f.now());
+        })(),
+      /Purchase snapshots are immutable/,
+    );
+    rejected(
+      f.run('SetRecordAttachments', { recordId: buy.purchaseId, expectedRevision: 1, attachments: [] }, f.b),
+      'revision_conflict',
+    );
+    const annotated = { ...image, caption: 'Partner added receipt detail' };
+    applied(
+      f.run(
+        'SetRecordAttachments',
+        { recordId: buy.purchaseId, expectedRevision: 2, attachments: [annotated] },
+        f.b,
+      ),
+    );
+    assert.equal(f.run('UndoChangeSet', { changeSetId: saved.changeSetId }).status, 'Rejected');
+    assert.deepEqual(photos(f, buy.purchaseId), [annotated]);
+    assert.deepEqual(
+      f.history.list<Purchase>(f.a, buy.purchaseId, 'purchase').at(-1)!.version.attachments,
+      [],
+    );
+  } finally {
+    f.close();
+  }
+});
+
+test('shopping attachments enforce private visibility, allowed kinds and atomic rejection', () => {
+  const f = fixture();
+  try {
+    const privateId = f.product(f.privateScope),
+      sharedId = f.product(),
+      secret = photo(f, f.privateScope);
+    applied(
+      f.run('SetRecordAttachments', { recordId: privateId, expectedRevision: 1, attachments: [secret] }),
+    );
+    rejected(
+      f.run('SetRecordAttachments', { recordId: privateId, expectedRevision: 2, attachments: [] }, f.b),
+      'unavailable',
+    );
+    assert.throws(() => f.history.list(f.b, privateId, 'restock_item'), NotFound);
+    assert.equal(
+      f.shopping.snapshot(f.b).restockItems.some((r) => r.recordId === privateId),
+      false,
+    );
+    const valid = photo(f),
+      invalid = { ...secret, attachmentId: randomUUID(), position: 1 };
+    rejected(
+      f.run('SetRecordAttachments', {
+        recordId: sharedId,
+        expectedRevision: 1,
+        attachments: [valid, invalid],
+      }),
+      'media_unavailable',
+    );
+    assert.equal(f.get(sharedId).revision, 1);
+    assert.deepEqual(photos(f, sharedId), []);
+    assert.equal(f.db.prepare('SELECT 1 FROM attachments WHERE media_id=?').get(valid.mediaId), undefined);
+    const list = f.list(),
+      entry = f.add(list);
+    for (const id of [list, entry])
+      rejected(
+        f.run('SetRecordAttachments', { recordId: id, expectedRevision: 1, attachments: [] }),
+        'attachments_not_supported',
+      );
+    const failing = new WriteCoordinator(
+      f.db,
+      f.inbox,
+      f.history,
+      f.now,
+      f.records,
+      () => {
+        throw new Error('injected');
+      },
+      [f.shopping.commands()],
+    );
+    const attempt = f.envelope({ recordId: sharedId, expectedRevision: 1, attachments: [valid] });
+    assert.throws(() => failing.execute(f.a, 'SetRecordAttachments', attempt), /injected/);
+    assert.equal(f.get(sharedId).revision, 1);
+    assert.deepEqual(photos(f, sharedId), []);
+    assert.equal(
+      f.writes.resolve(f.a, attempt.operationId, attempt.expectedServerEpoch).status,
+      'Unresolved',
+    );
+  } finally {
+    f.close();
+  }
+});
+
+test('pre-photo shopping history normalises missing fields without changing existing journals', () => {
+  const f = fixture();
+  try {
+    const product = f.product(),
+      entry = f.add(f.list()),
+      buy = f.buy(entry);
+    applied(f.run('PurchaseShoppingEntry', buy));
+    for (const id of [product, buy.purchaseId]) {
+      const row = f.db
+        .prepare('SELECT change_set_id,delta_json FROM record_changes WHERE record_id=?')
+        .get(id) as { change_set_id: string; delta_json: string };
+      const delta = JSON.parse(row.delta_json);
+      delete delta.baseline.attachments;
+      f.db.prepare('UPDATE record_changes SET delta_json=? WHERE record_id=?').run(JSON.stringify(delta), id);
+      const stored = f.db.prepare('SELECT delta_json FROM record_changes WHERE record_id=?').get(id);
+      const kind = id === product ? 'restock_item' : 'purchase';
+      const old = f.history.list<RestockItem | Purchase>(f.a, id, kind);
+      assert.deepEqual(old[0]!.version.attachments, []);
+      const image = photo(f);
+      applied(f.run('SetRecordAttachments', { recordId: id, expectedRevision: 1, attachments: [image] }));
+      assert.deepEqual(f.history.list<RestockItem | Purchase>(f.a, id, kind).at(-1)!.version.attachments, []);
+      assert.deepEqual(
+        f.db
+          .prepare('SELECT delta_json FROM record_changes WHERE record_id=? AND change_set_id=?')
+          .get(id, row.change_set_id),
+        stored,
+      );
+    }
+  } finally {
+    f.close();
+  }
+});
 test('purchase check-off records attribution and snapshots, supports atomic undo/redo, and survives a lost acknowledgement', () => {
   const f = fixture();
   try {

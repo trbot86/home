@@ -1,5 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { Id, Instant, Revision, object } from './primitives.js';
+import { Attachments } from './attachments.js';
 export const ShoppingPurpose = Type.Union(
   (['groceries', 'household', 'wants', 'gifts'] as const).map((value) => Type.Literal(value)),
 );
@@ -37,7 +38,8 @@ export const ShoppingGroupContent = object({
 export const PurchaseItem = object({ purchaseItemId: Id, shoppingEntryId: Id, label: name, quantity });
 export const shoppingContentSchemas = {
   shopping_list: object({ ...commonContent, ...ShoppingListFields }),
-  restock_item: object({ ...commonContent, ...RestockItemFields }),
+  // Optional so stored history and snapshots from older clients remain readable.
+  restock_item: object({ ...commonContent, ...RestockItemFields, attachments: Type.Optional(Attachments) }),
   shopping_entry: object({
     ...commonContent,
     ...ShoppingEntryFields,
@@ -56,6 +58,7 @@ export const shoppingContentSchemas = {
     buyerName: Type.String({ maxLength: 300 }),
     notes,
     items: Type.Array(PurchaseItem, { minItems: 1, maxItems: 100 }),
+    attachments: Type.Optional(Attachments),
   }),
 } as const;
 export type ShoppingKind = keyof typeof shoppingContentSchemas;

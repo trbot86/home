@@ -31,6 +31,17 @@ Updated 2026-09-27.
 
 ## Current development
 
+Shopping product photos and purchase receipt photos are implemented and verified;
+publication is pending. They reuse the attachment editor and existing placement
+tables, retaining immutable purchase facts, private gift scopes and old history.
+The Linux image passes 225 tests; ten affected browser flows, fourteen Android
+unit tests and the dedicated emulator photo/offline workflow pass. See
+SHOPPING_PHOTOS_IMPLEMENTATION.md.
+
+Recently done is deployed on the web and private Android download, with shared
+completion/purchase/cooking/maintenance activity, filters and source links.
+See ACTIVITY_IMPLEMENTATION.md.
+
 Inbox filing is deployed on the web and private Android download. Inbox notes can
 create or link tasks, shopping items and project pages while retaining the source
 and its photos. Migrations 001 through 021 are published and immutable. See

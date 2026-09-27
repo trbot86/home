@@ -149,7 +149,7 @@ export function householdActivity(state: ActivityState): ActivityItem[] {
       personName: record.buyerName,
       context: 'home',
       notes: record.notes ? [record.notes] : [],
-      attachments: [],
+      attachments: [...(record.attachments ?? [])],
       links: [],
       sourceDeleted: false,
     });

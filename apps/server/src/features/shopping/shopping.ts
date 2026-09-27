@@ -9,6 +9,7 @@ import {
   type ShoppingSnapshot,
   type RestockItem,
   type ShoppingEntry,
+  type Attachment,
 } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { AccessService, requireHuman, type HumanRequestContext as RequestContext } from '../access/access.js';
@@ -21,6 +22,7 @@ import type {
 import { NotFound, Rejection } from '../../application/errors.js';
 import type { CommandHandler } from '../records/command-handler.js';
 import type { ShoppingEntryRelations } from './entry-relations.js';
+import { AttachmentRepository } from '../media/attachments.js';
 
 export type ShoppingCommandKind = keyof typeof shoppingCommands;
 const tables: Record<ShoppingKind, [string, string]> = {
@@ -39,7 +41,9 @@ type HeaderRow = {
   deleted_at: number | null;
 };
 type Result = { records: TrackedRecord[]; changes: RecordChange[] };
+const hasPhotos = (kind: string) => kind === 'restock_item' || kind === 'purchase';
 export class ShoppingRepository {
+  private readonly attachments: AttachmentRepository;
   commands(): CommandHandler {
     return {
       kinds: Object.keys(shoppingCommands) as ShoppingCommandKind[],
@@ -51,7 +55,9 @@ export class ShoppingRepository {
     private readonly db: Sqlite,
     private readonly access: AccessService,
     private readonly relations?: ShoppingEntryRelations,
-  ) {}
+  ) {
+    this.attachments = new AttachmentRepository(db, access);
+  }
   private content(kind: ShoppingKind, value: unknown): RecordContent {
     if (!isValid(shoppingContentSchemas[kind], value)) throw new Error('Invalid shopping history content');
     const content = value as RecordContent;
@@ -70,11 +76,14 @@ export class ShoppingRepository {
     }
     return kind === 'shopping_entry'
       ? { ...content, groupId: content.groupId ?? null, recipeSources: content.recipeSources ?? [] }
-      : content;
+      : hasPhotos(kind)
+        ? { ...content, attachments: content.attachments ?? [] }
+        : content;
   }
   adapters(): RecordAdapter[] {
     return (Object.keys(tables) as ShoppingKind[]).map((kind) => ({
       kind,
+      supportsAttachments: hasPhotos(kind),
       payloadTable: tables[kind][0],
       payloadId: tables[kind][1],
       get: (context, id) => this.get(context, id, kind),
@@ -136,7 +145,12 @@ export class ShoppingRepository {
       revision: row.revision,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      content: this.content(row.kind, { scopeId: row.scope_id, deletedAt: row.deleted_at, ...fields }),
+      content: this.content(row.kind, {
+        scopeId: row.scope_id,
+        deletedAt: row.deleted_at,
+        ...fields,
+        ...(hasPhotos(row.kind) ? { attachments: this.attachments.list(id) } : {}),
+      }),
     };
   }
   project(record: TrackedRecord): ShoppingRecord {
@@ -247,6 +261,11 @@ export class ShoppingRepository {
           .run(item.purchaseItemId, id, c.scopeId, item.shoppingEntryId, item.label, item.quantity);
       }
     }
+    if (hasPhotos(kind))
+      this.attachments.replace(context, id, c.scopeId, c.attachments as Attachment[], now, {
+        creating: true,
+        live: true,
+      });
     return this.get(context, id, kind);
   }
   private setContent(
@@ -290,13 +309,17 @@ export class ShoppingRepository {
       this.relations?.saveGroup(id, c);
       if (c.restockItemId !== before.content.restockItemId) throw new Error('Restock identity cannot change');
     } else {
-      const { deletedAt: _old, ...old } = before.content;
-      const { deletedAt: _next, ...next } = c;
+      const { deletedAt: _old, attachments: _oldPhotos, ...old } = before.content;
+      const { deletedAt: _next, attachments: _nextPhotos, ...next } = c;
       if (JSON.stringify(old) !== JSON.stringify(next)) throw new Error('Purchase snapshots are immutable');
     }
     this.db
       .prepare('UPDATE records SET revision=revision+1,updated_at=?,deleted_at=? WHERE record_id=?')
       .run(now, c.deletedAt, id);
+    if (hasPhotos(before.kind))
+      this.attachments.replace(context, id, c.scopeId, c.attachments as Attachment[], now, {
+        live: c.deletedAt === null,
+      });
     return this.get(context, id);
   }
   private needed(listId: string, restockId: string, except = ''): string | undefined {
