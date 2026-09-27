@@ -1,0 +1,19 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "our place",
+      "intents": [
+        {
+          "name": "RememberIntent",
+          "slots": [{ "name": "Text", "type": "AMAZON.SearchQuery" }],
+          "samples": ["remember {Text}", "save a note {Text}", "note that {Text}"]
+        },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.StopIntent", "samples": [] },
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] }
+      ],
+      "types": []
+    }
+  }
+}

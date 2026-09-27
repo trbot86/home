@@ -1,6 +1,6 @@
 # Alexa inbox note trial
 
-Research checked: 2026-09-27. The local handler, proposed English (Canada) model,
+Research checked: 2026-09-27. The local handler, proposed English (US/Canada) models,
 explicit integration principal and separate capture listener are implemented.
 No live skill, cloud resource, listener, credential or device connection has been
 configured. The production `CaptureSink` transport is still unimplemented;
@@ -10,6 +10,16 @@ injection and an isolated SQLite database. See
 See [the imported checkpoint](ALEXA_HANDOFF.md) for its original scope.
 
 ## First interaction
+
+Current console selection is English (US), as reported by the user; actual phone
+and Echo language settings still need verification. Use `en-US.json` for that
+locale. Both English model files currently contain the same notes-only phrases,
+and the handler accepts both `en-US` and `en-CA`. Keep locale sync off for the
+initial trial; add English (Canada) explicitly if a device uses it.
+The phone setting is under More > Settings > Alexa on This Phone > Language in
+Amazon's documented navigation. Each test device must match an available skill
+locale; account country alone does not establish its language setting.
+[Device and app test requirements](https://developer.amazon.com/en-US/docs/alexa/test/test-your-skill-overview.html).
 
 Start with a short note into the shared inbox. Suggested one-shot phrase:
 
