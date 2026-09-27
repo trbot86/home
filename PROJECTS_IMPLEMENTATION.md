@@ -53,3 +53,11 @@ compound moves/deletions, receipt replay, failed commits, the 014 upgrade and a
 backup restoration with actual image bytes. Existing automated tests, typechecking,
 package boundaries and production builds pass. The user-facing boards and native
 cache integration are still pending; this foundation has not been deployed live.
+
+Project next-action views now extend the same preference service as Food pins.
+Their context, scope and order are separate from record revisions/history. Private
+projects may pin shared records; shared projects cannot pin private records. The
+016 migration preserves existing Food rows and receipts and checks foreign keys
+after its table rebuild. Isolated tests cover stale ordering, failed receipts,
+target deletion/restoration, private-view isolation, old frozen commands, backup
+restoration and rollback after SQL or foreign-key failure during the rebuild.

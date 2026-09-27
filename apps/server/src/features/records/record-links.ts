@@ -23,5 +23,6 @@ export class RecordLinkPolicy {
       (!retained && target.deleted_at !== null)
     )
       throw new Rejection('link_unavailable');
+    return target.scope_id;
   }
 }

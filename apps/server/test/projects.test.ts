@@ -653,10 +653,14 @@ test('014 upgrade retains all old tables, Food pins and frozen receipts byte-for
         )
         .all() as { name: string }[]
     ).map((row) => row.name);
-    const before = tables.map((table) => JSON.stringify(f.db.prepare(`SELECT * FROM ${table}`).all()));
+    const selects = tables.map(
+      (table) =>
+        `SELECT ${(f.db.pragma(`table_info(${table})`) as { name: string }[]).map((c) => c.name).join(',')} FROM ${table}`,
+    );
+    const before = selects.map((sql) => JSON.stringify(f.db.prepare(sql).all()));
     f.upgrade();
     for (const [i, table] of tables.entries())
-      assert.equal(JSON.stringify(f.db.prepare(`SELECT * FROM ${table}`).all()), before[i], table);
+      assert.equal(JSON.stringify(f.db.prepare(selects[i]!).all()), before[i], table);
     assert.equal(JSON.stringify(command), bytes);
     assert.deepEqual(views.snapshot(f.a), pins);
     assert.deepEqual(

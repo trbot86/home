@@ -9,6 +9,7 @@ import { initialiseBackupDestination } from '../src/features/operations/backups.
 import { restoreBackup } from '../src/features/operations/restore.js';
 import { installation } from '../src/infrastructure/database.js';
 import { sha256 } from '../src/features/media/file-media-store.js';
+import { ViewPreferences } from '../src/features/views/views.js';
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aBZkAAAAASUVORK5CYII=',
@@ -140,6 +141,23 @@ test('HTTP project cache and photos respect privacy; backup restores hierarchy, 
       (await service.app.inject({ url: `/api/media/${photo.mediaId}`, headers: otherHeaders })).rawPayload,
       png,
     );
+    await post('SetRecordPin', {
+      recordId: child,
+      projectId: project,
+      scopeId: shared,
+      viewKind: 'project_next',
+      expectedViewRevision: 0,
+      pinned: true,
+    });
+    await post('SetRecordPin', {
+      recordId: page,
+      projectId: privateProject,
+      scopeId: privateScope,
+      viewKind: 'project_next',
+      expectedViewRevision: 0,
+      pinned: true,
+    });
+    const pinsBefore = new ViewPreferences(f.db, service.access).snapshot(context);
     const historyBefore = service.history.list(context, child, 'project_page'),
       backup = await service.backups.create();
     await post('DeleteProject', {
@@ -164,6 +182,7 @@ test('HTTP project cache and photos respect privacy; backup restores hierarchy, 
       assert.deepEqual(await read(restored), partnerCache);
       assert.deepEqual(await read(restored, headers), ownerCache);
       assert.deepEqual(restored.history.list(context, child, 'project_page'), historyBefore);
+      assert.deepEqual(new ViewPreferences(restored.db, restored.access).snapshot(context), pinsBefore);
       assert.deepEqual((await restored.media.read(context, photo.mediaId)).bytes, png);
       assert.deepEqual(restored.writes.execute(context, 'SetRecordAttachments', saved.command), {
         ...saved.outcome,
