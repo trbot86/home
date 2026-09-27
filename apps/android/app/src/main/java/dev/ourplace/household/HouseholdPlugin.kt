@@ -52,7 +52,7 @@ class HouseholdPlugin : Plugin() {
                     "discardAttachmentDraft" -> { core.discardAttachmentDraft(args.requireText("draftId")); null }
                     "addAttachmentPhoto" -> core.addAttachmentPhoto(args.requireText("draftId"), Base64.decode(args.requireText("base64"), Base64.DEFAULT), args.requireText("mimeType")).json()
                     "submitAttachmentDraft" -> core.submitAttachmentDraft(args.requireText("draftId"))
-                    "photoPath" -> core.photoPath(args.requireText("mediaId"))
+                    "photoPath" -> core.photoPath(args.requireText("mediaId"), args.optJSONObject("descriptor"))
                     "command" -> core.command(args.requireText("recordId"), args.requireText("kind"), args.getJSONObject("arguments"), args.requireText("expectedServerEpoch"))
                     "history" -> core.history(args.requireText("recordId"))
                     "shoppingHistory" -> core.shoppingHistory(args.requireText("recordId"))

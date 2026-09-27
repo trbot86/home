@@ -15,18 +15,22 @@ Updated 2026-09-27.
 
 ## Current development
 
-Reusable record-attachment editing is in progress for maintenance records.
-Server placement edits and guarded history are implemented and tested. Browser
-and Room attachment-draft infrastructure is being added; the attachment editor
-and maintenance assets/service log are not yet released. Migration006 remains
-unpublished. See MAINTENANCE_IMPLEMENTATION.md.
+Reusable photo editing is implemented for Inbox entries, task definitions and
+completion records: captions, ordering, removal, full-size viewing and history.
+Browser and Room drafts retain originals and immutable requests through an
+interrupted save. The editor is verified and awaiting deployment; Migration006
+remains unpublished. Maintenance assets and the service log are next.
+See MAINTENANCE_IMPLEMENTATION.md.
 
 ## Verification
 
 The deployed Tasks release passed 40 server tests, five contract tests, nine
 browser flows and five Android unit tests, plus isolated native UI checks.
-Current attachment changes add server checks for reordering, caption history,
-receipt replay, privacy, rollback and collection after the final live reference.
+Current attachment changes pass 43 server tests, five contract tests, 12 browser
+flows and eight Android unit tests. These cover migration preservation, receipt
+replay, caption/order history, privacy, rollback and media retention. The isolated
+emulator also passed native draft/Back handling, partner downloads, undo, history
+images, and actual camera and gallery acquisition into a task's photo draft.
 Local reports contain exact build, backup and deployment evidence. They are
 intentionally excluded from this public repository.
 

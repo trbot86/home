@@ -74,7 +74,7 @@ export interface ClientPlatform {
   discardDraft(draftId: string): Promise<void>;
   addPhoto(draftId: string, file: Blob): Promise<Draft>;
   removePhoto(draftId: string, mediaId: string): Promise<Draft>;
-  photoUrl(mediaId: string): Promise<string>;
+  photoUrl(mediaId: string, descriptor?: Attachment): Promise<string>;
   submitDraft(draftId: string): Promise<void>;
   copyRejectedDraft(draftId: string): Promise<Draft>;
   sync(): Promise<void>;

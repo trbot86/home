@@ -9,6 +9,7 @@ import {
   emptyShopping,
   emptyTasks,
   type CommandKind,
+  type CommandOutcome,
   type EntryCategory,
   type InboxEntry,
 } from '@our-place/contracts';
@@ -267,39 +268,47 @@ export function App({ client }: { client: ClientPlatform }) {
     try {
       const recordId = 'inboxId' in entry ? entry.inboxId : entry.recordId;
       const outcome = await client.command(recordId, kind, args, expectedServerEpoch);
-      if (outcome.status === 'Applied') {
-        if (outcome.changeSetId) {
-          const action = {
-            label,
-            recordId,
-            changeSetId: outcome.changeSetId,
-            ...(kind === 'UndoChangeSet' ? { redo: true } : {}),
-          };
-          reversal.current = action;
-          setToast(action);
-        }
-        setError('');
-      } else if (outcome.status === 'Rejected')
-        showError(
-          new Error(
-            outcome.code === 'revision_conflict'
-              ? 'This entry changed. Your text is kept; reload the latest version before saving.'
-              : outcome.code.replaceAll('_', ' '),
-          ),
-        );
-      else
-        showError(
-          new Error(
-            outcome.status === 'RecoveryRequired'
-              ? 'The server was restored. Your pending work is kept for reconciliation.'
-              : 'Waiting for the server. This action will be checked again.',
-          ),
-        );
+      acceptOutcome(recordId, outcome, label, kind);
       return outcome;
     } catch (error) {
       showError(error);
       return null;
     }
+  }
+  function acceptOutcome(
+    recordId: string,
+    outcome: CommandOutcome,
+    label: string,
+    kind: CommandKind = 'SetRecordAttachments',
+  ) {
+    if (outcome.status === 'Applied') {
+      if (outcome.changeSetId) {
+        const action = {
+          label,
+          recordId,
+          changeSetId: outcome.changeSetId,
+          ...(kind === 'UndoChangeSet' ? { redo: true } : {}),
+        };
+        reversal.current = action;
+        setToast(action);
+      }
+      setError('');
+    } else if (outcome.status === 'Rejected')
+      showError(
+        new Error(
+          outcome.code === 'revision_conflict'
+            ? 'This entry changed. Your text is kept; reload the latest version before saving.'
+            : outcome.code.replaceAll('_', ' '),
+        ),
+      );
+    else
+      showError(
+        new Error(
+          outcome.status === 'RecoveryRequired'
+            ? 'The server was restored. Your pending work is kept for reconciliation.'
+            : 'Waiting for the server. This action will be checked again.',
+        ),
+      );
   }
   const activeEntries = state.entries
     .filter(
@@ -541,7 +550,13 @@ export function App({ client }: { client: ClientPlatform }) {
               </div>
             )}
             {view === 'tasks' ? (
-              <Tasks client={client} state={state} run={runCommand} onError={showError} />
+              <Tasks
+                client={client}
+                state={state}
+                run={runCommand}
+                onError={showError}
+                onPhotosSaved={acceptOutcome}
+              />
             ) : view === 'shopping' ? (
               <Shopping client={client} state={state} run={runCommand} onError={showError} />
             ) : view === 'storage' ? (
@@ -978,6 +993,7 @@ export function App({ client }: { client: ClientPlatform }) {
               pending={state.pendingEdits.includes(selectedEntry.inboxId)}
               close={() => setSelected(null)}
               run={runCommand}
+              onPhotosSaved={acceptOutcome}
               onError={showError}
             />
           )}

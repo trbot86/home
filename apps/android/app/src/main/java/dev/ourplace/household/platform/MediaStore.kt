@@ -35,4 +35,10 @@ class MediaStore(context: Context, private val db: LocalDatabase) {
         val row = db.dao().media(mediaId)?.takeIf { it.clientId == clientId } ?: return
         check(path(row.mediaId).delete() || !path(row.mediaId).exists()); syncDirectory(); db.dao().deleteMedia(mediaId)
     }
+    /** Acquisition creates the file before the owning draft transaction. */
+    fun removeUnattached(row: MediaRow) {
+        if (db.dao().media(row.mediaId) != null) return
+        val file = path(row.mediaId); check(file.path == row.path) { "invalid_media_path" }
+        check(file.delete() || !file.exists()); syncDirectory()
+    }
 }

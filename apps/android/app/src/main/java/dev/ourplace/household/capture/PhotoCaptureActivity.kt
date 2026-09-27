@@ -34,7 +34,7 @@ class PhotoCaptureActivity : ComponentActivity() {
         status = TextView(this).apply { text = "Preparing your photo…"; textSize = 18f }
         setContentView(LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(32, 80, 32, 32); addView(status); addView(Button(this@PhotoCaptureActivity).apply { text = "Back to your draft"; setOnClickListener { finish() } }) })
         acquisitionId = savedInstanceState?.getString("acquisitionId")
-        if (acquisitionId != null) { status.text = "Waiting for your photo. If the camera was interrupted, return to the inbox and try again."; return }
+        if (acquisitionId != null) { status.text = "Waiting for your photo. If the camera was interrupted, return to your draft and try again."; return }
         core.executor.execute {
             try {
                 val owner = core.clientId(); val draftId = intent.getStringExtra("draftId") ?: error("draft_required")
@@ -72,12 +72,12 @@ class PhotoCaptureActivity : ComponentActivity() {
                 val type = uri?.let { contentResolver.getType(it) } ?: "image/jpeg"
                 val input = if (uri == null) File(row.path).inputStream() else contentResolver.openInputStream(uri) ?: error("photo_unavailable")
                 val media = input.use { core.media.acquire(row.clientId, type, it) }
-                core.db.runInTransaction {
+                try { core.db.runInTransaction {
                     if (row.targetKind == "record") core.attachmentDrafts.attach(row.clientId, row.draftId, media)
                     else core.captures.attach(row.clientId, row.draftId, media)
                     core.db.dao().updateAcquisition(row.copy(state = "complete"))
                     core.db.dao().deleteValue("acquisition:$id")
-                }
+                } } finally { core.media.removeUnattached(media) }
                 File(row.path).delete(); uri?.let { runCatching { contentResolver.releasePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
                 core.changed(); runOnUiThread { finish() }
             } catch (error: Exception) { incomplete(error.message ?: "The photo could not be saved. Your draft is still here.") }

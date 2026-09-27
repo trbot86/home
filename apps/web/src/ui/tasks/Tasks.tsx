@@ -22,6 +22,8 @@ import { CompletionDialog } from './CompletionDialog.js';
 import { TaskHistory } from './TaskHistory.js';
 import { taskRecords, displayDate, priorityNames, type TaskRun } from './shared.js';
 import './tasks.css';
+import { AttachmentDialog, type AttachmentSaved } from '../AttachmentDialog.js';
+import { AttachmentGallery } from '../AttachmentGallery.js';
 type View = 'focus' | 'all' | 'completed' | 'deleted';
 type Editor = { mode: 'create' | 'definition' | 'occurrence'; taskId?: string; occurrenceId?: string };
 const groupNames: Record<TaskAttention, string> = {
@@ -117,11 +119,13 @@ export function Tasks({
   state,
   run,
   onError,
+  onPhotosSaved,
 }: {
   client: ClientPlatform;
   state: ClientState;
   run: TaskRun;
   onError: (error: unknown) => void;
+  onPhotosSaved: AttachmentSaved;
 }) {
   const [view, setView] = useState<View>('focus'),
     [person, setPerson] = useState('mine'),
@@ -129,6 +133,7 @@ export function Tasks({
     [search, setSearch] = useState(''),
     [limit, setLimit] = useState(30);
   const [editor, setEditor] = useState<Editor | null>(null),
+    [photosId, setPhotosId] = useState<string | null>(null),
     [completionId, setCompletionId] = useState<string | null>(null),
     [historyId, setHistoryId] = useState<string | null>(null),
     [working, setWorking] = useState<string[]>([]),
@@ -138,6 +143,7 @@ export function Tasks({
     today = calendarDateAt(Date.now(), snapshot.timeZone),
     records = taskRecords(snapshot);
   const history = records.find((record) => record.recordId === historyId),
+    photos = records.find((record) => record.recordId === photosId && record.kind !== 'task_occurrence'),
     editedTask = snapshot.definitions.find((task) => task.recordId === editor?.taskId),
     editedOccurrence = snapshot.occurrences.find((item) => item.recordId === editor?.occurrenceId);
   const completion = snapshot.occurrences.find((item) => item.recordId === completionId),
@@ -245,6 +251,7 @@ export function Tasks({
               : ''}
           </p>
           {task.instructions && <p className="task-instructions">{task.instructions}</p>}
+          <AttachmentGallery client={client} attachments={task.attachments ?? []} />
           <div className="task-dates">
             {item.deadlineDate && (
               <span className={item.deadlineDate < today ? 'task-late' : ''}>
@@ -283,6 +290,7 @@ export function Tasks({
               Done earlier…
             </button>
             {historyButton(task)}
+            <button onClick={() => setPhotosId(task.recordId)}>Photos & receipts</button>
             <button
               disabled={blocked}
               onClick={() => {
@@ -482,11 +490,13 @@ export function Tasks({
                     Done by {item.performerName} · {date(item.completedAt)}
                   </p>
                   {item.note && <p className="task-instructions">{item.note}</p>}
+                  <AttachmentGallery client={client} attachments={item.attachments ?? []} />
                   {task.deletedAt !== null && (
                     <p className="fine">Task deleted · completion kept in history</p>
                   )}
                   <div className="task-actions">
                     {historyButton(item)}
+                    <button onClick={() => setPhotosId(item.recordId)}>Photos & receipts</button>
                     {!task.deletedAt && (
                       <button
                         disabled={disabled(task.recordId)}
@@ -619,6 +629,18 @@ export function Tasks({
           close={() => setHistoryId(null)}
           onError={onError}
           onRecord={setHistoryId}
+        />
+      )}
+      {photos && (
+        <AttachmentDialog
+          client={client}
+          target={photos}
+          title={photos.kind === 'task' ? photos.title : 'Completion photos'}
+          online={state.online}
+          serverEpoch={session.serverEpoch}
+          pending={state.pendingEdits.includes(photos.recordId)}
+          close={() => setPhotosId(null)}
+          onSaved={onPhotosSaved}
         />
       )}
     </section>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { HistoryEntry, TaskRecord } from '@our-place/contracts';
 import { RecordDialog } from '../RecordDialog.js';
+import { AttachmentGallery } from '../AttachmentGallery.js';
 import { date } from '../format.js';
 import { displayDate, type TaskRun } from './shared.js';
 function details(record: TaskRecord): string {
@@ -68,6 +69,7 @@ export function TaskHistory({
       CompleteTaskOccurrence: 'Completion recorded',
       DeleteTask: 'Task deleted',
       RestoreTask: 'Task restored',
+      SetRecordAttachments: 'Photos updated',
       UndoChangeSet: 'Change undone',
       RedoChangeSet: 'Change redone',
     })[kind] ?? 'Changed';
@@ -129,6 +131,9 @@ export function TaskHistory({
               </div>
               <p className="fine">{action(item.kind)}</p>
               <p className="historical-text">{details(item.version)}</p>
+              {item.version.kind !== 'task_occurrence' && (
+                <AttachmentGallery client={client} attachments={item.version.attachments ?? []} />
+              )}
               <div className="history-actions">
                 <button
                   onClick={() => {

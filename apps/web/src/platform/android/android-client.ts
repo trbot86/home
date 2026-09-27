@@ -1,5 +1,12 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
-import type { AttachmentDraft, ClientPlatform, ClientState, Draft, EditorBuffer, StorageUsage } from '@our-place/client';
+import type {
+  AttachmentDraft,
+  ClientPlatform,
+  ClientState,
+  Draft,
+  EditorBuffer,
+  StorageUsage,
+} from '@our-place/client';
 import type {
   AuthenticationOptions,
   Attachment,
@@ -146,8 +153,8 @@ export class AndroidClient implements ClientPlatform {
   copyRejectedDraft(draftId: string): Promise<Draft> {
     return this.invoke('copyRejectedDraft', { draftId });
   }
-  async photoUrl(mediaId: string): Promise<string> {
-    return Capacitor.convertFileSrc(await this.invoke('photoPath', { mediaId }));
+  async photoUrl(mediaId: string, descriptor?: Attachment): Promise<string> {
+    return Capacitor.convertFileSrc(await this.invoke('photoPath', { mediaId, descriptor }));
   }
   command(
     recordId: string,
@@ -163,8 +170,8 @@ export class AndroidClient implements ClientPlatform {
   shoppingHistory(recordId: string): Promise<HistoryEntry<ShoppingRecord>[]> {
     return this.invoke('shoppingHistory', { recordId });
   }
-  recordHistory<Version>(recordId:string):Promise<HistoryEntry<Version>[]> {
-    return this.invoke('recordHistory',{recordId});
+  recordHistory<Version>(recordId: string): Promise<HistoryEntry<Version>[]> {
+    return this.invoke('recordHistory', { recordId });
   }
   saveEditor(recordId: string, text: string, baseRevision: number, serverEpoch: string): Promise<void> {
     return this.invoke('saveEditor', { recordId, text, baseRevision, serverEpoch });
@@ -175,21 +182,40 @@ export class AndroidClient implements ClientPlatform {
   clearEditor(recordId: string): Promise<void> {
     return this.invoke('clearEditor', { recordId });
   }
-  openAttachmentDraft(recordId: string, scopeId: string, revision: number, attachments: Attachment[]): Promise<AttachmentDraft> {
+  openAttachmentDraft(
+    recordId: string,
+    scopeId: string,
+    revision: number,
+    attachments: Attachment[],
+  ): Promise<AttachmentDraft> {
     return this.invoke('openAttachmentDraft', { recordId, scopeId, revision, attachments });
   }
-  readAttachmentDraft(draftId: string): Promise<AttachmentDraft> { return this.invoke('readAttachmentDraft', { draftId }); }
-  saveAttachmentDraft(draftId: string, revision: number, attachments: Attachment[]): Promise<AttachmentDraft> {
+  readAttachmentDraft(draftId: string): Promise<AttachmentDraft> {
+    return this.invoke('readAttachmentDraft', { draftId });
+  }
+  saveAttachmentDraft(
+    draftId: string,
+    revision: number,
+    attachments: Attachment[],
+  ): Promise<AttachmentDraft> {
     return this.invoke('saveAttachmentDraft', { draftId, revision, attachments });
   }
-  discardAttachmentDraft(draftId: string): Promise<void> { return this.invoke('discardAttachmentDraft', { draftId }); }
-  submitAttachmentDraft(draftId: string): Promise<CommandOutcome> { return this.invoke('submitAttachmentDraft', { draftId }); }
-  acquireAttachmentPhoto(draftId: string, mode: 'camera' | 'gallery'): Promise<void> { return this.invoke('acquireAttachmentPhoto', { draftId, mode }); }
+  discardAttachmentDraft(draftId: string): Promise<void> {
+    return this.invoke('discardAttachmentDraft', { draftId });
+  }
+  submitAttachmentDraft(draftId: string): Promise<CommandOutcome> {
+    return this.invoke('submitAttachmentDraft', { draftId });
+  }
+  acquireAttachmentPhoto(draftId: string, mode: 'camera' | 'gallery'): Promise<void> {
+    return this.invoke('acquireAttachmentPhoto', { draftId, mode });
+  }
   async addAttachmentPhoto(draftId: string, file: Blob): Promise<AttachmentDraft> {
     if (file.size > 25 * 1024 * 1024) throw new Error('Choose a photo under 25 MB');
     const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader(); reader.onerror = reject;
-      reader.onload = () => resolve(String(reader.result).split(',')[1]!); reader.readAsDataURL(file);
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = () => resolve(String(reader.result).split(',')[1]!);
+      reader.readAsDataURL(file);
     });
     return this.invoke('addAttachmentPhoto', { draftId, base64, mimeType: file.type });
   }

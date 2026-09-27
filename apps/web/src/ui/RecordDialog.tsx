@@ -52,7 +52,7 @@ export function RecordDialog({
           <p className="eyebrow">{subtitle}</p>
           <h2>{title}</h2>
         </div>
-        <button aria-label={closeLabel} onClick={close}>
+        <button type="button" aria-label={closeLabel} onClick={close}>
           <Icon name="close" />
         </button>
       </div>

@@ -160,9 +160,13 @@ export class BrowserClient implements ClientPlatform {
     const current = await this.request<Session>('/session');
     if (current.clientId !== existing.clientId || this.session?.clientId !== existing.clientId)
       throw new ClientError('session_changed');
-    const cache = await this.request<{ entries: InboxEntry[]; shopping?: ShoppingSnapshot; tasks?:TaskSnapshot; sampledAt: number; serverEpoch: string }>(
-      '/cache/inbox',
-    );
+    const cache = await this.request<{
+      entries: InboxEntry[];
+      shopping?: ShoppingSnapshot;
+      tasks?: TaskSnapshot;
+      sampledAt: number;
+      serverEpoch: string;
+    }>('/cache/inbox');
     if (cache.serverEpoch !== current.serverEpoch) throw new ClientError('server_changed_try_again');
     if (sequence !== this.refreshSequence || this.session?.clientId !== existing.clientId) return;
     if (current.serverEpoch !== existing.serverEpoch) this.recoveryRequired = true;
@@ -409,7 +413,12 @@ export class BrowserClient implements ClientPlatform {
       );
       let outcome: CommandOutcome;
       if (resolved.status === 'Unresolved') {
-        await this.uploadPhotos(session.clientId, draft.scopeId, draft.attachments, command.expectedServerEpoch);
+        await this.uploadPhotos(
+          session.clientId,
+          draft.scopeId,
+          draft.attachments,
+          command.expectedServerEpoch,
+        );
         outcome = await this.send('CreateInboxEntry', draft.frozenJson, session.clientId);
       } else {
         this.validateOutcome(resolved, command.operationId);
@@ -442,68 +451,145 @@ export class BrowserClient implements ClientPlatform {
     await tx.done;
   }
   private async resolveAttempt(attempt: Attempt): Promise<CommandOutcome> {
+    const current = await (await localDatabase).get('attempts', attempt.key);
+    if (current?.frozenJson === attempt.frozenJson && current.outcome) return current.outcome;
     const command = JSON.parse(attempt.frozenJson) as Envelope;
     let outcome: CommandOutcome;
     if (attempt.uploads) {
-      const resolved = await this.request<CommandOutcome | { status: 'Unresolved' }>(`/operations/${command.operationId}?epoch=${command.expectedServerEpoch}`, {}, attempt.clientId);
+      const resolved = await this.request<CommandOutcome | { status: 'Unresolved' }>(
+        `/operations/${command.operationId}?epoch=${command.expectedServerEpoch}`,
+        {},
+        attempt.clientId,
+      );
       if (resolved.status === 'Unresolved') {
-        await this.uploadPhotos(attempt.clientId, attempt.uploads.scopeId, attempt.uploads.attachments, command.expectedServerEpoch);
+        await this.uploadPhotos(
+          attempt.clientId,
+          attempt.uploads.scopeId,
+          attempt.uploads.attachments,
+          command.expectedServerEpoch,
+        );
         outcome = await this.send(attempt.kind, attempt.frozenJson, attempt.clientId);
-      } else { this.validateOutcome(resolved, command.operationId); outcome = resolved; }
+      } else {
+        this.validateOutcome(resolved, command.operationId);
+        outcome = resolved;
+      }
     } else outcome = await this.send(attempt.kind, attempt.frozenJson, attempt.clientId);
     if (outcome.status === 'RecoveryRequired') this.recoveryRequired = true;
-    if (outcome.status === 'Applied' || outcome.status === 'Rejected') {
-      attempt.outcome = outcome;
-      const db = await localDatabase;
-      const tx = db.transaction(['attempts', 'meta', 'attachmentDrafts'], 'readwrite');
-      const key = localKey(attempt.clientId, 'generation');
-      await tx.objectStore('attempts').put(attempt, attempt.key);
-      if (attempt.attachmentDraftId) {
-        const draft = await tx.objectStore('attachmentDrafts').get(attempt.attachmentDraftId);
-        if (!draft || draft.clientId !== attempt.clientId || draft.operationId !== command.operationId) throw new Error('attachment_request_mismatch');
-        draft.state = outcome.status === 'Applied' ? 'ACKNOWLEDGED' : 'REJECTED'; draft.outcome = outcome;
-        await tx.objectStore('attachmentDrafts').put(draft, draft.draftId);
-      }
-      await tx.objectStore('meta').put(Number((await tx.objectStore('meta').get(key)) ?? 0) + 1, key);
-      await tx.done;
-    }
+    await this.finaliseAttempt(attempt, outcome);
     this.changed();
     return outcome;
   }
-  private async uploadPhotos(clientId: string, scopeId: string, attachments: Attachment[], epoch: string): Promise<void> {
+  private async finaliseAttempt(attempt: Attempt, outcome: CommandOutcome): Promise<void> {
+    if (outcome.status === 'Applied' || outcome.status === 'Rejected') {
+      const db = await localDatabase;
+      const tx = db.transaction(['attempts', 'meta', 'attachmentDrafts'], 'readwrite');
+      // A foreground retry and background drain may finish in either order. Never
+      // overwrite a newer request or revisit a draft already settled by the UI.
+      const current = await tx.objectStore('attempts').get(attempt.key);
+      if (!current || current.frozenJson !== attempt.frozenJson || current.outcome) {
+        await tx.done;
+        return;
+      }
+      const key = localKey(attempt.clientId, 'generation');
+      if (attempt.attachmentDraftId) {
+        const draft = await tx.objectStore('attachmentDrafts').get(attempt.attachmentDraftId);
+        if (
+          !draft ||
+          draft.clientId !== attempt.clientId ||
+          draft.operationId !== (JSON.parse(attempt.frozenJson) as Envelope).operationId
+        ) {
+          tx.abort();
+          await tx.done.catch(() => {});
+          throw new Error('attachment_request_mismatch');
+        }
+        draft.state = outcome.status === 'Applied' ? 'ACKNOWLEDGED' : 'REJECTED';
+        draft.outcome = outcome;
+        await tx.objectStore('attachmentDrafts').put(draft, draft.draftId);
+      }
+      await tx.objectStore('attempts').put({ ...current, outcome }, attempt.key);
+      await tx.objectStore('meta').put(Number((await tx.objectStore('meta').get(key)) ?? 0) + 1, key);
+      await tx.done;
+    }
+  }
+  private async uploadPhotos(
+    clientId: string,
+    scopeId: string,
+    attachments: Attachment[],
+    epoch: string,
+  ): Promise<void> {
     const db = await localDatabase;
     for (const attachment of attachments) {
-      const status = await this.post<{ state: string }>(`/media/${attachment.mediaId}/prepare`, {
-        scopeId, expectedServerEpoch: epoch, digest: attachment.digest, byteLength: attachment.byteLength, mimeType: attachment.mimeType,
-      }, clientId);
+      const status = await this.post<{ state: string }>(
+        `/media/${attachment.mediaId}/prepare`,
+        {
+          scopeId,
+          expectedServerEpoch: epoch,
+          digest: attachment.digest,
+          byteLength: attachment.byteLength,
+          mimeType: attachment.mimeType,
+        },
+        clientId,
+      );
       if (status.state !== 'ready') {
         const local = await db.get('media', localKey(clientId, attachment.mediaId));
-        if (!local || local.bytes.size !== attachment.byteLength || await digest(await local.bytes.arrayBuffer()) !== attachment.digest)
+        if (
+          !local ||
+          local.bytes.size !== attachment.byteLength ||
+          (await digest(await local.bytes.arrayBuffer())) !== attachment.digest
+        )
           throw new ClientError('pending_photo_integrity_error');
-        await this.request(`/media/${attachment.mediaId}/bytes`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream', 'x-server-epoch': epoch }, body: local.bytes }, clientId);
+        await this.request(
+          `/media/${attachment.mediaId}/bytes`,
+          {
+            method: 'PUT',
+            headers: { 'content-type': 'application/octet-stream', 'x-server-epoch': epoch },
+            body: local.bytes,
+          },
+          clientId,
+        );
       }
     }
   }
   async openAttachmentDraft(recordId: string, scopeId: string, revision: number, attachments: Attachment[]) {
     return this.attachmentDrafts.open(this.requireSession(), recordId, scopeId, revision, attachments);
   }
-  readAttachmentDraft(draftId: string) { return this.attachmentDrafts.read(this.requireSession().clientId, draftId); }
+  readAttachmentDraft(draftId: string) {
+    return this.attachmentDrafts.read(this.requireSession().clientId, draftId);
+  }
   async saveAttachmentDraft(draftId: string, revision: number, attachments: Attachment[]) {
-    const result = await this.attachmentDrafts.save(this.requireSession().clientId, draftId, revision, attachments); this.changed(); return result;
+    const result = await this.attachmentDrafts.save(
+      this.requireSession().clientId,
+      draftId,
+      revision,
+      attachments,
+    );
+    this.changed();
+    return result;
   }
   async addAttachmentPhoto(draftId: string, file: Blob) {
-    const result = await this.attachmentDrafts.addPhoto(this.requireSession().clientId, draftId, file); this.changed(); return result;
+    const result = await this.attachmentDrafts.addPhoto(this.requireSession().clientId, draftId, file);
+    this.changed();
+    return result;
   }
   async discardAttachmentDraft(draftId: string): Promise<void> {
-    const clientId = this.requireSession().clientId, draft = await this.attachmentDrafts.read(clientId, draftId);
+    const clientId = this.requireSession().clientId,
+      draft = await this.attachmentDrafts.read(clientId, draftId);
     await this.attachmentDrafts.discard(clientId, draftId);
-    for (const id of draft.localMediaIds) { const key = localKey(clientId, id), url = this.urls.get(key); if (url) URL.revokeObjectURL(url); this.urls.delete(key); }
+    for (const id of draft.localMediaIds) {
+      const key = localKey(clientId, id),
+        url = this.urls.get(key);
+      if (url) URL.revokeObjectURL(url);
+      this.urls.delete(key);
+    }
     this.changed();
   }
   async submitAttachmentDraft(draftId: string): Promise<CommandOutcome> {
     if (!navigator.onLine || !this.online) throw new ClientError('existing_entries_are_read_only_offline');
-    const attempt = await this.attachmentDrafts.freeze(this.requireSession(), draftId); this.changed();
-    const outcome = await this.resolveAttempt(attempt); await this.refresh(); return outcome;
+    const attempt = await this.attachmentDrafts.freeze(this.requireSession(), draftId);
+    this.changed();
+    const outcome = await this.resolveAttempt(attempt);
+    await this.refresh();
+    return outcome;
   }
   async command(
     recordId: string,
@@ -544,10 +630,11 @@ export class BrowserClient implements ClientPlatform {
     return (await this.request<{ entries: HistoryEntry[] }>(`/inbox/${id}/history`)).entries;
   }
   async shoppingHistory(id: string): Promise<HistoryEntry<ShoppingRecord>[]> {
-    return (await this.request<{ entries: HistoryEntry<ShoppingRecord>[] }>(`/shopping/${id}/history`)).entries;
+    return (await this.request<{ entries: HistoryEntry<ShoppingRecord>[] }>(`/shopping/${id}/history`))
+      .entries;
   }
-  async recordHistory<Version>(id:string):Promise<HistoryEntry<Version>[]> {
-    return (await this.request<{entries:HistoryEntry<Version>[]}>(`/records/${id}/history`)).entries;
+  async recordHistory<Version>(id: string): Promise<HistoryEntry<Version>[]> {
+    return (await this.request<{ entries: HistoryEntry<Version>[] }>(`/records/${id}/history`)).entries;
   }
   async saveEditor(id: string, text: string, baseRevision: number, serverEpoch: string): Promise<void> {
     await (
@@ -615,10 +702,7 @@ export class BrowserClient implements ClientPlatform {
         session.clientId,
       );
       this.validateOutcome(outcome, command.operationId);
-      if (outcome.status === 'Applied' || outcome.status === 'Rejected') {
-        attempt.outcome = outcome;
-        await db.put('attempts', attempt, attempt.key);
-      }
+      await this.finaliseAttempt(attempt, outcome);
     }
     await this.bumpGeneration(session.clientId);
     await this.refresh();

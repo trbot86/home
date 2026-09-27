@@ -80,14 +80,16 @@ class ClientCore private constructor(val context: Context) {
     fun discardDraft(id: String) { val clientId = clientId(); val row = captures.discard(clientId, id); val attachments = JSONArray(row.attachmentsJson); for (i in 0 until attachments.length()) media.remove(clientId, attachments.getJSONObject(i).getString("mediaId")); changed() }
     fun addPhoto(id: String, bytes: ByteArray, mimeType: String): DraftRow {
         val clientId = clientId(); val row = media.acquire(clientId, mimeType, ByteArrayInputStream(bytes))
-        return captures.attach(clientId, id, row).also { changed() }
+        try { return captures.attach(clientId, id, row).also { changed() } }
+        finally { media.removeUnattached(row) }
     }
     fun removePhoto(id: String, mediaId: String): DraftRow { val clientId = clientId(); val draft = captures.removePhoto(clientId, id, mediaId); media.remove(clientId, mediaId); changed(); return draft }
     fun openAttachmentDraft(recordId: String, scopeId: String, revision: Int, photos: JSONArray): AttachmentDraftRow = attachmentDrafts.open(requireSession(), recordId, scopeId, revision, photos)
     fun saveAttachmentDraft(id: String, revision: Int, photos: JSONArray): AttachmentDraftRow = attachmentDrafts.save(clientId(), id, revision, photos).also { changed() }
     fun addAttachmentPhoto(id: String, bytes: ByteArray, mimeType: String): AttachmentDraftRow {
         val owner = clientId(); val photo = media.acquire(owner, mimeType, ByteArrayInputStream(bytes))
-        return attachmentDrafts.attach(owner, id, photo).also { changed() }
+        try { return attachmentDrafts.attach(owner, id, photo).also { changed() } }
+        finally { media.removeUnattached(photo) }
     }
     fun discardAttachmentDraft(id: String) {
         val owner = clientId(); val draft = attachmentDrafts.discard(owner, id); val ids = JSONArray(draft.localMediaIdsJson)
@@ -147,16 +149,23 @@ class ClientCore private constructor(val context: Context) {
             val command = JSONObject(attempt.frozenJson); if (command.getString("expectedServerEpoch") == session.getString("serverEpoch")) continue
             val result = api.json("/recovery/abandon", "POST", JSONObject().put("kind", attempt.kind).put("command", command).toString(), clientId)
             validateOutcome(result, command.getString("operationId"))
-            if (result.getString("status") in listOf("Applied", "Rejected")) db.runInTransaction { dao.putAttempt(attempt.copy(outcomeJson = result.toString())); captures.bumpGeneration(clientId) }
+            syncEngine.finaliseAttempt(attempt, result)
         }
         refresh(); changed()
     }
-    fun photoPath(id: String): String {
+    fun photoPath(id: String, descriptor: JSONObject? = null): String {
         val clientId = clientId(); dao.media(id)?.takeIf { it.clientId == clientId }?.let { media.read(clientId, id); File(it.path).setLastModified(System.currentTimeMillis()); return it.path }
         // Resolve the ID through an authorised cached record before fetching or serving a cached image.
         val cache = dao.value("$clientId:cache")?.let(::JSONObject) ?: error("photo_unavailable")
-        val entries = cache.getJSONArray("entries"); var attachment: JSONObject? = null
-        for (i in 0 until entries.length()) { val photos = entries.getJSONObject(i).getJSONArray("attachments"); for (j in 0 until photos.length()) if (photos.getJSONObject(j).getString("mediaId") == id) attachment = photos.getJSONObject(j) }
+        val tasks = cache.optJSONObject("tasks")
+        val records = listOfNotNull(cache.optJSONArray("entries"), tasks?.optJSONArray("definitions"), tasks?.optJSONArray("completions"))
+        var attachment: JSONObject? = descriptor?.takeIf { it.optString("mediaId") == id }
+        for (entries in records) for (i in 0 until entries.length()) {
+            val photos = entries.getJSONObject(i).optJSONArray("attachments") ?: continue
+            for (j in 0 until photos.length()) if (photos.getJSONObject(j).getString("mediaId") == id) attachment = photos.getJSONObject(j)
+        }
+        // A history descriptor supplies integrity metadata only. The server still
+        // authorises any download; the disk cache is isolated to this profile.
         val info = attachment ?: error("photo_unavailable")
         val directory = File(context.cacheDir, clientId).apply { mkdirs() }; require(id.matches(Regex("[a-zA-Z0-9_-]{8,80}")))
         val file = File(directory, "$id.bin")

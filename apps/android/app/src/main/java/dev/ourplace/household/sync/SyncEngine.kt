@@ -30,7 +30,8 @@ class SyncEngine(private val db: LocalDatabase, private val captures: CaptureSto
         for (attempt in dao.pendingAttempts(clientId)) resolveAttempt(attempt)
         refresh(session)
     }
-    fun resolveAttempt(attempt: AttemptRow): JSONObject {
+    fun resolveAttempt(attempt: AttemptRow): JSONObject = drainLock.withLock {
+        dao.attempt(attempt.key)?.takeIf { it.frozenJson == attempt.frozenJson }?.outcomeJson?.let { return@withLock JSONObject(it) }
         val command = JSONObject(attempt.frozenJson); val operationId = command.getString("operationId"); val epoch = command.getString("expectedServerEpoch")
         val resolved = if (attempt.uploadsJson != null) api.json("/operations/$operationId?epoch=$epoch", clientId = attempt.clientId) else JSONObject().put("status", "Unresolved")
         val outcome = if (resolved.getString("status") == "Unresolved") {
@@ -39,8 +40,16 @@ class SyncEngine(private val db: LocalDatabase, private val captures: CaptureSto
             api.json("/commands/${attempt.kind}", "POST", attempt.frozenJson, attempt.clientId)
         } else resolved
         validateOutcome(outcome, operationId)
+        finaliseAttempt(attempt, outcome)
+        outcome
+    }
+    fun finaliseAttempt(attempt: AttemptRow, outcome: JSONObject) {
+        val operationId = JSONObject(attempt.frozenJson).getString("operationId")
+        validateOutcome(outcome, operationId)
         when (outcome.getString("status")) {
             "Applied", "Rejected" -> db.runInTransaction {
+                val current = dao.attempt(attempt.key) ?: return@runInTransaction
+                if (current.frozenJson != attempt.frozenJson || current.outcomeJson != null) return@runInTransaction
                 attempt.attachmentDraftId?.let { id ->
                     val draft = dao.attachmentDraft(id) ?: error("attachment_request_mismatch")
                     check(draft.clientId == attempt.clientId && draft.operationId == operationId) { "attachment_request_mismatch" }
@@ -50,16 +59,15 @@ class SyncEngine(private val db: LocalDatabase, private val captures: CaptureSto
             }
             "RecoveryRequired" -> dao.putValue(ValueRow("${attempt.clientId}:recovery", "true"))
         }
-        return outcome
     }
-    fun command(session: JSONObject, recordId: String, kind: String, args: JSONObject, expectedServerEpoch: String): JSONObject {
+    fun command(session: JSONObject, recordId: String, kind: String, args: JSONObject, expectedServerEpoch: String): JSONObject = drainLock.withLock {
         val clientId = session.getString("clientId")
         val attempt = db.runInTransaction(Callable {
             val key = "$clientId:$recordId"; check(dao.attempt(key)?.outcomeJson != null || dao.attempt(key) == null) { "previous_save_awaits_acknowledgement" }
             AttemptRow(key, clientId, recordId, kind, JSONObject().put("operationId", newId()).put("contractVersion", 1)
                 .put("expectedServerEpoch", expectedServerEpoch).put("arguments", args).toString()).also(dao::putAttempt)
         })
-        val outcome = resolveAttempt(attempt); refresh(session); return outcome
+        val outcome = resolveAttempt(attempt); refresh(session); outcome
     }
     fun refresh(session: JSONObject) {
         val clientId = session.getString("clientId"); val generationKey = "$clientId:generation"; val generation = dao.value(generationKey)

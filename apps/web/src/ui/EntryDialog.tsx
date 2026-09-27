@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform } from '@our-place/client';
 import type { CommandKind, HistoryEntry, InboxEntry } from '@our-place/contracts';
 import { Icon } from './Icon.js';
-import { Photo } from './Photo.js';
+import { AttachmentGallery } from './AttachmentGallery.js';
+import { AttachmentDialog, type AttachmentSaved } from './AttachmentDialog.js';
 import { date } from './format.js';
 
 export function EntryDialog({
@@ -15,6 +16,7 @@ export function EntryDialog({
   close,
   run,
   onError,
+  onPhotosSaved,
 }: {
   client: ClientPlatform;
   serverEpoch: string;
@@ -31,6 +33,7 @@ export function EntryDialog({
     expectedServerEpoch?: string,
   ) => Promise<unknown>;
   onError: (error: unknown) => void;
+  onPhotosSaved: AttachmentSaved;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [text, setText] = useState(entry.text);
@@ -39,6 +42,7 @@ export function EntryDialog({
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [tab, setTab] = useState(startHistory ? 'history' : 'edit');
   const [busy, setBusy] = useState(false);
+  const [photosOpen, setPhotosOpen] = useState(false);
   useEffect(() => {
     dialog.current?.showModal();
     void client
@@ -156,12 +160,11 @@ export function EntryDialog({
               </button>
             </div>
           )}
-          {entry.attachments.length > 0 && (
-            <div className="detail-photos">
-              {entry.attachments.map((a) => (
-                <Photo key={a.mediaId} client={client} id={a.mediaId} />
-              ))}
-            </div>
+          <AttachmentGallery client={client} attachments={entry.attachments} />
+          {!entry.deletedAt && (
+            <button type="button" disabled={busy} onClick={() => setPhotosOpen(true)}>
+              Photos & receipts
+            </button>
           )}
           <div className="dialog-footer">
             <span className="fine">
@@ -199,17 +202,20 @@ export function EntryDialog({
                     ? 'Saved this entry'
                     : item.kind === 'SetInboxEntryText'
                       ? 'Changed the text'
-                      : item.kind === 'SetInboxEntryCategory'
-                        ? `Moved to ${item.version.category === 'app_suggestion' ? 'app suggestions' : 'inbox'}`
-                        : item.kind === 'DeleteInboxEntry'
-                          ? 'Moved to recently deleted'
-                          : item.kind === 'UndoChangeSet'
-                            ? 'Undid a change'
-                            : item.kind === 'RedoChangeSet'
-                              ? 'Redid a change'
-                              : 'Restored this entry'}
+                      : item.kind === 'SetRecordAttachments'
+                        ? 'Updated photos'
+                        : item.kind === 'SetInboxEntryCategory'
+                          ? `Moved to ${item.version.category === 'app_suggestion' ? 'app suggestions' : 'inbox'}`
+                          : item.kind === 'DeleteInboxEntry'
+                            ? 'Moved to recently deleted'
+                            : item.kind === 'UndoChangeSet'
+                              ? 'Undid a change'
+                              : item.kind === 'RedoChangeSet'
+                                ? 'Redid a change'
+                                : 'Restored this entry'}
                 </p>
                 <p className="historical-text">{item.version.text || 'Photo entry'}</p>
+                <AttachmentGallery client={client} attachments={item.version.attachments} />
                 <div className="history-actions">
                   <button
                     onClick={() => {
@@ -238,6 +244,18 @@ export function EntryDialog({
             </article>
           ))}
         </div>
+      )}
+      {photosOpen && (
+        <AttachmentDialog
+          client={client}
+          target={{ ...entry, recordId: entry.inboxId }}
+          title="Inbox entry"
+          serverEpoch={serverEpoch}
+          online={online}
+          pending={pending}
+          close={() => setPhotosOpen(false)}
+          onSaved={onPhotosSaved}
+        />
       )}
     </dialog>
   );
