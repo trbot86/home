@@ -10,7 +10,8 @@ import {
   type FinalOutcome,
 } from '@our-place/contracts';
 import { immediate, installation, type Sqlite } from '../infrastructure/database.js';
-import type { RequestContext } from '../features/access/access.js';
+import { requireHuman, type HumanRequestContext, type RequestContext } from '../features/access/access.js';
+import { requireIntegration } from '../features/access/integrations.js';
 import { contentOf, InboxRepository } from '../features/inbox/inbox.js';
 import { HistoryService } from '../features/history/history.js';
 import { RecordRegistry } from '../features/records/record-registry.js';
@@ -30,9 +31,11 @@ export function requestDigest(context: RequestContext, kind: string, command: En
   return createHash('sha256')
     .update(
       canonical({
-        encodingVersion: 1,
+        encodingVersion: context.kind === 'integration' ? 2 : 1,
         clientId: context.clientId,
-        personId: context.personId,
+        ...(context.kind === 'integration'
+          ? { integrationId: context.integrationId }
+          : { personId: context.personId }),
         kind,
         ...command,
       }),
@@ -61,6 +64,8 @@ export class WriteCoordinator {
     operationId: string,
     epoch: string,
   ): CommandOutcome | { status: 'Unresolved' } {
+    if (context.kind === 'integration') requireIntegration(this.db, context, this.now());
+    else requireHuman(context);
     const receipt = this.db
       .prepare('SELECT outcome_json FROM operation_receipts WHERE client_id=? AND operation_id=?')
       .get(context.clientId, operationId) as { outcome_json: string } | undefined;
@@ -74,7 +79,8 @@ export class WriteCoordinator {
           restorePoint: state.restored_from_at,
         };
   }
-  abandonRestored(context: RequestContext, kind: CommandKind, command: Envelope): CommandOutcome {
+  abandonRestored(context: HumanRequestContext, kind: CommandKind, command: Envelope): CommandOutcome {
+    requireHuman(context);
     const digest = requestDigest(context, kind, command);
     return immediate(this.db, () => {
       const existing = this.db
@@ -97,12 +103,18 @@ export class WriteCoordinator {
         receipt: { operationId: command.operationId, requestDigest: digest, recordedAt: now },
       };
       this.db
-        .prepare('INSERT INTO operation_receipts VALUES (?,?,?,?,?,?)')
+        .prepare(
+          'INSERT INTO operation_receipts(client_id,operation_id,request_digest,actor_person_id,outcome_json,recorded_at) VALUES (?,?,?,?,?,?)',
+        )
         .run(context.clientId, command.operationId, digest, context.personId, JSON.stringify(outcome), now);
       return outcome;
     });
   }
   execute(context: RequestContext, kind: CommandKind, command: Envelope): CommandOutcome {
+    if (context.kind === 'integration') {
+      requireIntegration(this.db, context, this.now());
+      if (kind !== 'CreateInboxEntry') throw new Rejection('capture_only');
+    } else requireHuman(context);
     const digest = requestDigest(context, kind, command);
     return immediate(this.db, () => {
       const existing = this.db
@@ -159,14 +171,33 @@ export class WriteCoordinator {
         };
       }
       this.db.exec('RELEASE content');
+      const actorColumn = context.kind === 'integration' ? 'actor_integration_id' : 'actor_person_id';
       this.db
-        .prepare('INSERT INTO operation_receipts VALUES (?,?,?,?,?,?)')
-        .run(context.clientId, command.operationId, digest, context.personId, JSON.stringify(outcome), now);
+        .prepare(
+          `INSERT INTO operation_receipts(client_id,operation_id,request_digest,${actorColumn},outcome_json,recorded_at) VALUES (?,?,?,?,?,?)`,
+        )
+        .run(
+          context.clientId,
+          command.operationId,
+          digest,
+          context.kind === 'integration' ? context.integrationId : context.personId,
+          JSON.stringify(outcome),
+          now,
+        );
       this.beforeCommit?.();
       return outcome;
     });
   }
   private apply(context: RequestContext, kind: CommandKind, command: Envelope, now: number) {
+    if (kind === 'CreateInboxEntry') {
+      const entry = this.inbox.create(context, (command as Command<'CreateInboxEntry'>).arguments, now);
+      const after = trackInbox(entry);
+      return {
+        records: [after],
+        changeSetId: this.history.record(context, kind, [{ before: null, after }], now),
+      };
+    }
+    requireHuman(context);
     if (kind === 'SetRecordAttachments') {
       const args = (command as Command<'SetRecordAttachments'>).arguments;
       const before = this.records.requireRevision(context, args.recordId, args.expectedRevision);
@@ -181,14 +212,6 @@ export class WriteCoordinator {
         ...(result.changes.length
           ? { changeSetId: this.history.record(context, kind, result.changes, now) }
           : {}),
-      };
-    }
-    if (kind === 'CreateInboxEntry') {
-      const entry = this.inbox.create(context, (command as Command<'CreateInboxEntry'>).arguments, now);
-      const after = trackInbox(entry);
-      return {
-        records: [after],
-        changeSetId: this.history.record(context, kind, [{ before: null, after }], now),
       };
     }
     if (kind === 'UndoChangeSet' || kind === 'RedoChangeSet')

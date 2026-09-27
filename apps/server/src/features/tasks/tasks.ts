@@ -19,7 +19,7 @@ import {
 } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { NotFound, Rejection } from '../../application/errors.js';
-import { AccessService, type RequestContext } from '../access/access.js';
+import { AccessService, requireHuman, type HumanRequestContext as RequestContext } from '../access/access.js';
 import type {
   RecordAdapter,
   RecordContent,
@@ -86,6 +86,7 @@ export class TasksRepository {
     return kind === 'task_occurrence' ? c : { ...c, attachments: c.attachments ?? [] };
   }
   get(context: RequestContext, id: string, expectedKind?: TaskKind): TrackedRecord {
+    requireHuman(context);
     const row = this.db.prepare('SELECT * FROM records WHERE record_id=?').get(id) as Header | undefined;
     if (
       !row ||
@@ -156,6 +157,7 @@ export class TasksRepository {
     } as TaskRecord;
   }
   snapshot(context: RequestContext): TaskSnapshot {
+    requireHuman(context);
     const rows = this.db
       .prepare(
         `SELECT r.record_id FROM records r JOIN visibility_scopes s USING(scope_id)
@@ -312,6 +314,7 @@ export class TasksRepository {
     value: RecordContent,
     now: number,
   ): TrackedRecord {
+    requireHuman(context);
     let c = this.content(before.kind as TaskKind, value);
     const id = before.recordId;
     if (c.scopeId !== before.content.scopeId) throw new Rejection('scope_change_not_supported');
@@ -353,6 +356,7 @@ export class TasksRepository {
     ).n;
   }
   execute(context: RequestContext, kind: TaskCommandKind, payload: unknown, now: number): RecordMutation {
+    requireHuman(context);
     const changes: RecordChange[] = [];
     const create = (type: TaskKind, id: string, c: RecordContent) => {
       const after = this.create(context, type, id, c, now);

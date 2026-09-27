@@ -1,8 +1,10 @@
 # Capture integration identity proposal
 
-2026-09-27. Design for review before implementation. The main app task reserved
-migration `007_integration_principals.sql` and requested an explicit integration
-principal. This document does not add a migration or activate any listener.
+2026-09-27. Approved design, now implemented and tested locally in reserved
+migration `007_integration_principals.sql`. See
+[ALEXA_BACKEND_CHECKPOINT.md](ALEXA_BACKEND_CHECKPOINT.md) for the implementation
+checkpoint. No live migration, integration provisioning or listener activation
+has occurred.
 The initial operation is shared-inbox creation plus resolution of that client's
 own receipts. Shopping, speaker personalization and spoken editing are deferred.
 
@@ -116,7 +118,7 @@ active/revoked credentials, shared/private records, real synthetic media bytes,
 history, undo/redo links, final receipts and an unsent frozen request. No copy of
 the real household is required.
 
-Implementation acceptance tests, not yet executed:
+Implementation acceptance criteria (covered by the isolated tests in the checkpoint):
 
 1. Compare all pre-existing columns/rows, receipt JSON/digests, identities and
    media hashes before/after migration. Foreign keys and integrity checks pass.

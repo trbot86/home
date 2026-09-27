@@ -154,9 +154,17 @@ export type InboxEntry = {
   source: Static<typeof Source>;
   attachments: Attachment[];
 };
+export type HistoryActor =
+  | Person
+  | {
+      kind: 'integration';
+      integrationId: string;
+      displayName: string;
+      personId?: never;
+    };
 export type HistoryEntry<Version = InboxEntry> = {
   changeSetId: string;
-  actor: Person;
+  actor: HistoryActor;
   kind: CommandKind;
   recordedAt: number;
   beforeRevision: number;

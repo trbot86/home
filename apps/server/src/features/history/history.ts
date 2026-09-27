@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { CommandKind, HistoryEntry, InboxEntry } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
-import { AccessService, type RequestContext } from '../access/access.js';
+import {
+  AccessService,
+  requireHuman,
+  type HumanRequestContext,
+  type RequestContext,
+} from '../access/access.js';
+import { requireIntegration } from '../access/integrations.js';
 import {
   RecordRegistry,
   type RecordChange,
@@ -14,7 +20,8 @@ import { NotFound, Rejection } from '../../application/errors.js';
 type Delta = { baseline?: RecordContent; fields: Record<string, { before: unknown; after: unknown }> };
 type ChangeRow = {
   change_set_id: string;
-  actor_person_id: string;
+  actor_person_id: string | null;
+  actor_integration_id: string | null;
   display_name: string;
   operation_kind: CommandKind;
   recorded_at: number;
@@ -69,6 +76,24 @@ export class HistoryService {
     now: number,
     links: { undoOf?: string; redoOf?: string } = {},
   ): string {
+    if (context.kind === 'integration') {
+      requireIntegration(this.db, context, now);
+      if (
+        kind !== 'CreateInboxEntry' ||
+        links.undoOf ||
+        links.redoOf ||
+        changes.length !== 1 ||
+        changes.some(
+          ({ before, after }) =>
+            before !== null ||
+            after.kind !== 'inbox' ||
+            !this.db
+              .prepare("SELECT 1 FROM visibility_scopes WHERE scope_id=? AND kind='shared'")
+              .get(after.content.scopeId),
+        )
+      )
+        throw new Rejection('capture_only');
+    } else requireHuman(context);
     if (!this.db.inTransaction) throw new Error('History must share the content transaction');
     if (!changes.length || new Set(changes.map((change) => change.after.recordId)).size !== changes.length)
       throw new Error('A changeset must contain each changed root exactly once');
@@ -80,11 +105,20 @@ export class HistoryService {
       this.records.validateContent(after.kind, after.content);
     }
     const id = randomUUID();
+    const actorColumn = context.kind === 'integration' ? 'actor_integration_id' : 'actor_person_id';
     this.db
       .prepare(
-        'INSERT INTO change_sets(change_set_id,client_id,actor_person_id,operation_kind,recorded_at,undo_of_id,redo_of_id) VALUES (?,?,?,?,?,?,?)',
+        `INSERT INTO change_sets(change_set_id,client_id,${actorColumn},operation_kind,recorded_at,undo_of_id,redo_of_id) VALUES (?,?,?,?,?,?,?)`,
       )
-      .run(id, context.clientId, context.personId, kind, now, links.undoOf ?? null, links.redoOf ?? null);
+      .run(
+        id,
+        context.clientId,
+        context.kind === 'integration' ? context.integrationId : context.personId,
+        kind,
+        now,
+        links.undoOf ?? null,
+        links.redoOf ?? null,
+      );
     for (const { before, after } of changes) {
       this.db
         .prepare('INSERT INTO record_changes VALUES (?,?,?,?,?,?,1,?)')
@@ -108,10 +142,11 @@ export class HistoryService {
       .all(id) as ChangeRow[];
   }
   private prepareReversal(
-    context: RequestContext,
+    context: HumanRequestContext,
     id: string,
     redo: boolean,
   ): { row: ChangeRow; current: TrackedRecord }[] {
+    requireHuman(context);
     const rows = this.rows(id);
     const first = rows[0];
     if (!first || first.actor_person_id !== context.personId) throw new Rejection('unavailable');
@@ -137,7 +172,12 @@ export class HistoryService {
       return { row, current: this.records.requireRevision(context, row.record_id, row.after_revision) };
     });
   }
-  private eligible(context: RequestContext, row: ChangeRow, current: TrackedRecord, redo: boolean): boolean {
+  private eligible(
+    context: HumanRequestContext,
+    row: ChangeRow,
+    current: TrackedRecord,
+    redo: boolean,
+  ): boolean {
     if (row.actor_person_id !== context.personId || row.after_revision !== current.revision) return false;
     try {
       this.prepareReversal(context, row.change_set_id, redo);
@@ -148,7 +188,7 @@ export class HistoryService {
     }
   }
   reverse(
-    context: RequestContext,
+    context: HumanRequestContext,
     id: string,
     redo: boolean,
     now: number,
@@ -178,16 +218,20 @@ export class HistoryService {
     return { records: changes.map((change) => change.after), changeSetId };
   }
   list<Version = InboxEntry>(
-    context: RequestContext,
+    context: HumanRequestContext,
     id: string,
     expectedKind = 'inbox',
   ): HistoryEntry<Version>[] {
+    requireHuman(context);
     const current = this.records.get(context, id);
     if (current.kind !== expectedKind) throw new NotFound();
     const rows = this.db
       .prepare(
-        `SELECT cs.*,rc.*,p.display_name FROM change_sets cs JOIN record_changes rc USING(change_set_id)
-      JOIN people p ON p.person_id=cs.actor_person_id WHERE rc.record_id=? ORDER BY rc.after_revision DESC LIMIT 100`,
+        `SELECT cs.*,rc.*,COALESCE(p.display_name,a.display_name) AS display_name
+      FROM change_sets cs JOIN record_changes rc USING(change_set_id)
+      LEFT JOIN people p ON p.person_id=cs.actor_person_id
+      LEFT JOIN integration_actors a ON a.integration_id=cs.actor_integration_id
+      WHERE rc.record_id=? ORDER BY rc.after_revision DESC LIMIT 100`,
       )
       .all(id) as ChangeRow[];
     let content = current.content;
@@ -196,7 +240,14 @@ export class HistoryService {
       if (!this.access.canAccess(context, row.after_scope_id)) break;
       entries.push({
         changeSetId: row.change_set_id,
-        actor: { personId: row.actor_person_id, displayName: row.display_name },
+        actor:
+          row.actor_person_id !== null
+            ? { personId: row.actor_person_id, displayName: row.display_name }
+            : {
+                kind: 'integration',
+                integrationId: row.actor_integration_id!,
+                displayName: row.display_name,
+              },
         kind: row.operation_kind,
         recordedAt: row.recorded_at,
         beforeRevision: row.before_revision,

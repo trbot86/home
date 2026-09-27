@@ -1,9 +1,12 @@
 # Alexa inbox note trial
 
-Research checked: 2026-09-27. The local handler and proposed English (Canada)
-model are available. No skill, cloud resource, capture listener, integration
-credential or device connection has been configured. The handler calls an
-unimplemented `CaptureSink`; tests use synthetic events and a fake sink.
+Research checked: 2026-09-27. The local handler, proposed English (Canada) model,
+explicit integration principal and separate capture listener are implemented.
+No live skill, cloud resource, listener, credential or device connection has been
+configured. The production `CaptureSink` transport is still unimplemented;
+local tests connect synthetic Alexa events to the capture listener using HTTP
+injection and an isolated SQLite database. See
+[the backend checkpoint](ALEXA_BACKEND_CHECKPOINT.md) for verification and limits.
 See [the imported checkpoint](ALEXA_HANDOFF.md) for its original scope.
 
 ## First interaction
@@ -116,10 +119,9 @@ timestamp validation before accepting events.
 Selected attribution preference: identify the person if it is straightforward;
 otherwise label the source Alexa. Capture must not ask who is speaking. Alexa's
 account identifier identifies the enabled Amazon account, not necessarily the
-speaker. The current app's clients, history and receipts require a person, so
-the shared integration actor still needs a coordinated design with the parent
-task. Never infer the author from the note or borrow a person's broad phone
-credential.
+speaker. The local implementation uses an explicit integration actor in clients,
+history and receipts, labelled Alexa, with no human profile or private scope.
+Never infer the author from the note or borrow a person's broad phone credential.
 [Request identity reference](https://developer.amazon.com/en-US/docs/alexa/custom-skills/request-and-response-json-reference.html).
 
 Amazon can include an opaque `personId` for a recognized speaker when that
@@ -143,6 +145,16 @@ local code does not require registering a skill or provisioning cloud resources
 just to establish developer-console access.
 [Developer account instructions](https://developer.amazon.com/en-US/docs/alexa/ask-overviews/create-developer-account.html).
 
+Amazon allows individual developers; being part of a company is not required.
+The registration instructions use **Sole Proprietorship** for individual use,
+including students and amateur developers. **Business** asks for a registered
+legal business name and company website. The separate customer-facing business
+name is the public developer label. The published naming rules do not explain a
+particular rejected personal name; inspect the actual field and error instead of
+assuming that an Appstore business must be created first.
+[Alexa account guidance](https://developer.amazon.com/en-US/docs/alexa/developer-account/manage-developer-account.html),
+[registration fields and naming rules](https://developer.amazon.com/docs/app-submission/manage-account-and-permissions.html#create_account).
+
 ## Setup and verification sequence
 
 1. Use the selected save-then-readback interaction. Keep the reported locale and
@@ -150,9 +162,9 @@ just to establish developer-console access.
    speaker/app language during the device trial. Establish developer-account
    access and coordinate the selected Alexa attribution fallback before
    provisioning an integration binding.
-2. Implement and test the proposed listener and authorization in isolated
-   fixtures after coordinating shared contracts with the main task. Preserve
-   deployed migrations 001–006. No live database is a test fixture.
+2. Review the implemented listener, authorization and reserved migration 007
+   with the main task. Isolated compatibility tests pass; preserve deployed
+   migrations 001–006. No live database is a test fixture.
 3. Prepare a concrete cloud/tailnet configuration and deployment artifact for
    review, including service/cost choices, allowed listener and denied main-app
    destinations. Account changes, cloud resources and live security configuration
@@ -175,7 +187,8 @@ just to establish developer-console access.
    Keep machine-specific transcripts, IDs, addresses and reports out of Git.
 
 Product preference and reported setup information have been collected; no live
-setup or trial step above has been completed. Local checks cover only handler
-behavior, model structure and TypeScript compatibility. Amazon model
-acceptance, phrase recognition, cloud latency, tailnet isolation and real-device
-behavior remain unverified.
+setup or device trial has been completed. Local checks cover handler behavior,
+model structure, capture authorization, save/retry behavior, schema compatibility,
+backup/restore and TypeScript compatibility. Amazon model acceptance, phrase
+recognition, cloud latency, tailnet isolation and real-device behavior remain
+unverified.

@@ -124,7 +124,11 @@ test('shopping migration preserves existing household identity, inbox, history a
       'record_changes',
       'operation_receipts',
     ];
-    const snapshot = () => tables.map((table) => f.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
+    const selects = tables.map((table) => {
+      const columns = f.db.pragma(`table_info(${table})`) as { name: string }[];
+      return `SELECT ${columns.map((column) => column.name).join(',')} FROM ${table} ORDER BY rowid`;
+    });
+    const snapshot = () => selects.map((sql) => f.db.prepare(sql).all());
     const before = snapshot();
     migrate(f.db);
     assert.deepEqual(snapshot(), before);

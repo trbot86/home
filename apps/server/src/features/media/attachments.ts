@@ -1,7 +1,7 @@
 import type { Attachment } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { Deferral, Rejection } from '../../application/errors.js';
-import { AccessService, type RequestContext } from '../access/access.js';
+import { AccessService, type HumanRequestContext as RequestContext } from '../access/access.js';
 import type { MediaRow } from './media.js';
 
 /** Placements belong to their parent record's revision, transaction and history. */

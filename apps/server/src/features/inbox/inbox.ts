@@ -8,7 +8,13 @@ import {
 } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { installation } from '../../infrastructure/database.js';
-import { AccessService, type RequestContext } from '../access/access.js';
+import {
+  AccessService,
+  requireHuman,
+  type RequestContext,
+  type HumanRequestContext,
+} from '../access/access.js';
+import { requireIntegration } from '../access/integrations.js';
 import { NotFound, Rejection } from '../../application/errors.js';
 import { AttachmentRepository } from '../media/attachments.js';
 
@@ -37,8 +43,11 @@ export class InboxRepository {
   constructor(
     private readonly db: Sqlite,
     private readonly access: AccessService,
-  ) { this.attachments = new AttachmentRepository(db, access); }
-  snapshot(context: RequestContext, now: number) {
+  ) {
+    this.attachments = new AttachmentRepository(db, access);
+  }
+  snapshot(context: HumanRequestContext, now: number) {
+    requireHuman(context);
     const rows = this.db
       .prepare(
         `SELECT r.record_id FROM records r JOIN visibility_scopes s USING(scope_id)
@@ -52,7 +61,8 @@ export class InboxRepository {
       sampledAt: now,
     };
   }
-  get(context: RequestContext, id: string): InboxEntry {
+  get(context: HumanRequestContext, id: string): InboxEntry {
+    requireHuman(context);
     const row = this.db
       .prepare(
         'SELECT r.*, i.text,i.captured_at,i.source_json,i.category FROM records r JOIN inbox_entries i ON i.inbox_id=r.record_id WHERE r.record_id=?',
@@ -74,10 +84,11 @@ export class InboxRepository {
     };
   }
   list(
-    context: RequestContext,
+    context: HumanRequestContext,
     now: number,
     options: { scopeId?: string; deleted?: boolean; cursor?: string; limit?: number } = {},
   ): InboxPage {
+    requireHuman(context);
     if (options.scopeId) this.access.requireScope(context, options.scopeId);
     const limit = Math.min(Math.max(options.limit ?? 40, 1), 100);
     let cursor: [number, string] | undefined;
@@ -125,7 +136,20 @@ export class InboxRepository {
     };
   }
   create(context: RequestContext, args: Command<'CreateInboxEntry'>['arguments'], now: number): InboxEntry {
-    this.access.requireScope(context, args.scopeId);
+    if (context.kind === 'integration') {
+      requireIntegration(this.db, context, now);
+      if (
+        !this.db
+          .prepare("SELECT 1 FROM visibility_scopes WHERE scope_id=? AND kind='shared'")
+          .get(args.scopeId) ||
+        args.attachments.length ||
+        args.source.kind !== 'voice' ||
+        args.source.uri !== undefined ||
+        categoryOf(args) !== 'inbox' ||
+        args.text.length > 1000
+      )
+        throw new Rejection('capture_only');
+    } else this.access.requireScope(context, args.scopeId);
     if (!args.text.trim() && args.attachments.length === 0) throw new Rejection('empty_entry');
     if (this.db.prepare('SELECT 1 FROM records WHERE record_id=?').get(args.inboxId))
       throw new Rejection('id_unavailable');
@@ -137,10 +161,16 @@ export class InboxRepository {
         "INSERT INTO inbox_entries(inbox_id,record_kind,text,captured_at,source_json,category) VALUES (?, 'inbox', ?,?,?,?)",
       )
       .run(args.inboxId, args.text, args.capturedAt, JSON.stringify(args.source), categoryOf(args));
-    this.attachments.replace(context, args.inboxId, args.scopeId, args.attachments, now, { creating: true, live: true });
-    return this.get(context, args.inboxId);
+    if (context.kind !== 'integration') {
+      this.attachments.replace(context, args.inboxId, args.scopeId, args.attachments, now, {
+        creating: true,
+        live: true,
+      });
+      return this.get(context, args.inboxId);
+    }
+    return { ...args, category: 'inbox', revision: 1, createdAt: now, updatedAt: now, deletedAt: null };
   }
-  requireRevision(context: RequestContext, id: string, expected: number): InboxEntry {
+  requireRevision(context: HumanRequestContext, id: string, expected: number): InboxEntry {
     let entry: InboxEntry;
     try {
       entry = this.get(context, id);
@@ -151,7 +181,8 @@ export class InboxRepository {
     if (entry.revision !== expected) throw new Rejection('revision_conflict');
     return entry;
   }
-  setContent(context: RequestContext, before: InboxEntry, next: InboxContent, now: number): InboxEntry {
+  setContent(context: HumanRequestContext, before: InboxEntry, next: InboxContent, now: number): InboxEntry {
+    requireHuman(context);
     if (
       next.scopeId !== before.scopeId ||
       JSON.stringify(next.source) !== JSON.stringify(before.source) ||
@@ -165,7 +196,9 @@ export class InboxRepository {
     this.db
       .prepare('UPDATE records SET revision=revision+1,updated_at=?,deleted_at=? WHERE record_id=?')
       .run(now, next.deletedAt, before.inboxId);
-    this.attachments.replace(context, before.inboxId, next.scopeId, next.attachments, now, { live: next.deletedAt === null });
+    this.attachments.replace(context, before.inboxId, next.scopeId, next.attachments, now, {
+      live: next.deletedAt === null,
+    });
     return this.get(context, before.inboxId);
   }
 }

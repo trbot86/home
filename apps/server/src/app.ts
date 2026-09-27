@@ -22,7 +22,7 @@ import {
   requireCurrentSchema,
   type Sqlite,
 } from './infrastructure/database.js';
-import { AccessService, type RequestContext } from './features/access/access.js';
+import { AccessService, type HumanRequestContext as RequestContext } from './features/access/access.js';
 import { InboxRepository } from './features/inbox/inbox.js';
 import { inboxRecordAdapter } from './features/inbox/inbox-record.js';
 import { RecordRegistry } from './features/records/record-registry.js';
