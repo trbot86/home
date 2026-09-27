@@ -21,7 +21,7 @@ class SyncEngine(private val db: LocalDatabase, private val captures: CaptureSto
             val outcome = if (resolved.getString("status") == "Unresolved") {
                 val attachments = JSONArray(draft.attachmentsJson)
                 for (i in 0 until attachments.length()) upload(draft.clientId, draft.scopeId, attachments.getJSONObject(i), epoch)
-                api.json("/commands/CreateInboxEntry", "POST", draft.frozenJson, clientId)
+                api.json("/commands/${draft.commandKind()}", "POST", draft.frozenJson, clientId)
             } else resolved
             validateOutcome(outcome, operationId)
             if (outcome.getString("status") == "RecoveryRequired") { dao.putValue(ValueRow("$clientId:recovery", "true")); break }
@@ -83,7 +83,9 @@ class SyncEngine(private val db: LocalDatabase, private val captures: CaptureSto
             val profileKey = dao.value("activeProfile")
             if (profileKey != null && JSONObject(dao.value(profileKey)!!).getString("clientId") == clientId) dao.putValue(ValueRow(profileKey, current.toString()))
             val entries = cache.getJSONArray("entries"); val ids = (0 until entries.length()).map { entries.getJSONObject(it).getString("inboxId") }.toSet()
-            for (draft in dao.drafts(clientId).filter { it.state == "ACKNOWLEDGED" && it.draftId in ids }) dao.updateDraft(draft.copy(settled = true))
+            val messages = cache.optJSONObject("suggestions")?.optJSONArray("messages") ?: JSONArray()
+            val messageIds = (0 until messages.length()).map { messages.getJSONObject(it).getString("recordId") }.toSet()
+            for (draft in dao.drafts(clientId).filter { it.state == "ACKNOWLEDGED" && it.draftId in (if (it.replyTargetJson == null) ids else messageIds) }) dao.updateDraft(draft.copy(settled = true))
         }
     }
 }

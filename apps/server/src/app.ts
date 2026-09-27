@@ -28,6 +28,8 @@ import { createRecordFeatures } from './application/record-features.js';
 import { HistoryService } from './features/history/history.js';
 import { WriteCoordinator } from './application/write-coordinator.js';
 import { RecipeImports } from './features/recipes/imports.js';
+import { SuggestionAgentWork } from './features/suggestions/agent-work.js';
+import { registerSuggestionAgentRoutes } from './features/suggestions/routes.js';
 import { ViewPreferences } from './features/views/views.js';
 import { CalendarsRepository } from './features/calendars/calendars.js';
 import { registerCalendarRoutes } from './features/calendars/routes.js';
@@ -90,10 +92,11 @@ export async function buildApp(options: AppOptions) {
     throw error;
   }
   const access = new AccessService(db, now);
-  const { inbox, shopping, shoppingGroups, home, tasks, recipes, projects, records, filing } =
+  const { inbox, shopping, shoppingGroups, home, tasks, recipes, projects, suggestions, records, filing } =
     createRecordFeatures(db, access, options.householdTimeZone);
   const history = new HistoryService(db, records, access);
   const recipeImports = new RecipeImports(db, recipes, history, records, now);
+  const suggestionWork = new SuggestionAgentWork(db, suggestions, history, access, now);
   const views = new ViewPreferences(db, access);
   const calendars = new CalendarsRepository(db, access, now);
   const writes = new WriteCoordinator(db, inbox, history, now, records, undefined, [
@@ -107,6 +110,7 @@ export async function buildApp(options: AppOptions) {
     views.commands(),
     calendars.commands(),
     filing.commands(),
+    suggestions.commands(),
   ]);
   const files = new FileMediaStore(join(options.dataRoot, 'media'), options.development === true);
   await files.initialise();
@@ -186,6 +190,7 @@ export async function buildApp(options: AppOptions) {
     return reply.code(503).send({ code: 'temporarily_unavailable' });
   });
   app.get('/health', async () => ({ status: 'ok', contractVersion: 1, development: !!options.development }));
+  registerSuggestionAgentRoutes(app, db, suggestionWork, files);
   app.get('/api/auth/options', async (): Promise<AuthenticationOptions> =>
     options.authenticationMode === 'trusted-network'
       ? { mode: 'trusted-network', profiles: access.profiles() }
@@ -261,11 +266,21 @@ export async function buildApp(options: AppOptions) {
       projects: projects.snapshot(context),
       recipeImports: recipeImports.snapshot(context),
       views: views.snapshot(context),
+      suggestions: suggestions.snapshot(context),
       agenda: calendars.agenda(context, !!options.calendars),
     };
   });
   app.get<{ Params: { id: string } }>('/api/recipe-imports/:id', async (request) =>
     recipeImports.detail(authenticate(request), request.params.id),
+  );
+  app.get<{ Params: { id: string }; Querystring: { before?: string } }>(
+    '/api/suggestions/:id/messages',
+    async (request) => {
+      const before = request.query.before === undefined ? undefined : Number(request.query.before);
+      if (before !== undefined && (!Number.isSafeInteger(before) || before < 1))
+        throw new Rejection('invalid_cursor');
+      return { messages: suggestions.messages(authenticate(request), request.params.id, before) };
+    },
   );
   app.get<{ Params: { id: string } }>('/api/shopping/:id/history', async (request) => {
     const context = authenticate(request);
@@ -385,5 +400,17 @@ export async function buildApp(options: AppOptions) {
     if (!options.db) db.close();
   });
   await app.ready();
-  return { app, db, access, inbox, history, writes, media, retention, backups, recipeImports };
+  return {
+    app,
+    db,
+    access,
+    inbox,
+    history,
+    writes,
+    media,
+    retention,
+    backups,
+    recipeImports,
+    suggestionWork,
+  };
 }

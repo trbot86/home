@@ -431,7 +431,14 @@ test('calendar migration preserves all pre-calendar rows and installation identi
     ).map((r) => r.name);
     const contents = () =>
       Object.fromEntries(
-        tables.map((name) => [name, f.db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all()]),
+        tables.map((name) => [
+          name,
+          f.db
+            .prepare(
+              `SELECT * FROM "${name}" ${name === 'record_kinds' ? "WHERE kind NOT IN ('suggestion_workflow','suggestion_message')" : ''} ORDER BY rowid`,
+            )
+            .all(),
+        ]),
       );
     const before = contents();
     migrate(f.db);

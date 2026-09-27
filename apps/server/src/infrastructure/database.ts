@@ -78,6 +78,7 @@ export function migrate(db: Sqlite, migrationsPath = migrationsRoot): void {
       '010_worker_principals.sql',
       '016_project_views.sql',
       '020_agenda_layouts.sql',
+      '022_suggestion_discussions.sql',
     ].includes(file);
     if (db.inTransaction) throw new Error('Migrations require an independent transaction');
     if (rebuild) db.pragma('foreign_keys = OFF');

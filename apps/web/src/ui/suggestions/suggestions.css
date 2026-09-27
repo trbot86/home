@@ -1,0 +1,82 @@
+.suggestion-discussion {
+  display: grid;
+  gap: 1.15rem;
+  min-width: 0;
+}
+.suggestion-original,
+.suggestion-summary,
+.suggestion-questions article {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow-wrap: anywhere;
+}
+.suggestion-original {
+  white-space: pre-wrap;
+}
+.suggestion-discussion h3 {
+  margin: 0.25rem 0;
+}
+.suggestion-discussion p {
+  margin: 0.6rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.suggestion-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+.suggestion-timeline > li {
+  padding: 1rem;
+  border-left: 3px solid var(--line);
+  background: var(--paper);
+  border-radius: 0 12px 12px 0;
+}
+.suggestion-timeline .agent-message {
+  border-left-color: var(--green);
+}
+.suggestion-message-heading {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.suggestion-message-heading time {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.suggestion-reply {
+  display: grid;
+  gap: 0.7rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+  min-width: 0;
+}
+.suggestion-reply textarea {
+  width: 100%;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.suggestion-reply-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.suggestion-reply-actions button {
+  min-height: 42px;
+  white-space: normal;
+}
+@media (max-width: 520px) {
+  .suggestion-reply-actions .primary {
+    flex-basis: 100%;
+  }
+  .suggestion-original,
+  .suggestion-summary,
+  .suggestion-timeline > li {
+    padding: 0.8rem;
+  }
+}

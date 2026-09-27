@@ -8,6 +8,7 @@ export function CaptureMedia({
   busy,
   addPhotos,
   onError,
+  allowDictation = true,
 }: {
   client: ClientPlatform;
   draftId: string;
@@ -15,6 +16,7 @@ export function CaptureMedia({
   busy: boolean;
   addPhotos: (files: File[]) => Promise<void>;
   onError: (error: unknown) => void;
+  allowDictation?: boolean;
 }) {
   return (
     <>
@@ -58,7 +60,7 @@ export function CaptureMedia({
           />
         </label>
       )}
-      {client.dictate && (
+      {allowDictation && client.dictate && (
         <button
           className="file-button"
           type="button"

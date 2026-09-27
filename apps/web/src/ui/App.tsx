@@ -17,6 +17,7 @@ import {
   emptyRecipes,
   emptyProjects,
   emptyAgenda,
+  emptySuggestions,
   type CommandKind,
   type CommandOutcome,
   type EntryCategory,
@@ -51,6 +52,7 @@ const emptyState: ClientState = {
   home: emptyHome(),
   recipes: emptyRecipes(),
   projects: emptyProjects(),
+  suggestions: emptySuggestions(),
   recipeImports: [],
   views: [],
   agenda: emptyAgenda(),
@@ -75,7 +77,9 @@ type View =
   | 'activity'
   | 'agenda';
 function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
-  const candidates = drafts.filter((d) => d.state === 'DRAFT' && categoryOf(d) === category);
+  const candidates = drafts.filter(
+    (d) => !d.replyTarget && d.state === 'DRAFT' && categoryOf(d) === category,
+  );
   return candidates.find((d) => d.text.trim() || d.attachments.length) ?? candidates[0];
 }
 
@@ -521,7 +525,10 @@ export function App({ client }: { client: ClientPlatform }) {
     .sort((a, b) => (sort === 'newest' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt));
   const pending = state.drafts.filter(
     (d) =>
-      categoryOf(d) === category && d.draftId !== draft?.draftId && (d.text.trim() || d.attachments.length),
+      !d.replyTarget &&
+      categoryOf(d) === category &&
+      d.draftId !== draft?.draftId &&
+      (d.text.trim() || d.attachments.length),
   );
   const selectedEntry = state.entries.find((e) => e.inboxId === selected?.id);
   const filingEntry = state.entries.find((e) => e.inboxId === filingId);
@@ -1392,6 +1399,7 @@ export function App({ client }: { client: ClientPlatform }) {
           </main>
           {selectedEntry && selected && (
             <EntryDialog
+              state={state}
               key={`${state.session.clientId}:${state.session.serverEpoch}:${selected.id}`}
               client={client}
               serverEpoch={state.session.serverEpoch}

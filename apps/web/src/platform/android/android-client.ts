@@ -19,6 +19,8 @@ import type {
   Session,
   ShoppingRecord,
   RecipeImportDetails,
+  SuggestionReplyTarget,
+  SuggestionMessage,
 } from '@our-place/contracts';
 type NativeMethod =
   | 'state'
@@ -32,6 +34,7 @@ type NativeMethod =
   | 'refresh'
   | 'sync'
   | 'createDraft'
+  | 'suggestionMessages'
   | 'saveDraft'
   | 'discardDraft'
   | 'submitDraft'
@@ -139,8 +142,15 @@ export class AndroidClient implements ClientPlatform {
   sync(): Promise<void> {
     return this.invoke('sync');
   }
-  createDraft(scopeId: string, category: EntryCategory = 'inbox'): Promise<Draft> {
-    return this.invoke('createDraft', { scopeId, category });
+  createDraft(
+    scopeId: string,
+    category: EntryCategory = 'inbox',
+    replyTarget?: SuggestionReplyTarget,
+  ): Promise<Draft> {
+    return this.invoke('createDraft', { scopeId, category, ...(replyTarget ? { replyTarget } : {}) });
+  }
+  suggestionMessages(suggestionId: string, beforeSequence: number): Promise<SuggestionMessage[]> {
+    return this.invoke('suggestionMessages', { suggestionId, beforeSequence });
   }
   saveDraft(draftId: string, text: string, scopeId: string): Promise<Draft> {
     return this.invoke('saveDraft', { draftId, text, scopeId });
@@ -148,8 +158,8 @@ export class AndroidClient implements ClientPlatform {
   discardDraft(draftId: string): Promise<void> {
     return this.invoke('discardDraft', { draftId });
   }
-  submitDraft(draftId: string): Promise<void> {
-    return this.invoke('submitDraft', { draftId });
+  submitDraft(draftId: string, requestWork?: boolean): Promise<void> {
+    return this.invoke('submitDraft', { draftId, ...(requestWork === undefined ? {} : { requestWork }) });
   }
   async addPhoto(draftId: string, file: Blob): Promise<Draft> {
     if (file.size > 25 * 1024 * 1024) throw new Error('Choose a photo under 25 MB');

@@ -8,17 +8,19 @@ import java.util.concurrent.Callable
 
 fun newId(): String = UUID.randomUUID().toString()
 fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+fun DraftRow.commandKind(): String = if (replyTargetJson == null) "CreateInboxEntry" else "PostSuggestionMessage"
 fun DraftRow.json(): JSONObject = JSONObject().put("draftId", draftId).put("clientId", clientId).put("scopeId", scopeId).put("text", text)
     .put("category", category)
     .put("createdAt", createdAt).put("revision", revision).put("state", state).put("attachments", JSONArray(attachmentsJson)).put("settled", settled)
-    .apply { frozenJson?.let { put("frozenJson", it) }; frozenHash?.let { put("frozenHash", it) }; outcomeJson?.let { put("outcome", JSONObject(it)) } }
+    .apply { replyTargetJson?.let { put("replyTarget", JSONObject(it)) }; frozenJson?.let { put("frozenJson", it) }; frozenHash?.let { put("frozenHash", it) }; outcomeJson?.let { put("outcome", JSONObject(it)) } }
 
 /** Room is authoritative. A worker, bridge, or activity can disappear after any completed call. */
 class CaptureStore(private val db: LocalDatabase, private val now: () -> Long = System::currentTimeMillis) {
     private val dao get() = db.dao()
-    fun create(clientId: String, scopeId: String, source: String = "typed", category: String = "inbox"): DraftRow {
+    fun create(clientId: String, scopeId: String, source: String = "typed", category: String = "inbox", replyTarget: JSONObject? = null): DraftRow {
         require(category in listOf("inbox", "app_suggestion")) { "invalid_category" }
-        val row = DraftRow(newId(), clientId, scopeId, "", now(), sourceJson = JSONObject().put("kind", source).toString(), category = category)
+        replyTarget?.let { require(it.getString("suggestionId").matches(Regex("[a-zA-Z0-9_-]{8,80}"))); require(it.has("questionId")); if (!it.isNull("questionId")) require(it.getString("questionId").matches(Regex("[a-zA-Z0-9_-]{8,80}"))); it.getBoolean("requestWork") }
+        val row = DraftRow(newId(), clientId, scopeId, "", now(), sourceJson = JSONObject().put("kind", source).toString(), category = category, replyTargetJson = replyTarget?.toString())
         dao.insertDraft(row); return row
     }
     fun draft(clientId: String, id: String): DraftRow = dao.draft(id)?.takeIf { it.clientId == clientId } ?: error("draft_unavailable")
@@ -44,14 +46,18 @@ class CaptureStore(private val db: LocalDatabase, private val now: () -> Long = 
     fun discard(clientId: String, id: String): DraftRow = db.runInTransaction(Callable {
         val row = draft(clientId, id); check(row.state == "DRAFT") { "draft_locked" }; check(dao.deleteDraft(id) == 1); row
     })
-    fun freeze(clientId: String, id: String, serverEpoch: String): DraftRow = db.runInTransaction(Callable {
+    fun freeze(clientId: String, id: String, serverEpoch: String, requestWork: Boolean? = null): DraftRow = db.runInTransaction(Callable {
         val row = draft(clientId, id); if (row.state != "DRAFT") return@Callable row
         check(row.text.isNotBlank() || JSONArray(row.attachmentsJson).length() > 0) { "add_text_or_a_photo" }
-        val args = JSONObject().put("inboxId", row.draftId).put("scopeId", row.scopeId).put("text", row.text).put("capturedAt", row.createdAt)
+        val target = row.replyTargetJson?.let(::JSONObject)?.apply { if (requestWork != null) put("requestWork", requestWork) }
+        val args = if (target != null) JSONObject().put("recordId", row.draftId).put("scopeId", row.scopeId).put("text", row.text)
+            .put("suggestionId", target.getString("suggestionId")).put("replyToQuestionId", target.get("questionId"))
+            .put("requestWork", target.getBoolean("requestWork")).put("attachments", JSONArray(row.attachmentsJson))
+        else JSONObject().put("inboxId", row.draftId).put("scopeId", row.scopeId).put("text", row.text).put("capturedAt", row.createdAt)
             .put("category", row.category)
             .put("source", JSONObject(row.sourceJson)).put("attachments", JSONArray(row.attachmentsJson))
         val frozen = JSONObject().put("operationId", newId()).put("contractVersion", 1).put("expectedServerEpoch", serverEpoch).put("arguments", args).toString()
-        row.copy(state = "SUBMITTED", frozenJson = frozen, frozenHash = sha256(frozen.toByteArray(Charsets.UTF_8))).also(dao::updateDraft)
+        row.copy(state = "SUBMITTED", replyTargetJson = target?.toString(), frozenJson = frozen, frozenHash = sha256(frozen.toByteArray(Charsets.UTF_8))).also(dao::updateDraft)
     })
     fun finalise(clientId: String, id: String, outcome: JSONObject) = db.runInTransaction {
         val row = draft(clientId, id); val operationId = JSONObject(row.frozenJson!!).getString("operationId")

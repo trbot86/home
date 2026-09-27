@@ -501,7 +501,7 @@ test('calendar credential migration preserves populated household tables and cal
       const columns = (db.pragma(`table_info("${t}")`) as { name: string }[])
         .map((c) => `"${c.name}"`)
         .join(',');
-      const sql = `SELECT ${columns} FROM "${t}" ORDER BY rowid`;
+      const sql = `SELECT ${columns} FROM "${t}" ${t === 'record_kinds' ? "WHERE kind NOT IN ('suggestion_workflow','suggestion_message')" : ''} ORDER BY rowid`;
       return { name: t, sql, rows: db.prepare(sql).all() };
     });
     migrate(db);

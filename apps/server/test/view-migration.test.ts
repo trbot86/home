@@ -73,7 +73,7 @@ async function previousSchema() {
       .all() as { name: string }[]
   ).map(
     ({ name }) =>
-      `SELECT ${(f.db.pragma(`table_info(${name})`) as { name: string }[]).map((c) => c.name).join(',')} FROM ${name}`,
+      `SELECT ${(f.db.pragma(`table_info(${name})`) as { name: string }[]).map((c) => c.name).join(',')} FROM ${name} ${name === 'record_kinds' ? "WHERE kind NOT IN ('suggestion_workflow','suggestion_message')" : ''}`,
   );
   const before = selects.map((sql) => JSON.stringify(f.db.prepare(sql).all()));
   return {

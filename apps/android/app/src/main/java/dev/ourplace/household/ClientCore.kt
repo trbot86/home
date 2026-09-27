@@ -77,6 +77,7 @@ class ClientCore private constructor(val context: Context) {
             .put("home", cache?.optJSONObject("home") ?: JSONObject().put("assets", JSONArray()).put("serviceRecords", JSONArray()))
             .put("recipes", cache?.optJSONObject("recipes") ?: JSONObject().put("recipes", JSONArray()).put("collections", JSONArray()).put("cookingRecords", JSONArray()))
             .put("projects", cache?.optJSONObject("projects") ?: JSONObject().put("projects", JSONArray()).put("pages", JSONArray()))
+            .put("suggestions", cache?.optJSONObject("suggestions") ?: JSONObject().put("workflows", JSONArray()).put("messages", JSONArray()).put("questions", JSONArray()).put("work", JSONArray()).put("bridgeSeenAt", JSONObject.NULL).put("messagesPerSuggestion", 100))
             .put("recipeImports", cache?.optJSONArray("recipeImports") ?: JSONArray())
             .put("views", cache?.optJSONArray("views") ?: JSONArray())
             .put("agenda", cache?.optJSONObject("agenda") ?: JSONObject().put("configured", false).put("calendars", JSONArray()).put("needsReconnect", false).put("issue", JSONObject.NULL).put("sampledAt", JSONObject.NULL))
@@ -92,9 +93,9 @@ class ClientCore private constructor(val context: Context) {
             .put("sampledAt", cache?.optLong("sampledAt") ?: JSONObject.NULL)
             .put("recoveryRequired", owner != null && dao.value("$owner:recovery") == "true")
     })
-    fun createDraft(scopeId: String, source: String = "typed", category: String = "inbox"): DraftRow = captures.create(clientId(), scopeId, source, category).also { changed() }
+    fun createDraft(scopeId: String, source: String = "typed", category: String = "inbox", replyTarget: JSONObject? = null): DraftRow = captures.create(clientId(), scopeId, source, category, replyTarget).also { changed() }
     fun saveDraft(id: String, text: String, scopeId: String, revision: Int? = null): DraftRow = captures.save(clientId(), id, text, scopeId, revision).also { changed() }
-    fun submitDraft(id: String) { val session = requireSession(); captures.freeze(session.getString("clientId"), id, session.getString("serverEpoch")); changed(); UploadWorker.schedule(context) }
+    fun submitDraft(id: String, requestWork: Boolean? = null) { val session = requireSession(); captures.freeze(session.getString("clientId"), id, session.getString("serverEpoch"), requestWork); changed(); UploadWorker.schedule(context) }
     fun discardDraft(id: String) { val clientId = clientId(); val row = captures.discard(clientId, id); val attachments = JSONArray(row.attachmentsJson); for (i in 0 until attachments.length()) media.remove(clientId, attachments.getJSONObject(i).getString("mediaId")); changed() }
     fun addPhoto(id: String, bytes: ByteArray, mimeType: String): DraftRow {
         val clientId = clientId(); val row = media.acquire(clientId, mimeType, ByteArrayInputStream(bytes))
@@ -120,7 +121,7 @@ class ClientCore private constructor(val context: Context) {
     }
     fun copyRejected(id: String): DraftRow {
         val clientId = clientId(); val row = captures.draft(clientId, id); check(row.state == "REJECTED") { "draft_unavailable" }
-        var copy = captures.create(clientId, row.scopeId, category = row.category); copy = captures.save(clientId, copy.draftId, row.text, row.scopeId)
+        var copy = captures.create(clientId, row.scopeId, category = row.category, replyTarget = row.replyTargetJson?.let(::JSONObject)); copy = captures.save(clientId, copy.draftId, row.text, row.scopeId)
         val attachments = JSONArray(row.attachmentsJson)
         for (i in 0 until attachments.length()) { val photo = attachments.getJSONObject(i); copy = addPhoto(copy.draftId, media.read(clientId, photo.getString("mediaId")), photo.getString("mimeType")) }
         dao.updateDraft(row.copy(settled = true)); changed(); return copy
@@ -144,6 +145,7 @@ class ClientCore private constructor(val context: Context) {
     }
     fun command(recordId: String, kind: String, args: JSONObject, expectedServerEpoch: String): JSONObject { check(online) { "existing_entries_are_read_only_offline" }; try { return syncEngine.command(requireSession(), recordId, kind, args, expectedServerEpoch) } finally { changed() } }
     fun history(id: String): JSONArray = api.json("/inbox/$id/history", clientId = clientId()).getJSONArray("entries")
+    fun suggestionMessages(id: String, before: Long): JSONArray { require(id.matches(Regex("[a-zA-Z0-9_-]{8,80}")) && before > 0); return api.json("/suggestions/$id/messages?before=$before", clientId = clientId()).getJSONArray("messages") }
     fun shoppingHistory(id: String): JSONArray = api.json("/shopping/$id/history", clientId = clientId()).getJSONArray("entries")
     fun recordHistory(id: String): JSONArray = api.json("/records/$id/history", clientId = clientId()).getJSONArray("entries")
     fun recipeImport(id: String): JSONObject = api.json("/recipe-imports/${java.net.URLEncoder.encode(id, "UTF-8")}", clientId = clientId())
@@ -158,7 +160,7 @@ class ClientCore private constructor(val context: Context) {
     fun recoverDraft(id: String): DraftRow? {
         val clientId = clientId(); val row = captures.draft(clientId, id); check(row.state == "SUBMITTED")
         val command = captures.validateFrozen(row)
-        val result = api.json("/recovery/abandon", "POST", JSONObject().put("kind", "CreateInboxEntry").put("command", command).toString(), clientId)
+        val result = api.json("/recovery/abandon", "POST", JSONObject().put("kind", row.commandKind()).put("command", command).toString(), clientId)
         captures.finalise(clientId, id, result); refresh(); changed()
         return if (result.getString("status") == "Rejected") copyRejected(id) else null
     }
@@ -180,7 +182,7 @@ class ClientCore private constructor(val context: Context) {
         val home = cache.optJSONObject("home")
         val recipes = cache.optJSONObject("recipes")
         val projects = cache.optJSONObject("projects")
-        val records = listOfNotNull(cache.optJSONArray("entries"), tasks?.optJSONArray("definitions"), tasks?.optJSONArray("completions"), home?.optJSONArray("assets"), home?.optJSONArray("serviceRecords"), recipes?.optJSONArray("recipes"), recipes?.optJSONArray("cookingRecords"), projects?.optJSONArray("projects"), projects?.optJSONArray("pages"))
+        val records = listOfNotNull(cache.optJSONArray("entries"), tasks?.optJSONArray("definitions"), tasks?.optJSONArray("completions"), home?.optJSONArray("assets"), home?.optJSONArray("serviceRecords"), recipes?.optJSONArray("recipes"), recipes?.optJSONArray("cookingRecords"), projects?.optJSONArray("projects"), projects?.optJSONArray("pages"), cache.optJSONObject("suggestions")?.optJSONArray("messages"))
         var attachment: JSONObject? = descriptor?.takeIf { it.optString("mediaId") == id }
         for (entries in records) for (i in 0 until entries.length()) {
             val photos = entries.getJSONObject(i).optJSONArray("attachments") ?: continue

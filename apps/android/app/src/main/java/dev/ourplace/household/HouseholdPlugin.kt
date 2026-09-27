@@ -54,10 +54,11 @@ class HouseholdPlugin : Plugin() {
                     "logout" -> { core.logout(); null }
                     "refresh" -> { core.refresh(); null }
                     "sync" -> { core.sync(); null }
-                    "createDraft" -> core.createDraft(args.requireText("scopeId"), category = args.optString("category", "inbox")).json()
+                    "createDraft" -> core.createDraft(args.requireText("scopeId"), category = args.optString("category", "inbox"), replyTarget = args.optJSONObject("replyTarget")).json()
                     "saveDraft" -> core.saveDraft(args.requireText("draftId"), args.requireText("text"), args.requireText("scopeId"), if (args.has("expectedRevision")) args.getInt("expectedRevision") else null).json()
                     "discardDraft" -> { core.discardDraft(args.requireText("draftId")); null }
-                    "submitDraft" -> { core.submitDraft(args.requireText("draftId")); null }
+                    "submitDraft" -> { core.submitDraft(args.requireText("draftId"), if (args.has("requestWork")) args.getBoolean("requestWork") else null); null }
+                    "suggestionMessages" -> core.suggestionMessages(args.requireText("suggestionId"), args.getLong("beforeSequence"))
                     "addPhoto" -> core.addPhoto(args.requireText("draftId"), Base64.decode(args.requireText("base64"), Base64.DEFAULT), args.requireText("mimeType")).json()
                     "removePhoto" -> core.removePhoto(args.requireText("draftId"), args.requireText("mediaId")).json()
                     "copyRejectedDraft" -> core.copyRejected(args.requireText("draftId")).json()

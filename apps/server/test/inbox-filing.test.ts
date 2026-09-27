@@ -494,7 +494,7 @@ test('old retained history, receipts and capture bytes survive the additive fili
     ).map((r) => r.name);
     const selects = tables.map(
       (t) =>
-        `SELECT ${(f.db.pragma(`table_info(${t})`) as { name: string }[]).map((c) => c.name).join(',')} FROM ${t} ORDER BY rowid`,
+        `SELECT ${(f.db.pragma(`table_info(${t})`) as { name: string }[]).map((c) => c.name).join(',')} FROM ${t} ${t === 'record_kinds' ? "WHERE kind NOT IN ('suggestion_workflow','suggestion_message')" : ''} ORDER BY rowid`,
     );
     const before = selects.map((sql) => JSON.stringify(f.db.prepare(sql).all()));
     const schemas = f.db.prepare('SELECT * FROM schema_migrations').all(),

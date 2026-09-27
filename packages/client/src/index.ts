@@ -20,12 +20,16 @@ import type {
   CalendarSettings,
   BeginCalendarConnection,
   AgendaSnapshot,
+  SuggestionSnapshot,
+  SuggestionReplyTarget,
+  SuggestionMessage,
 } from '@our-place/contracts';
 export type Draft = {
   draftId: string;
   clientId: string;
   scopeId: string;
   category?: EntryCategory;
+  replyTarget?: SuggestionReplyTarget;
   text: string;
   createdAt: number;
   revision: number;
@@ -44,6 +48,7 @@ export type ClientState = {
   home: HomeSnapshot;
   recipes: RecipeSnapshot;
   projects: ProjectSnapshot;
+  suggestions: SuggestionSnapshot;
   recipeImports: RecipeImportSummary[];
   views: SavedView[];
   agenda: AgendaSnapshot;
@@ -102,13 +107,14 @@ export interface ClientPlatform {
   login(username: string, password: string): Promise<Session>;
   logout(): Promise<void>;
   refresh(): Promise<void>;
-  createDraft(scopeId: string, category?: EntryCategory): Promise<Draft>;
+  createDraft(scopeId: string, category?: EntryCategory, replyTarget?: SuggestionReplyTarget): Promise<Draft>;
   saveDraft(draftId: string, text: string, scopeId: string): Promise<Draft>;
   discardDraft(draftId: string): Promise<void>;
   addPhoto(draftId: string, file: Blob): Promise<Draft>;
   removePhoto(draftId: string, mediaId: string): Promise<Draft>;
   photoUrl(mediaId: string, descriptor?: Attachment): Promise<string>;
-  submitDraft(draftId: string): Promise<void>;
+  submitDraft(draftId: string, requestWork?: boolean): Promise<void>;
+  suggestionMessages(suggestionId: string, beforeSequence: number): Promise<SuggestionMessage[]>;
   copyRejectedDraft(draftId: string): Promise<Draft>;
   sync(): Promise<void>;
   command(

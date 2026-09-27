@@ -18,6 +18,43 @@ import java.util.concurrent.Callable
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], manifest = Config.NONE)
 class CaptureStoreTest {
+    @Test fun replyCrashRecovery() = background {
+        val context = ApplicationProvider.getApplicationContext<Context>(); val name = "test-${newId()}.sqlite"; var db = LocalDatabase.open(context, name)
+        val client = newId(); val scope = newId(); val epoch = newId(); val question = newId(); val suggestion = newId()
+        val target = JSONObject().put("suggestionId", suggestion).put("questionId", question).put("requestWork", true)
+        val store = CaptureStore(db); val draft = store.create(client, scope, category = "app_suggestion", replyTarget = target)
+        store.save(client, draft.draftId, "Use the compact layout", scope)
+        store.attach(client, draft.draftId, MediaRow(newId(), client, "synthetic-photo", "a".repeat(64), 5, "image/png"))
+        val frozen = store.freeze(client, draft.draftId, epoch, false)
+        assertEquals("PostSuggestionMessage", frozen.commandKind())
+        val args = JSONObject(frozen.frozenJson!!).getJSONObject("arguments")
+        assertEquals(question, args.getString("replyToQuestionId")); assertFalse(args.getBoolean("requestWork")); assertEquals(1, args.getJSONArray("attachments").length())
+        db.close(); db = LocalDatabase.open(context, name)
+        var receipt: JSONObject? = null; var sends = 0; var uploads = 0
+        val session = JSONObject().put("clientId", client).put("serverEpoch", epoch)
+        val api = object : JsonTransport {
+            override fun json(path: String, method: String, body: String?, clientId: String?): JSONObject = when {
+                path.startsWith("/operations/") -> receipt ?: JSONObject().put("status", "Unresolved")
+                path == "/commands/PostSuggestionMessage" -> {
+                    sends++; assertEquals(frozen.frozenJson, body)
+                    receipt = JSONObject().put("status", "Applied").put("receipt", JSONObject().put("operationId", JSONObject(body!!).getString("operationId")).put("requestDigest", "a".repeat(64)).put("recordedAt", 1000))
+                        .put("result", JSONObject().put("records", JSONArray().put(JSONObject().put("recordId", draft.draftId).put("revision", 1))))
+                    throw java.io.IOException("Connection lost after commit")
+                }
+                path == "/session" -> session
+                path == "/cache/inbox" -> JSONObject().put("serverEpoch", epoch).put("sampledAt", 2000).put("entries", JSONArray()).put("suggestions", JSONObject().put("messages", JSONArray().put(JSONObject().put("recordId", draft.draftId))))
+                else -> error("Unexpected path $path")
+            }
+        }
+        try {
+            val captures = CaptureStore(db); assertEquals(frozen.frozenJson, captures.freeze(client, draft.draftId, epoch, true).frozenJson)
+            assertThrows(java.io.IOException::class.java) { SyncEngine(db, captures, api) { _, _, _, _ -> uploads++ }.sync(session) }
+            db.close(); db = LocalDatabase.open(context, name)
+            SyncEngine(db, CaptureStore(db), api) { _, _, _, _ -> uploads++ }.sync(session)
+            assertEquals(1, sends); assertEquals(1, uploads); assertTrue(db.dao().draft(draft.draftId)!!.settled)
+            assertEquals(question, JSONObject(db.dao().draft(draft.draftId)!!.replyTargetJson!!).getString("questionId"))
+        } finally { db.close(); context.deleteDatabase(name) }
+    }
     @Test fun categoryMigrationPreservesFrozenLegacyCaptureAndNewSuggestionSurvivesReopen() = background {
         val context = ApplicationProvider.getApplicationContext<Context>(); val name = "test-${newId()}.sqlite"
         val schema = JSONObject(javaClass.classLoader!!.getResourceAsStream("dev.ourplace.household.storage.LocalDatabase/1.json")!!.bufferedReader().readText()).getJSONObject("database")

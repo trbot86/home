@@ -10,6 +10,8 @@ import { viewCommands } from './views.js';
 import { projectCommands } from './projects.js';
 import { calendarCommands } from './calendars.js';
 import { inboxFilingCommands, type InboxFiling } from './inbox-filing.js';
+import { suggestionCommands } from './suggestions.js';
+export * from './suggestions.js';
 export * from './inbox-filing.js';
 export * from './calendars.js';
 export * from './projects.js';
@@ -71,6 +73,7 @@ export const AbandonRestoredOperation = object({
   originalCommand: Type.Unknown(),
 });
 export const argumentSchemas = {
+  ...suggestionCommands,
   ...inboxFilingCommands,
   ...shoppingCommands,
   ...shoppingGroupCommands,
@@ -197,7 +200,7 @@ export type HistoryActor =
 export type HistoryEntry<Version = InboxEntry> = {
   changeSetId: string;
   actor: HistoryActor;
-  kind: CommandKind;
+  kind: CommandKind | 'PublishSuggestionProgress';
   causeChangeSetId?: string;
   recordedAt: number;
   beforeRevision: number;

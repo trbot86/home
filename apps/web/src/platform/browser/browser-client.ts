@@ -22,6 +22,9 @@ import type {
   CalendarSettings,
   BeginCalendarConnection,
   AgendaSnapshot,
+  SuggestionSnapshot,
+  SuggestionReplyTarget,
+  SuggestionMessage,
 } from '@our-place/contracts';
 import {
   categoryOf,
@@ -31,6 +34,7 @@ import {
   emptyRecipes,
   emptyProjects,
   emptyAgenda,
+  emptySuggestions,
   isValid,
   OutcomeSchema,
 } from '@our-place/contracts';
@@ -110,6 +114,7 @@ export class BrowserClient implements ClientPlatform {
       home: cache?.home ?? emptyHome(),
       recipes: cache?.recipes ?? emptyRecipes(),
       projects: cache?.projects ?? emptyProjects(),
+      suggestions: cache?.suggestions ?? emptySuggestions(),
       recipeImports: cache?.recipeImports ?? [],
       views: cache?.views ?? [],
       agenda: cache?.agenda ?? emptyAgenda(),
@@ -128,6 +133,13 @@ export class BrowserClient implements ClientPlatform {
   }
   authenticationOptions(): Promise<AuthenticationOptions> {
     return this.request('/auth/options');
+  }
+  async suggestionMessages(id: string, beforeSequence: number): Promise<SuggestionMessage[]> {
+    return (
+      await this.request<{ messages: SuggestionMessage[] }>(
+        `/suggestions/${encodeURIComponent(id)}/messages?before=${beforeSequence}`,
+      )
+    ).messages;
   }
   calendarSettings(): Promise<CalendarSettings> {
     return this.request('/calendars/settings', {}, this.requireSession().clientId);
@@ -213,6 +225,7 @@ export class BrowserClient implements ClientPlatform {
       recipeImports?: RecipeImportSummary[];
       views?: SavedView[];
       agenda?: AgendaSnapshot;
+      suggestions?: SuggestionSnapshot;
       sampledAt: number;
       serverEpoch: string;
     }>('/cache/inbox');
@@ -239,7 +252,9 @@ export class BrowserClient implements ClientPlatform {
       if (
         draft.clientId === existing.clientId &&
         draft.state === 'ACKNOWLEDGED' &&
-        cache.entries.some((e) => e.inboxId === draft.draftId)
+        (draft.replyTarget
+          ? cache.suggestions?.messages.some((m) => m.recordId === draft.draftId)
+          : cache.entries.some((e) => e.inboxId === draft.draftId))
       ) {
         draft.settled = true;
         await tx.objectStore('drafts').put(draft, draft.draftId);
@@ -255,12 +270,17 @@ export class BrowserClient implements ClientPlatform {
     if (this.session?.clientId === existing.clientId) this.session = current;
     this.changed();
   }
-  async createDraft(scopeId: string, category: EntryCategory = 'inbox'): Promise<Draft> {
+  async createDraft(
+    scopeId: string,
+    category: EntryCategory = 'inbox',
+    replyTarget?: SuggestionReplyTarget,
+  ): Promise<Draft> {
     const draft: Draft = {
       draftId: crypto.randomUUID(),
       clientId: this.requireSession().clientId,
       scopeId,
       category,
+      ...(replyTarget ? { replyTarget } : {}),
       text: '',
       createdAt: Date.now(),
       revision: 1,
@@ -360,7 +380,7 @@ export class BrowserClient implements ClientPlatform {
     }
     return url;
   }
-  async submitDraft(id: string): Promise<void> {
+  async submitDraft(id: string, requestWork?: boolean): Promise<void> {
     const db = await localDatabase;
     const session = this.requireSession();
     const draft = await db.get('drafts', id);
@@ -374,15 +394,25 @@ export class BrowserClient implements ClientPlatform {
       operationId: crypto.randomUUID(),
       contractVersion: 1,
       expectedServerEpoch: session.serverEpoch,
-      arguments: {
-        inboxId: draft.draftId,
-        scopeId: draft.scopeId,
-        category: categoryOf(draft),
-        text: draft.text,
-        capturedAt: draft.createdAt,
-        source: { kind: draft.text.trim() ? 'typed' : 'photo' },
-        attachments: draft.attachments,
-      },
+      arguments: draft.replyTarget
+        ? {
+            recordId: draft.draftId,
+            suggestionId: draft.replyTarget.suggestionId,
+            scopeId: draft.scopeId,
+            text: draft.text,
+            replyToQuestionId: draft.replyTarget.questionId,
+            requestWork: requestWork ?? draft.replyTarget.requestWork,
+            attachments: draft.attachments,
+          }
+        : {
+            inboxId: draft.draftId,
+            scopeId: draft.scopeId,
+            category: categoryOf(draft),
+            text: draft.text,
+            capturedAt: draft.createdAt,
+            source: { kind: draft.text.trim() ? 'typed' : 'photo' },
+            attachments: draft.attachments,
+          },
     };
     const frozenJson = JSON.stringify(command);
     const frozenHash = await digest(frozenJson);
@@ -393,6 +423,8 @@ export class BrowserClient implements ClientPlatform {
       throw new ClientError('draft_changed_try_again');
     }
     Object.assign(current, { state: 'SUBMITTED', frozenJson, frozenHash });
+    if (current.replyTarget && requestWork !== undefined)
+      current.replyTarget = { ...current.replyTarget, requestWork };
     await tx.store.put(current, id);
     await tx.done;
     this.changed();
@@ -403,7 +435,7 @@ export class BrowserClient implements ClientPlatform {
     const original = await db.get('drafts', id);
     if (!original || original.clientId !== this.requireSession().clientId || original.state !== 'REJECTED')
       throw new ClientError('draft_unavailable');
-    const draft = await this.createDraft(original.scopeId, categoryOf(original));
+    const draft = await this.createDraft(original.scopeId, categoryOf(original), original.replyTarget);
     await this.saveDraft(draft.draftId, original.text, original.scopeId);
     for (const attachment of original.attachments) {
       const media = await db.get('media', localKey(original.clientId, attachment.mediaId));
@@ -468,7 +500,11 @@ export class BrowserClient implements ClientPlatform {
           draft.attachments,
           command.expectedServerEpoch,
         );
-        outcome = await this.send('CreateInboxEntry', draft.frozenJson, session.clientId);
+        outcome = await this.send(
+          draft.replyTarget ? 'PostSuggestionMessage' : 'CreateInboxEntry',
+          draft.frozenJson,
+          session.clientId,
+        );
       } else {
         this.validateOutcome(resolved, command.operationId);
         outcome = resolved;
@@ -723,7 +759,7 @@ export class BrowserClient implements ClientPlatform {
     const command = JSON.parse(draft.frozenJson) as Envelope;
     const outcome = await this.post<CommandOutcome>(
       '/recovery/abandon',
-      { kind: 'CreateInboxEntry', command },
+      { kind: draft.replyTarget ? 'PostSuggestionMessage' : 'CreateInboxEntry', command },
       session.clientId,
     );
     this.validateOutcome(outcome, command.operationId);

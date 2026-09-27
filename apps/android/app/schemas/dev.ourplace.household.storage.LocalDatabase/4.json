@@ -1,0 +1,441 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 4,
+    "identityHash": "aa608eaba72894dc18f981fa9e74ec81",
+    "entities": [
+      {
+        "tableName": "drafts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`draftId` TEXT NOT NULL, `clientId` TEXT NOT NULL, `scopeId` TEXT NOT NULL, `text` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `state` TEXT NOT NULL, `sourceJson` TEXT NOT NULL, `attachmentsJson` TEXT NOT NULL, `frozenJson` TEXT, `frozenHash` TEXT, `outcomeJson` TEXT, `settled` INTEGER NOT NULL, `category` TEXT NOT NULL DEFAULT 'inbox', `replyTargetJson` TEXT, PRIMARY KEY(`draftId`))",
+        "fields": [
+          {
+            "fieldPath": "draftId",
+            "columnName": "draftId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clientId",
+            "columnName": "clientId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scopeId",
+            "columnName": "scopeId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceJson",
+            "columnName": "sourceJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attachmentsJson",
+            "columnName": "attachmentsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frozenJson",
+            "columnName": "frozenJson",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "frozenHash",
+            "columnName": "frozenHash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "outcomeJson",
+            "columnName": "outcomeJson",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "settled",
+            "columnName": "settled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'inbox'"
+          },
+          {
+            "fieldPath": "replyTargetJson",
+            "columnName": "replyTargetJson",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "draftId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_drafts_clientId_state",
+            "unique": false,
+            "columnNames": [
+              "clientId",
+              "state"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_drafts_clientId_state` ON `${TABLE_NAME}` (`clientId`, `state`)"
+          }
+        ]
+      },
+      {
+        "tableName": "media",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mediaId` TEXT NOT NULL, `clientId` TEXT NOT NULL, `path` TEXT NOT NULL, `digest` TEXT NOT NULL, `byteLength` INTEGER NOT NULL, `mimeType` TEXT NOT NULL, PRIMARY KEY(`mediaId`))",
+        "fields": [
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clientId",
+            "columnName": "clientId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "path",
+            "columnName": "path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "digest",
+            "columnName": "digest",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "byteLength",
+            "columnName": "byteLength",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mimeType",
+            "columnName": "mimeType",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mediaId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_media_clientId",
+            "unique": false,
+            "columnNames": [
+              "clientId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_clientId` ON `${TABLE_NAME}` (`clientId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "attempts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `clientId` TEXT NOT NULL, `recordId` TEXT NOT NULL, `kind` TEXT NOT NULL, `frozenJson` TEXT NOT NULL, `outcomeJson` TEXT, `attachmentDraftId` TEXT, `uploadsJson` TEXT, PRIMARY KEY(`key`))",
+        "fields": [
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clientId",
+            "columnName": "clientId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recordId",
+            "columnName": "recordId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frozenJson",
+            "columnName": "frozenJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outcomeJson",
+            "columnName": "outcomeJson",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "attachmentDraftId",
+            "columnName": "attachmentDraftId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "uploadsJson",
+            "columnName": "uploadsJson",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "key"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_attempts_clientId",
+            "unique": false,
+            "columnNames": [
+              "clientId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_attempts_clientId` ON `${TABLE_NAME}` (`clientId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "values",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))",
+        "fields": [
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "key"
+          ]
+        }
+      },
+      {
+        "tableName": "acquisitions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`acquisitionId` TEXT NOT NULL, `clientId` TEXT NOT NULL, `draftId` TEXT NOT NULL, `path` TEXT NOT NULL, `kind` TEXT NOT NULL, `state` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `targetKind` TEXT NOT NULL DEFAULT 'inbox', PRIMARY KEY(`acquisitionId`))",
+        "fields": [
+          {
+            "fieldPath": "acquisitionId",
+            "columnName": "acquisitionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clientId",
+            "columnName": "clientId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "draftId",
+            "columnName": "draftId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "path",
+            "columnName": "path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetKind",
+            "columnName": "targetKind",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'inbox'"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "acquisitionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_acquisitions_clientId",
+            "unique": false,
+            "columnNames": [
+              "clientId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_acquisitions_clientId` ON `${TABLE_NAME}` (`clientId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "attachment_drafts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`draftId` TEXT NOT NULL, `clientId` TEXT NOT NULL, `recordId` TEXT NOT NULL, `scopeId` TEXT NOT NULL, `baseRevision` INTEGER NOT NULL, `serverEpoch` TEXT NOT NULL, `revision` INTEGER NOT NULL, `attachmentsJson` TEXT NOT NULL, `localMediaIdsJson` TEXT NOT NULL, `state` TEXT NOT NULL, `operationId` TEXT, `outcomeJson` TEXT, PRIMARY KEY(`draftId`))",
+        "fields": [
+          {
+            "fieldPath": "draftId",
+            "columnName": "draftId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clientId",
+            "columnName": "clientId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recordId",
+            "columnName": "recordId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scopeId",
+            "columnName": "scopeId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "baseRevision",
+            "columnName": "baseRevision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverEpoch",
+            "columnName": "serverEpoch",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attachmentsJson",
+            "columnName": "attachmentsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localMediaIdsJson",
+            "columnName": "localMediaIdsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationId",
+            "columnName": "operationId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "outcomeJson",
+            "columnName": "outcomeJson",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "draftId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_attachment_drafts_clientId_recordId",
+            "unique": true,
+            "columnNames": [
+              "clientId",
+              "recordId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_attachment_drafts_clientId_recordId` ON `${TABLE_NAME}` (`clientId`, `recordId`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'aa608eaba72894dc18f981fa9e74ec81')"
+    ]
+  }
+}

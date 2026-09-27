@@ -9,6 +9,7 @@ import {
 } from '../access/access.js';
 import { requireIntegration } from '../access/integrations.js';
 import { requireWorkerJob, type WorkerContext } from '../access/workers.js';
+import { requireSuggestionRun } from '../suggestions/agent-access.js';
 import {
   RecordRegistry,
   type RecordChange,
@@ -148,6 +149,35 @@ export class HistoryService {
     return this.append(
       { clientId: context.clientId, column: 'actor_worker_id', actorId: context.workerId },
       'ApplyRecipeImport',
+      changes,
+      now,
+      { cause: grant.cause_change_set_id },
+    );
+  }
+  recordSuggestionWorker(context: WorkerContext, changes: RecordChange[], now: number): string {
+    const grant = requireSuggestionRun(this.db, context, now);
+    if (
+      changes.some(
+        ({ before, after }) =>
+          !['suggestion_workflow', 'suggestion_message'].includes(after.kind) ||
+          after.content.suggestionId !== grant.suggestion_id ||
+          after.content.scopeId !== grant.scope_id ||
+          after.content.deletedAt !== null ||
+          (after.kind === 'suggestion_message' &&
+            (before !== null ||
+              after.content.authorKind !== 'agent' ||
+              after.content.authorId !== context.workerId ||
+              after.content.runId !== context.jobId)) ||
+          (before &&
+            (before.content.suggestionId !== grant.suggestion_id ||
+              before.content.scopeId !== grant.scope_id ||
+              Object.keys(difference(before, after).fields).some((k) => !['summary', 'status'].includes(k)))),
+      )
+    )
+      throw new Rejection('suggestion_run_only');
+    return this.append(
+      { clientId: context.clientId, column: 'actor_worker_id', actorId: context.workerId },
+      'PublishSuggestionProgress',
       changes,
       now,
       { cause: grant.cause_change_set_id },

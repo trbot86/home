@@ -61,6 +61,7 @@ test('verified 006 upgrade preserves golden requests, identity, media, human his
       '019_calendar_browser_handoff.sql',
       '020_agenda_layouts.sql',
       '021_inbox_filing.sql',
+      '022_suggestion_discussions.sql',
     ]);
     assert.deepEqual(f.snapshot(), before);
     assert.deepEqual(installation(f.db), state);

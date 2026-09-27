@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import type { ClientPlatform } from '@our-place/client';
+import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { CommandKind, HistoryEntry, InboxEntry } from '@our-place/contracts';
 import { Icon } from './Icon.js';
 import { AttachmentGallery } from './AttachmentGallery.js';
@@ -8,9 +8,11 @@ import { date } from './format.js';
 import { LinkedText } from './LinkedText.js';
 import { textLinks } from './text-links.js';
 import { CopyNoteLink } from './NoteLinks.js';
+import { SuggestionDiscussion } from './suggestions/SuggestionDiscussion.js';
 
 export function EntryDialog({
   client,
+  state,
   serverEpoch,
   entry,
   startHistory,
@@ -22,6 +24,7 @@ export function EntryDialog({
   onPhotosSaved,
 }: {
   client: ClientPlatform;
+  state: ClientState;
   serverEpoch: string;
   entry: InboxEntry;
   startHistory: boolean;
@@ -43,7 +46,10 @@ export function EntryDialog({
   const [baseRevision, setBaseRevision] = useState(entry.revision);
   const [baseEpoch, setBaseEpoch] = useState(serverEpoch);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [tab, setTab] = useState(startHistory ? 'history' : 'edit');
+  const hasDiscussion =
+    entry.category === 'app_suggestion' ||
+    state.suggestions.workflows.some((w) => w.suggestionId === entry.inboxId);
+  const [tab, setTab] = useState(startHistory ? 'history' : hasDiscussion ? 'discussion' : 'edit');
   const [busy, setBusy] = useState(false);
   const [photosOpen, setPhotosOpen] = useState(false);
   const links = [
@@ -105,7 +111,7 @@ export function EntryDialog({
       <div className="dialog-header">
         <div>
           <p className="eyebrow">Saved {date(entry.createdAt)}</p>
-          <h2 id="entry-title">A closer look</h2>
+          <h2 id="entry-title">{hasDiscussion ? 'App suggestion' : 'A closer look'}</h2>
         </div>
         <button aria-label="Close entry" onClick={close}>
           <Icon name="close" />
@@ -113,6 +119,11 @@ export function EntryDialog({
       </div>
       <CopyNoteLink id={entry.inboxId} />
       <div className="tabs dialog-tabs">
+        {hasDiscussion && (
+          <button className={tab === 'discussion' ? 'active' : ''} onClick={() => setTab('discussion')}>
+            Discussion
+          </button>
+        )}
         <button className={tab === 'edit' ? 'active' : ''} onClick={() => setTab('edit')}>
           Entry
         </button>
@@ -121,7 +132,9 @@ export function EntryDialog({
           History
         </button>
       </div>
-      {tab === 'edit' ? (
+      {tab === 'discussion' ? (
+        <SuggestionDiscussion client={client} state={state} entry={entry} onError={onError} />
+      ) : tab === 'edit' ? (
         <form
           onSubmit={(e) => {
             void submit(e);

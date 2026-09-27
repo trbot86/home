@@ -12,7 +12,8 @@ data class DraftRow(
     val sourceJson: String = "{\"kind\":\"typed\"}", val attachmentsJson: String = "[]",
     val frozenJson: String? = null, val frozenHash: String? = null, val outcomeJson: String? = null,
     val settled: Boolean = false,
-    @ColumnInfo(defaultValue = "'inbox'") val category: String = "inbox"
+    @ColumnInfo(defaultValue = "'inbox'") val category: String = "inbox",
+    val replyTargetJson: String? = null
 )
 @Entity(tableName = "media", indices = [Index("clientId")])
 data class MediaRow(@PrimaryKey val mediaId: String, val clientId: String, val path: String, val digest: String, val byteLength: Long, val mimeType: String)
@@ -56,7 +57,7 @@ interface LocalDao {
     @Update fun updateAcquisition(row: AcquisitionRow)
 }
 
-@Database(entities = [DraftRow::class, MediaRow::class, AttemptRow::class, ValueRow::class, AcquisitionRow::class, AttachmentDraftRow::class], version = 3, exportSchema = true)
+@Database(entities = [DraftRow::class, MediaRow::class, AttemptRow::class, ValueRow::class, AcquisitionRow::class, AttachmentDraftRow::class], version = 4, exportSchema = true)
 abstract class LocalDatabase : RoomDatabase() {
     abstract fun dao(): LocalDao
     companion object {
@@ -76,7 +77,7 @@ abstract class LocalDatabase : RoomDatabase() {
         }
         fun open(context: Context, name: String = "household-client.sqlite"): LocalDatabase = Room.databaseBuilder(context, LocalDatabase::class.java, name)
             .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .addCallback(object : Callback() {
                 override fun onOpen(db: SupportSQLiteDatabase) {
                     // A locally confirmed capture must survive process loss before WorkManager runs.
@@ -84,5 +85,8 @@ abstract class LocalDatabase : RoomDatabase() {
                 }
             }).build()
         // No destructive-migration fallback: future versions must preserve frozen requests.
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) { db.execSQL("ALTER TABLE drafts ADD COLUMN replyTargetJson TEXT") }
+        }
     }
 }

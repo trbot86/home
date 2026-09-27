@@ -662,7 +662,7 @@ for (const fault of [
       ).map((r) => r.name);
       const selects = tables.map(
         (table) =>
-          `SELECT ${(f.db.pragma(`table_info(${table})`) as { name: string }[]).map((c) => c.name).join(',')} FROM ${table}`,
+          `SELECT ${(f.db.pragma(`table_info(${table})`) as { name: string }[]).map((c) => c.name).join(',')} FROM ${table} ${table === 'record_kinds' ? "WHERE kind NOT IN ('suggestion_workflow','suggestion_message')" : ''}`,
       );
       const before = selects.map((sql) => JSON.stringify(f.db.prepare(sql).all()));
       const filename = '020_agenda_layouts.sql';
@@ -736,7 +736,7 @@ test('014 upgrade retains all old tables, Food pins and frozen receipts byte-for
     ).map((row) => row.name);
     const selects = tables.map(
       (table) =>
-        `SELECT ${(f.db.pragma(`table_info(${table})`) as { name: string }[]).map((c) => c.name).join(',')} FROM ${table}`,
+        `SELECT ${(f.db.pragma(`table_info(${table})`) as { name: string }[]).map((c) => c.name).join(',')} FROM ${table} ${table === 'record_kinds' ? "WHERE kind NOT IN ('suggestion_workflow','suggestion_message')" : ''}`,
     );
     const before = selects.map((sql) => JSON.stringify(f.db.prepare(sql).all()));
     f.upgrade();
