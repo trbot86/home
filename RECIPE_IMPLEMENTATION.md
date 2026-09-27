@@ -134,12 +134,31 @@ ownership, collection moves, manual cooking and real HTTP/media paths. A backup
 restore fixture recovers source text, adjustments, membership, history and exact
 photo bytes after those bytes have been collected from its isolated original.
 
-Still required before release: durable import jobs and worker attribution, reviewed
-import application, source-photo staging, Soon pins, task/cooking integration,
+Still required before release: Soon pins, task/cooking integration,
 ingredient shopping groups/provenance, Food UI, native cache/forms and device tests.
 There is no new deployed recipe feature yet.
 
-The next internal boundary is specified in
+The import worker boundary is specified in
 [Recipe worker design](RECIPE_WORKER_DESIGN.md). Existing application contracts
 already allow an attributed worker change to block a stale human undo; no implicit
 human impersonation or causal undo grouping is needed for this first importer.
+
+## Import checkpoint (2026-09-27)
+
+Migrations 010/011 add a credential-free worker actor, immutable job authority and
+persisted source/application state. URL saves enqueue work in the same transaction
+as their history and receipt. Background retrieval uses the bounded public fetcher;
+source pictures go through the existing media publication/collection subsystem.
+One recipe applies automatically only while its original revision still matches.
+Multiple candidates and changed recipes retain a reviewable snapshot. Human review
+can select source fields without replacing household adjustments or memberships.
+
+The worker preserves exact result bytes and generated child/photo identities across
+restarts. Content, attachment placement, worker history, outcome receipt and job
+completion commit together. Backups restore completed imports and exact photo bytes;
+unfinished jobs remain paused under the new recovery epoch. No worker can obtain
+HTTP credentials, ordinary household access or Alexa capture authority.
+
+The main server starts the worker; constructing a test app does not start network
+work. These are source changes only until the complete Food slice is verified and
+deployed using the existing backup-protected upgrade path.

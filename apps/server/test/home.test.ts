@@ -442,7 +442,11 @@ test('Home migration preserves old task receipts, frozen commands, legacy histor
       'record_changes',
       'operation_receipts',
     ];
-    const snapshot = () => names.map((name) => f.db.prepare(`SELECT * FROM ${name}`).all());
+    const selects = names.map(
+      (name) =>
+        `SELECT ${(f.db.pragma(`table_info(${name})`) as { name: string }[]).map((c) => c.name).join(',')} FROM ${name}`,
+    );
+    const snapshot = () => selects.map((sql) => f.db.prepare(sql).all());
     const before = snapshot();
     migrate(f.db);
     f.reconnect();

@@ -6,6 +6,8 @@ import { Deferral, NotFound, Rejection } from '../../application/errors.js';
 import { AccessService, requireHuman, type HumanRequestContext as RequestContext } from '../access/access.js';
 import { FileMediaStore, sha256 } from './file-media-store.js';
 import { MediaRetentionGate } from './retention-gate.js';
+import { requireWorkerJob, type WorkerContext } from '../access/workers.js';
+import { publicWebUrl } from '../../infrastructure/public-web.js';
 
 export const PrepareMedia = Type.Object(
   {
@@ -65,48 +67,51 @@ export class MediaService {
     if (args.expectedServerEpoch !== installation(this.db).recovery_epoch)
       throw new Rejection('recovery_required');
     return immediate(this.db, () => {
-      const existing = this.db.prepare('SELECT * FROM media_objects WHERE media_id=?').get(id) as
-        MediaRow | undefined;
-      if (existing) {
-        if (
-          existing.creator_client_id !== context.clientId ||
-          existing.scope_id !== args.scopeId ||
-          existing.digest !== args.digest ||
-          existing.byte_length !== args.byteLength ||
-          existing.mime_type !== args.mimeType
-        )
-          throw new Rejection('media_unavailable');
-        if (existing.state === 'deleting') throw new Deferral('media_collection_pending');
-        if (existing.state === 'collected') {
-          const generation = randomUUID();
-          this.db
-            .prepare(
-              "UPDATE media_objects SET state='staging',storage_key=?,generation=?,unreferenced_at=NULL WHERE media_id=?",
-            )
-            .run(`objects/${generation}.bin`, generation, id);
-        }
-        this.db
-          .prepare('UPDATE media_objects SET protected_until=? WHERE media_id=?')
-          .run(this.now() + 86400000, id);
-      } else {
-        const generation = randomUUID();
-        this.db
-          .prepare("INSERT INTO media_objects VALUES (?,?,?,?,?,?,?,?,'staging',?,NULL,?)")
-          .run(
-            id,
-            args.scopeId,
-            context.clientId,
-            args.digest,
-            args.byteLength,
-            args.mimeType,
-            `objects/${generation}.bin`,
-            generation,
-            this.now(),
-            this.now() + 86400000,
-          );
-      }
+      this.prepareOwned(context.clientId, id, args);
       return { state: this.getOwned(context, id).state };
     });
+  }
+  private prepareOwned(clientId: string, id: string, args: Static<typeof PrepareMedia>): void {
+    const existing = this.db.prepare('SELECT * FROM media_objects WHERE media_id=?').get(id) as
+      MediaRow | undefined;
+    if (existing) {
+      if (
+        existing.creator_client_id !== clientId ||
+        existing.scope_id !== args.scopeId ||
+        existing.digest !== args.digest ||
+        existing.byte_length !== args.byteLength ||
+        existing.mime_type !== args.mimeType
+      )
+        throw new Rejection('media_unavailable');
+      if (existing.state === 'deleting') throw new Deferral('media_collection_pending');
+      if (existing.state === 'collected') {
+        const generation = randomUUID();
+        this.db
+          .prepare(
+            "UPDATE media_objects SET state='staging',storage_key=?,generation=?,unreferenced_at=NULL WHERE media_id=?",
+          )
+          .run(`objects/${generation}.bin`, generation, id);
+      }
+      this.db
+        .prepare('UPDATE media_objects SET protected_until=? WHERE media_id=?')
+        .run(this.now() + 86400000, id);
+    } else {
+      const generation = randomUUID();
+      this.db
+        .prepare("INSERT INTO media_objects VALUES (?,?,?,?,?,?,?,?,'staging',?,NULL,?)")
+        .run(
+          id,
+          args.scopeId,
+          clientId,
+          args.digest,
+          args.byteLength,
+          args.mimeType,
+          `objects/${generation}.bin`,
+          generation,
+          this.now(),
+          this.now() + 86400000,
+        );
+    }
   }
   async transfer(
     context: RequestContext,
@@ -115,11 +120,73 @@ export class MediaService {
     bytes: Buffer,
   ): Promise<{ state: 'ready' }> {
     if (epoch !== installation(this.db).recovery_epoch) throw new Rejection('recovery_required');
+    return this.transferOwned(id, bytes, () => {
+      if (epoch !== installation(this.db).recovery_epoch) throw new Rejection('recovery_required');
+      return this.getOwned(context, id);
+    });
+  }
+  /** Only the recipe named by a persisted, leased job can receive this upload. */
+  async importImage(
+    context: WorkerContext,
+    candidateId: string,
+    sourceUri: string,
+    bytes: Buffer,
+  ): Promise<void> {
+    if (!isValid(Digest, candidateId) || bytes.length > 8 * 1024 * 1024)
+      throw new Rejection('invalid_import_image');
+    const mimeType = detectedMime(bytes) as Static<typeof PrepareMedia>['mimeType'] | null;
+    if (!mimeType) throw new Rejection('invalid_import_image');
+    const source = publicWebUrl(sourceUri).href;
+    const id = immediate(this.db, () => {
+      const grant = requireWorkerJob(this.db, context, this.now());
+      if (
+        !this.db
+          .prepare(
+            `SELECT 1 FROM recipe_imports i,json_each(i.result_json,'$.extraction.candidates') c
+        WHERE i.job_id=? AND i.active=1 AND i.recipe_id=? AND json_extract(c.value,'$.candidateId')=?`,
+          )
+          .get(context.jobId, grant.target_record_id, candidateId)
+      )
+        throw new Rejection('candidate_unavailable');
+      const previous = this.db
+        .prepare('SELECT media_id,source_uri FROM recipe_import_media WHERE job_id=? AND candidate_id=?')
+        .get(context.jobId, candidateId) as { media_id: string; source_uri: string } | undefined;
+      if (previous && previous.source_uri !== source) throw new Rejection('import_image_changed');
+      const mediaId = previous?.media_id ?? randomUUID();
+      this.prepareOwned(context.clientId, mediaId, {
+        scopeId: grant.scope_id,
+        expectedServerEpoch: grant.expected_server_epoch,
+        digest: sha256(bytes),
+        byteLength: bytes.length,
+        mimeType,
+      });
+      if (!previous)
+        this.db
+          .prepare('INSERT INTO recipe_import_media VALUES (?,?,?,?,?)')
+          .run(context.jobId, candidateId, mediaId, randomUUID(), source);
+      return mediaId;
+    });
+    await this.transferOwned(id, bytes, () => {
+      const grant = requireWorkerJob(this.db, context, this.now());
+      const row = this.db
+        .prepare(
+          'SELECT m.* FROM media_objects m JOIN recipe_import_media p USING(media_id) WHERE p.job_id=? AND p.candidate_id=? AND m.media_id=? AND m.creator_client_id=? AND m.scope_id=?',
+        )
+        .get(context.jobId, candidateId, id, context.clientId, grant.scope_id) as MediaRow | undefined;
+      if (!row) throw new NotFound();
+      return row;
+    });
+  }
+  private async transferOwned(
+    id: string,
+    bytes: Buffer,
+    authorised: () => MediaRow,
+  ): Promise<{ state: 'ready' }> {
     const prior = this.uploads.get(id) ?? Promise.resolve();
     const work = prior
       .catch(() => {})
       .then(async () => {
-        const media = this.getOwned(context, id);
+        const media = authorised();
         if (media.state === 'deleting' || media.state === 'collected')
           throw new Deferral('media_needs_preparation');
         if (
@@ -133,7 +200,7 @@ export class MediaService {
           .run(this.now() + 86400000, id);
         await this.files.publish(media.storage_key, bytes);
         immediate(this.db, () => {
-          const current = this.getOwned(context, id);
+          const current = authorised();
           if (
             current.generation !== media.generation ||
             current.state === 'deleting' ||
@@ -170,7 +237,17 @@ export class MediaService {
       WHERE a.media_id=? AND (s.kind='shared' OR s.owner_person_id=?) LIMIT 1`,
       )
       .get(id, context.personId);
-    if (!permittedReference && media.creator_client_id !== context.clientId) throw new NotFound();
+    const importReference =
+      !permittedReference &&
+      this.db.prepare("SELECT 1 FROM sqlite_master WHERE name='recipe_import_media'").get() &&
+      this.db
+        .prepare(
+          `SELECT 1 FROM recipe_import_media p JOIN worker_jobs j USING(job_id)
+      JOIN records r ON r.record_id=j.target_record_id WHERE p.media_id=? AND r.scope_id=? AND r.deleted_at IS NULL`,
+        )
+        .get(id, media.scope_id);
+    if (!permittedReference && !importReference && media.creator_client_id !== context.clientId)
+      throw new NotFound();
     try {
       return { bytes: await this.files.read(media.storage_key), mimeType: media.mime_type };
     } catch (error) {

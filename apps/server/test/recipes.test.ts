@@ -484,10 +484,14 @@ test('recipe migration preserves old frozen commands, receipts, identity and his
       'record_changes',
       'operation_receipts',
     ];
-    const before = tables.map((table) => JSON.stringify(f.db.prepare(`SELECT * FROM ${table}`).all()));
+    const selects = tables.map(
+      (table) =>
+        `SELECT ${(f.db.pragma(`table_info(${table})`) as { name: string }[]).map((c) => c.name).join(',')} FROM ${table}`,
+    );
+    const before = selects.map((sql) => JSON.stringify(f.db.prepare(sql).all()));
     f.upgrade();
     tables.forEach((table, index) =>
-      assert.equal(JSON.stringify(f.db.prepare(`SELECT * FROM ${table}`).all()), before[index], table),
+      assert.equal(JSON.stringify(f.db.prepare(selects[index]!).all()), before[index], table),
     );
     assert.equal(JSON.stringify(command), bytes);
     assert.deepEqual(

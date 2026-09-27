@@ -26,6 +26,7 @@ import { AccessService, type HumanRequestContext as RequestContext } from './fea
 import { createRecordFeatures } from './application/record-features.js';
 import { HistoryService } from './features/history/history.js';
 import { WriteCoordinator } from './application/write-coordinator.js';
+import { RecipeImports } from './features/recipes/imports.js';
 import { Deferral, NotFound, ProtocolConflict, Rejection, Unauthenticated } from './application/errors.js';
 import { FileMediaStore } from './features/media/file-media-store.js';
 import { MediaRetentionGate } from './features/media/retention-gate.js';
@@ -88,11 +89,13 @@ export async function buildApp(options: AppOptions) {
     options.householdTimeZone,
   );
   const history = new HistoryService(db, records, access);
+  const recipeImports = new RecipeImports(db, recipes, history, records, now);
   const writes = new WriteCoordinator(db, inbox, history, now, records, undefined, [
     shopping.commands(),
     tasks.commands(),
     home.commands(),
     recipes.commands(),
+    recipeImports.commands(),
   ]);
   const files = new FileMediaStore(join(options.dataRoot, 'media'), options.development === true);
   await files.initialise();
@@ -224,8 +227,12 @@ export async function buildApp(options: AppOptions) {
       tasks: tasks.snapshot(context),
       home: home.snapshot(context),
       recipes: recipes.snapshot(context),
+      recipeImports: recipeImports.snapshot(context),
     };
   });
+  app.get<{ Params: { id: string } }>('/api/recipe-imports/:id', async (request) =>
+    recipeImports.detail(authenticate(request), request.params.id),
+  );
   app.get<{ Params: { id: string } }>('/api/shopping/:id/history', async (request) => {
     const context = authenticate(request);
     const record = shopping.get(context, request.params.id);
@@ -334,5 +341,5 @@ export async function buildApp(options: AppOptions) {
     if (!options.db) db.close();
   });
   await app.ready();
-  return { app, db, access, inbox, history, writes, media, retention, backups };
+  return { app, db, access, inbox, history, writes, media, retention, backups, recipeImports };
 }

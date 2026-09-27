@@ -12,6 +12,7 @@ import {
   type RecipeRecord,
   type RecipeSnapshot,
   type RecipeStep,
+  type RecipeFields,
 } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { NotFound, Rejection } from '../../application/errors.js';
@@ -25,6 +26,7 @@ import type {
 } from '../records/record-registry.js';
 import type { CommandHandler, RecordMutation } from '../records/command-handler.js';
 import { AttachmentRepository } from '../media/attachments.js';
+import { requireWorkerJob, type WorkerContext } from '../access/workers.js';
 
 type RecipeCommandKind = keyof typeof recipeCommands;
 const tables: Record<RecipeKind, [string, string]> = {
@@ -42,6 +44,7 @@ type Header = {
   deleted_at: number | null;
 };
 type RecipeContent = Omit<Recipe, 'recordId' | 'kind' | 'revision' | 'createdAt' | 'updatedAt'>;
+export type RecipeImportPatch = Partial<RecipeFields> & { sourceUrl: string; attachments?: Attachment[] };
 
 /** Recipe content owns ingredients, directions, collection memberships and household adjustments. */
 export class RecipesRepository {
@@ -113,6 +116,10 @@ export class RecipesRepository {
       !this.access.canAccess(context, row.scope_id)
     )
       throw new NotFound();
+    return this.load(row);
+  }
+  private load(row: Header): TrackedRecord {
+    const id = row.record_id;
     const [table, key] = tables[row.kind];
     const data = this.db.prepare(`SELECT * FROM ${table} WHERE ${key}=?`).get(id) as Record<string, unknown>;
     if (!data) throw new Error('Recipe payload missing');
@@ -173,6 +180,55 @@ export class RecipesRepository {
         ...(row.kind === 'recipe_collection' ? {} : { attachments: this.attachments.list(id) }),
       }),
     };
+  }
+  /** Source imports never accept household fields, even from an internal caller. */
+  private importContent(before: TrackedRecord, patch: RecipeImportPatch): RecordContent {
+    const allowed = new Set([
+      'title',
+      'description',
+      'sourceUrl',
+      'author',
+      'yieldText',
+      'prepTime',
+      'cookTime',
+      'totalTime',
+      'ingredients',
+      'steps',
+      'attachments',
+    ]);
+    if (Object.keys(patch).some((key) => !allowed.has(key))) throw new Rejection('invalid_import_field');
+    return this.content('recipe', { ...before.content, ...patch });
+  }
+  applyReviewedImport(
+    context: RequestContext,
+    id: string,
+    revision: number,
+    patch: RecipeImportPatch,
+    now: number,
+  ): RecordMutation {
+    const before = this.require(context, id, 'recipe', revision);
+    if (before.content.deletedAt !== null) throw new Rejection('deleted');
+    const after = this.setContent(context, before, this.importContent(before, patch), now);
+    return { records: [after], changes: [{ before, after }] };
+  }
+  applyWorkerImport(context: WorkerContext, patch: RecipeImportPatch, now: number): RecordMutation {
+    if (!this.db.inTransaction) throw new Error('Import changes must share the receipt transaction');
+    const grant = requireWorkerJob(this.db, context, now);
+    const row = this.db
+      .prepare('SELECT * FROM records WHERE record_id=?')
+      .get(grant.target_record_id) as Header;
+    if (row.deleted_at !== null) throw new Rejection('deleted');
+    if (row.revision !== grant.expected_revision) throw new Rejection('revision_conflict');
+    const before = this.load(row),
+      c = this.importContent(before, patch);
+    const changed = this.db
+      .prepare('UPDATE records SET revision=revision+1,updated_at=? WHERE record_id=? AND revision=?')
+      .run(now, before.recordId, before.revision);
+    if (changed.changes !== 1) throw new Rejection('revision_conflict');
+    this.savePayload('recipe', before.recordId, c, now);
+    this.attachments.replaceForJob(context, c.attachments as Attachment[], now);
+    const after = this.load({ ...row, revision: row.revision + 1, updated_at: now });
+    return { records: [after], changes: [{ before, after }] };
   }
   project(record: TrackedRecord): RecipeRecord {
     const { recordId, kind, revision, createdAt, updatedAt } = record;

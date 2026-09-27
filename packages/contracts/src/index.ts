@@ -5,6 +5,7 @@ import { shoppingCommands } from './shopping.js';
 import { taskCommands } from './tasks.js';
 import { homeCommands } from './home.js';
 import { recipeCommands } from './recipes.js';
+import { recipeImportCommands } from './recipe-import.js';
 import { Attachment, SetRecordAttachments } from './attachments.js';
 export * from './attachments.js';
 export { Id, Instant, Revision, Digest } from './primitives.js';
@@ -62,6 +63,7 @@ export const argumentSchemas = {
   ...taskCommands,
   ...homeCommands,
   ...recipeCommands,
+  ...recipeImportCommands,
   SetRecordAttachments,
   CreateInboxEntry,
   SetInboxEntryText,
@@ -164,6 +166,12 @@ export type InboxEntry = {
 export type HistoryActor =
   | Person
   | {
+      kind: 'worker';
+      workerId: string;
+      displayName: string;
+      personId?: never;
+    }
+  | {
       kind: 'integration';
       integrationId: string;
       displayName: string;
@@ -173,6 +181,7 @@ export type HistoryEntry<Version = InboxEntry> = {
   changeSetId: string;
   actor: HistoryActor;
   kind: CommandKind;
+  causeChangeSetId?: string;
   recordedAt: number;
   beforeRevision: number;
   afterRevision: number;

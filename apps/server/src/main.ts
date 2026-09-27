@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { buildApp } from './app.js';
 import { OperationsWorker } from './features/operations/worker.js';
+import { RecipeImportWorker } from './features/recipes/import-worker.js';
 import { installation } from './infrastructure/database.js';
 
 const development = process.argv.includes('--development');
@@ -15,7 +16,7 @@ const clientDownloadRoot = process.env['CLIENT_DOWNLOAD_ROOT'];
 const authenticationMode = process.env['AUTHENTICATION_MODE'] ?? 'password';
 if (authenticationMode !== 'password' && authenticationMode !== 'trusted-network')
   throw new Error('AUTHENTICATION_MODE must be password or trusted-network');
-const { app, db, media, backups } = await buildApp({
+const { app, db, media, backups, recipeImports } = await buildApp({
   dataRoot,
   publicOrigin,
   development,
@@ -35,7 +36,11 @@ const worker = new OperationsWorker(db, media, backups, {
 });
 await app.listen({ host: process.env['HOST'] ?? '127.0.0.1', port: Number(process.env['PORT'] ?? 3000) });
 worker.start();
+const recipeWorker = new RecipeImportWorker(recipeImports, media, {
+  report: () => app.log.error('Recipe import interrupted; saved work will be retried'),
+});
+recipeWorker.start();
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
   process.once(signal, () => {
-    void worker.stop().then(() => app.close());
+    void Promise.allSettled([worker.stop(), recipeWorker.stop()]).then(() => app.close());
   });

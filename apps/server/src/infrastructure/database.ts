@@ -71,9 +71,9 @@ export function migrate(db: Sqlite, migrationsPath = migrationsRoot): void {
   for (const file of files) {
     const sql = readFileSync(join(migrationsPath, file), 'utf8');
     const checksum = createHash('sha256').update(sql).digest('hex');
-    // Only this reviewed migration rebuilds tables referenced by other tables.
+    // Only these reviewed migrations rebuild tables referenced by other tables.
     // PRAGMA foreign_keys has no effect inside a transaction, so bracket it here.
-    const rebuild = file === '007_integration_principals.sql';
+    const rebuild = file === '007_integration_principals.sql' || file === '010_worker_principals.sql';
     if (db.inTransaction) throw new Error('Migrations require an independent transaction');
     if (rebuild) db.pragma('foreign_keys = OFF');
     try {

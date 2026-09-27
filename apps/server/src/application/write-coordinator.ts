@@ -207,11 +207,17 @@ export class WriteCoordinator {
     const handler = this.handlers.get(kind);
     if (handler) {
       const result = handler.execute(context, kind, command.arguments, now);
+      const changeSetId = result.changes.length
+        ? this.history.record(context, kind, result.changes, now)
+        : undefined;
+      if (result.afterHistory) {
+        if (!changeSetId) throw new Error('A causal job must share a content changeset');
+        const returned: unknown = result.afterHistory(changeSetId);
+        if (returned instanceof Promise) throw new Error('Post-history work must be synchronous');
+      }
       return {
         records: result.records,
-        ...(result.changes.length
-          ? { changeSetId: this.history.record(context, kind, result.changes, now) }
-          : {}),
+        ...(changeSetId ? { changeSetId } : {}),
       };
     }
     if (kind === 'UndoChangeSet' || kind === 'RedoChangeSet')

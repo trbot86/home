@@ -1,7 +1,8 @@
 # Recipe import worker boundary
 
-Implementation design after recipe storage 009. This document describes the next
-change; worker identities, jobs and automatic application are not implemented yet.
+Implemented on the recipe feature branch after recipe storage 009. Migrations 010
+and 011 add worker identities and durable import state; the deployed household
+still uses schema 008. This document records the implemented boundaries.
 It refines the existing import and attribution contract in
 [APPLICATION_CONTRACTS.md](APPLICATION_CONTRACTS.md#7-importing-and-planning-a-recipe).
 
@@ -96,3 +97,28 @@ human action rather than rewriting a frozen operation.
 Food screens, native read cache, durable forms, Soon pins, linked cooking tasks and
 ingredient shopping groups remain required after this storage/worker work. No
 partial source checkpoint is a substitute for that end-to-end feature.
+
+## Implemented recovery behavior
+
+Import commands atomically create/update the URL card, causal history, job grant
+and human receipt. A five-minute lease guards one job, and each retrieval run has
+a 90-second bound. Shutdown releases saved work; lease expiry permits recovery
+after abrupt process death. Once metadata is saved, page retries do not fetch it
+again. Once application IDs are frozen, retries do not fetch either page or images.
+The internal receipt encoding is version 3 and includes the persisted epoch,
+recipe revision, job identity and frozen application. Existing human/integration
+encodings remain versions 1/2.
+
+One unambiguous candidate can apply automatically to the original recipe revision.
+Multiple candidates, conflicting edits and unavailable images during application
+remain reviewable. A metadata-only bookmark refresh leaves existing ingredients
+and directions intact. Selecting a replacement source photo preserves manual
+household photos. Images have normal media ownership, protection and collection;
+their source URI and digest survive collection. Review previews expose local media
+references, never arbitrary remote image URLs.
+
+Focused fixtures cover source/application replay, post-history queue failure,
+partner edits, private previews, stale leases, cancellation during file publication,
+commit failure, shutdown, ambiguous sources, bookmark refresh and backup/restore
+of both attached and still-pending images. Migration fixtures retain all old column
+values and frozen receipt bytes while testing SQL/FK rebuild rollback.

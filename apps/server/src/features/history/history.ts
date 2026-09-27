@@ -8,6 +8,7 @@ import {
   type RequestContext,
 } from '../access/access.js';
 import { requireIntegration } from '../access/integrations.js';
+import { requireWorkerJob, type WorkerContext } from '../access/workers.js';
 import {
   RecordRegistry,
   type RecordChange,
@@ -22,8 +23,10 @@ type ChangeRow = {
   change_set_id: string;
   actor_person_id: string | null;
   actor_integration_id: string | null;
+  actor_worker_id?: string | null;
+  cause_change_set_id?: string | null;
   display_name: string;
-  operation_kind: CommandKind;
+  operation_kind: HistoryEntry['kind'];
   recorded_at: number;
   before_revision: number;
   after_revision: number;
@@ -64,11 +67,16 @@ function applyBefore(content: RecordContent, delta: Delta): RecordContent {
   };
 }
 export class HistoryService {
+  private readonly workersEnabled: boolean;
   constructor(
     private readonly db: Sqlite,
     private readonly records: RecordRegistry,
     private readonly access: AccessService,
-  ) {}
+  ) {
+    this.workersEnabled = !!db
+      .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='worker_actors'")
+      .get();
+  }
   record(
     context: RequestContext,
     kind: CommandKind,
@@ -94,6 +102,68 @@ export class HistoryService {
       )
         throw new Rejection('capture_only');
     } else requireHuman(context);
+    return this.append(
+      {
+        clientId: context.clientId,
+        column: context.kind === 'integration' ? 'actor_integration_id' : 'actor_person_id',
+        actorId: context.kind === 'integration' ? context.integrationId : context.personId,
+      },
+      kind,
+      changes,
+      now,
+      links,
+    );
+  }
+  recordWorker(context: WorkerContext, changes: RecordChange[], now: number): string {
+    const grant = requireWorkerJob(this.db, context, now);
+    const change = changes[0];
+    const sourceFields = new Set([
+      'title',
+      'description',
+      'sourceUrl',
+      'author',
+      'yieldText',
+      'prepTime',
+      'cookTime',
+      'totalTime',
+      'ingredients',
+      'steps',
+      'attachments',
+    ]);
+    if (
+      changes.length !== 1 ||
+      !change?.before ||
+      change.before.kind !== 'recipe' ||
+      change.after.kind !== 'recipe' ||
+      change.before.recordId !== grant.target_record_id ||
+      change.after.recordId !== grant.target_record_id ||
+      change.before.content.scopeId !== grant.scope_id ||
+      change.after.content.scopeId !== grant.scope_id ||
+      change.before.revision !== grant.expected_revision ||
+      change.before.content.deletedAt !== null ||
+      change.after.content.deletedAt !== null ||
+      Object.keys(difference(change.before, change.after).fields).some((field) => !sourceFields.has(field))
+    )
+      throw new Rejection('worker_job_only');
+    return this.append(
+      { clientId: context.clientId, column: 'actor_worker_id', actorId: context.workerId },
+      'ApplyRecipeImport',
+      changes,
+      now,
+      { cause: grant.cause_change_set_id },
+    );
+  }
+  private append(
+    actor: {
+      clientId: string;
+      column: 'actor_person_id' | 'actor_integration_id' | 'actor_worker_id';
+      actorId: string;
+    },
+    kind: HistoryEntry['kind'],
+    changes: RecordChange[],
+    now: number,
+    links: { undoOf?: string; redoOf?: string; cause?: string },
+  ): string {
     if (!this.db.inTransaction) throw new Error('History must share the content transaction');
     if (!changes.length || new Set(changes.map((change) => change.after.recordId)).size !== changes.length)
       throw new Error('A changeset must contain each changed root exactly once');
@@ -105,19 +175,19 @@ export class HistoryService {
       this.records.validateContent(after.kind, after.content);
     }
     const id = randomUUID();
-    const actorColumn = context.kind === 'integration' ? 'actor_integration_id' : 'actor_person_id';
     this.db
       .prepare(
-        `INSERT INTO change_sets(change_set_id,client_id,${actorColumn},operation_kind,recorded_at,undo_of_id,redo_of_id) VALUES (?,?,?,?,?,?,?)`,
+        `INSERT INTO change_sets(change_set_id,client_id,${actor.column},operation_kind,recorded_at,undo_of_id,redo_of_id${links.cause ? ',cause_change_set_id' : ''}) VALUES (?,?,?,?,?,?,?${links.cause ? ',?' : ''})`,
       )
       .run(
         id,
-        context.clientId,
-        context.kind === 'integration' ? context.integrationId : context.personId,
+        actor.clientId,
+        actor.actorId,
         kind,
         now,
         links.undoOf ?? null,
         links.redoOf ?? null,
+        ...(links.cause ? [links.cause] : []),
       );
     for (const { before, after } of changes) {
       this.db
@@ -227,10 +297,11 @@ export class HistoryService {
     if (current.kind !== expectedKind) throw new NotFound();
     const rows = this.db
       .prepare(
-        `SELECT cs.*,rc.*,COALESCE(p.display_name,a.display_name) AS display_name
+        `SELECT cs.*,rc.*,COALESCE(p.display_name,a.display_name${this.workersEnabled ? ',w.display_name' : ''}) AS display_name
       FROM change_sets cs JOIN record_changes rc USING(change_set_id)
       LEFT JOIN people p ON p.person_id=cs.actor_person_id
       LEFT JOIN integration_actors a ON a.integration_id=cs.actor_integration_id
+      ${this.workersEnabled ? 'LEFT JOIN worker_actors w ON w.worker_id=cs.actor_worker_id' : ''}
       WHERE rc.record_id=? ORDER BY rc.after_revision DESC LIMIT 100`,
       )
       .all(id) as ChangeRow[];
@@ -243,12 +314,15 @@ export class HistoryService {
         actor:
           row.actor_person_id !== null
             ? { personId: row.actor_person_id, displayName: row.display_name }
-            : {
-                kind: 'integration',
-                integrationId: row.actor_integration_id!,
-                displayName: row.display_name,
-              },
+            : row.actor_worker_id
+              ? { kind: 'worker', workerId: row.actor_worker_id, displayName: row.display_name }
+              : {
+                  kind: 'integration',
+                  integrationId: row.actor_integration_id!,
+                  displayName: row.display_name,
+                },
         kind: row.operation_kind,
+        ...(row.cause_change_set_id ? { causeChangeSetId: row.cause_change_set_id } : {}),
         recordedAt: row.recorded_at,
         beforeRevision: row.before_revision,
         afterRevision: row.after_revision,
