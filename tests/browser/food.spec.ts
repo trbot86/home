@@ -173,7 +173,7 @@ test('Food keeps photos, adjustments, cooking notes and independent Soon pins ac
     .getByRole('group', { name: 'Recipe collection' })
     .getByRole('button', { name: 'Make soon', exact: true })
     .click();
-  await expect(page.locator('.food-card')).toContainText('Our lemon carrot soup');
+  await expect(page.locator('.food-card').filter({ hasText: 'Our lemon carrot soup' })).toHaveCount(1);
   for (const width of [320, 390, 820, 1440]) {
     await page.setViewportSize({ width, height: 1100 });
     expect(

@@ -31,6 +31,26 @@ Updated 2026-09-27.
 
 ## Current development
 
+Suggestion discussions and the development-host bridge are implemented. Each
+suggestion has a separate summary, chronological discussion, persistent questions
+and explicit work requests. Browser and Android replies/photos use their existing
+durable outboxes; agent updates have a scoped worker identity and do not edit the
+original suggestion. Ready for review is distinct from deployment. The bridge
+uses one isolated worktree per suggestion and preserves external process journals
+across restart; uncertain execution is never blindly relaunched.
+
+Validation: 235 runnable package tests on Windows (one Unix socket test skipped),
+all 236 in the Linux image, 54 browser flows, 15 Android unit tests and five bridge
+recovery tests pass. An actual installed Codex process produced a persistent
+question in an isolated server, and a subsequent run received its answer. An
+in-place emulator update preserved all cached sections, offline photo drafts,
+profile and editor text; a separate native trial retained a photo reply across
+process termination and synchronized it once to the other profile. A restore
+from the secondary backup into an isolated Linux volume preserved 51 existing
+tables and two media files through schema 022. Live release metadata remains in
+ignored `.local/suggestion-discussion-*` files. See SUGGESTION_BRIDGE.md for host
+setup, conservative recovery and the current start/result reporting granularity.
+
 Fixed-calendar recurrence has a design checkpoint and tested calendar arithmetic
 in FIXED_RECURRENCE_PLAN.md. One late-reporting policy question is pending. The
 calculation supports either choice through an explicit cutoff and keeps monthly

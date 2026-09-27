@@ -9,15 +9,8 @@ import { usePhotoTransfer } from '../usePhotoTransfer.js';
 import { validatePhotoFiles } from '../photo-input.js';
 import { date } from '../format.js';
 import './suggestions.css';
+import { suggestionStatus } from './status.js';
 
-const labels = {
-  new: 'New',
-  queued: 'Queued',
-  working: 'Working',
-  needs_input: 'Needs your input',
-  ready: 'Ready for review',
-  released: 'Released',
-};
 export function SuggestionDiscussion({
   client,
   state,
@@ -48,7 +41,7 @@ export function SuggestionDiscussion({
   const queued = work.filter((w) => w.state === 'queued'),
     running = work.find((w) => w.state === 'running'),
     uncertain = work.find((w) => w.state === 'uncertain'),
-    failed = work.find((w) => w.state === 'failed');
+    failed = work[0]?.state === 'failed' ? work[0] : undefined;
   const active = entry.deletedAt === null && entry.category === 'app_suggestion',
     bridgeRecent = !!snapshot.bridgeSeenAt && Date.now() - snapshot.bridgeSeenAt < 180_000;
   const drafts = state.drafts.filter(
@@ -83,7 +76,7 @@ export function SuggestionDiscussion({
         <AttachmentGallery client={client} attachments={entry.attachments} />
       </div>
       <div className="suggestion-summary">
-        <span className="scope-badge">{running ? 'Working' : labels[workflow?.status ?? 'new']}</span>
+        <span className="scope-badge">{suggestionStatus(snapshot, entry.inboxId)}</span>
         <p>
           {workflow?.summary ||
             'No development update yet. Add details here or request work when you’re ready.'}

@@ -27,6 +27,7 @@ CREATE TABLE suggestion_agents (
   agent_id TEXT PRIMARY KEY NOT NULL REFERENCES worker_actors(worker_id),
   client_id TEXT NOT NULL UNIQUE, token_digest TEXT NOT NULL UNIQUE,
   enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+  accepting_work INTEGER NOT NULL DEFAULT 0 CHECK(accepting_work IN (0,1)),
   created_at INTEGER NOT NULL, last_seen_at INTEGER,
   FOREIGN KEY(client_id,agent_id) REFERENCES clients(client_id,worker_id)
 ) STRICT;

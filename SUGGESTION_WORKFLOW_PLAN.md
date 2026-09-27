@@ -1,6 +1,8 @@
 # Suggestion discussions and agent work
 
-Status: design, not implemented. The household app is the authoritative place to
+Status: implemented with a serial development-host runner. Operational setup and
+recovery are documented in SUGGESTION_BRIDGE.md; release evidence is recorded in
+BUILD_PROGRESS.md. The household app is the authoritative place to
 follow this work. A separate visible Codex desktop task is optional, not an
 acceptance requirement. An agent session can be resumed or replaced while the
 suggestion's discussion, decisions and unanswered questions remain intact.

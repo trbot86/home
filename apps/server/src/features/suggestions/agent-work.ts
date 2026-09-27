@@ -116,12 +116,18 @@ export class SuggestionAgentWork {
     if (!row) throw new Rejection('run_unavailable');
     return row;
   }
-  status(agent: SuggestionAgent, epoch: string): { runs: SuggestionRun[] } {
+  status(
+    agent: SuggestionAgent,
+    epoch: string,
+    acceptingWork = false,
+  ): { runs: SuggestionRun[]; queued: boolean } {
     return immediate(this.db, () => {
       requireSuggestionAgent(this.db, agent);
       if (epoch !== installation(this.db).recovery_epoch) throw new Rejection('recovery_required');
       const now = this.now();
-      this.db.prepare('UPDATE suggestion_agents SET last_seen_at=? WHERE agent_id=?').run(now, agent.agentId);
+      this.db
+        .prepare('UPDATE suggestion_agents SET last_seen_at=?,accepting_work=? WHERE agent_id=?')
+        .run(now, acceptingWork ? 1 : 0, agent.agentId);
       // Expiry never frees the active-run slot or launches a replacement.
       this.db
         .prepare(
@@ -138,7 +144,15 @@ export class SuggestionAgentWork {
           "SELECT r.* FROM suggestion_runs r JOIN records p ON p.record_id=r.suggestion_id JOIN inbox_entries i ON i.inbox_id=r.suggestion_id WHERE r.agent_id=? AND r.server_epoch=? AND r.state IN ('claimed','starting','running','uncertain') AND p.deleted_at IS NULL AND i.category='app_suggestion' ORDER BY r.created_at",
         )
         .all(agent.agentId, epoch) as RunRow[];
-      return { runs: rows.map((r) => this.project(r)) };
+      const queued = !!this.db
+        .prepare(
+          `SELECT 1 FROM suggestion_work_requests q JOIN records p ON p.record_id=q.suggestion_id
+        JOIN inbox_entries i ON i.inbox_id=q.suggestion_id JOIN suggestion_workflows w USING(suggestion_id) JOIN records wr ON wr.record_id=w.workflow_id
+        WHERE q.state='queued' AND p.deleted_at IS NULL AND wr.deleted_at IS NULL AND i.category='app_suggestion'
+        AND NOT EXISTS (SELECT 1 FROM suggestion_runs r WHERE r.suggestion_id=q.suggestion_id AND r.state IN ('claimed','starting','running','uncertain')) LIMIT 1`,
+        )
+        .get();
+      return { runs: rows.map((r) => this.project(r)), queued };
     });
   }
   claim(agent: SuggestionAgent, operationId: string, epoch: string): { run: SuggestionRun | null } {

@@ -202,7 +202,7 @@ export async function buildApp(options: AppOptions) {
     {
       config: {
         rateLimit: {
-          max: options.authenticationMode === 'trusted-network' ? 60 : 10,
+          max: options.requestLimit ?? (options.authenticationMode === 'trusted-network' ? 60 : 10),
           timeWindow: '1 minute',
         },
       },

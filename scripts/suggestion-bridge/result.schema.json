@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "status", "messages", "resolvedQuestionIds"],
+  "properties": {
+    "summary": { "type": "string" },
+    "status": { "type": "string", "enum": ["needs_input", "ready"] },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "text", "choices"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["progress", "question"] },
+          "text": { "type": "string" },
+          "choices": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "resolvedQuestionIds": { "type": "array", "items": { "type": "string" } }
+  }
+}

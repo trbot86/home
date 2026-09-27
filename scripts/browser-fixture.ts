@@ -122,6 +122,10 @@ const recipeWorker = new RecipeImportWorker(recipeImports, media, {
     }),
   },
 });
+let simulatedOutage = false;
+app.server.on('connection', (socket) => {
+  if (simulatedOutage) socket.destroy();
+});
 await app.listen({ port: 4173, host: '127.0.0.1' });
 let closing = false;
 async function close() {
@@ -165,6 +169,12 @@ const control = createServer((request, response) => {
       });
       response.writeHead(result.statusCode, { 'content-type': 'application/json' }).end(result.body);
     })().catch(() => response.writeHead(500).end());
+    return;
+  }
+  if (request.url === '/offline' || request.url === '/online') {
+    simulatedOutage = request.url === '/offline';
+    if (simulatedOutage) app.server.closeAllConnections();
+    response.writeHead(200).end('ok');
     return;
   }
   if (request.url === '/run-recipe-import') {

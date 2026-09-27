@@ -1,5 +1,7 @@
 import { join, resolve } from 'node:path';
-import { openDatabase, installation } from './infrastructure/database.js';
+import { open } from 'node:fs/promises';
+import { openDatabase, installation, requireCurrentSchema } from './infrastructure/database.js';
+import { provisionSuggestionAgent } from './features/suggestions/agent-access.js';
 import { BackupCoordinator, initialiseBackupDestination } from './features/operations/backups.js';
 import { restoreBackup } from './features/operations/restore.js';
 import { FileMediaStore } from './features/media/file-media-store.js';
@@ -8,7 +10,27 @@ import { upgradeDatabase } from './features/operations/upgrade.js';
 
 const [operation, ...args] = process.argv.slice(2).filter((arg) => arg !== '--development');
 const development = process.argv.includes('--development');
-if (operation === 'init-backups' && args[0] && process.env['DATA_ROOT']) {
+if (operation === 'init-suggestion-agent' && args.length === 1 && args[0] && process.env['DATA_ROOT']) {
+  const output = await open(resolve(args[0]), 'wx', 0o600);
+  const db = openDatabase(join(resolve(process.env['DATA_ROOT']), 'db/household.sqlite'));
+  try {
+    requireCurrentSchema(db);
+    const credentials = provisionSuggestionAgent(db, 'Development agent', Date.now()),
+      state = installation(db);
+    await output.writeFile(
+      JSON.stringify({
+        ...credentials,
+        installationId: state.installation_id,
+        serverEpoch: state.recovery_epoch,
+      }),
+    );
+    await output.sync();
+  } finally {
+    await output.close();
+    db.close();
+  }
+  process.stdout.write('Created a dedicated suggestion-agent credential in the requested private file.\n');
+} else if (operation === 'init-backups' && args[0] && process.env['DATA_ROOT']) {
   const db = openDatabase(join(resolve(process.env['DATA_ROOT']), 'db/household.sqlite'));
   try {
     await initialiseBackupDestination(resolve(args[0]), installation(db).installation_id, development);

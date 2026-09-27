@@ -44,10 +44,18 @@ export function registerSuggestionAgentRoutes(
     async (request) =>
       work.claim(authenticate(request), request.body.operationId, request.body.expectedServerEpoch),
   );
-  app.post<{ Body: { expectedServerEpoch: string } }>(
+  app.post<{ Body: { expectedServerEpoch: string; acceptingWork?: boolean } }>(
     '/api/suggestion-agent/status',
-    { schema: { body: Type.Object({ expectedServerEpoch: Id }, { additionalProperties: false }) } },
-    async (request) => work.status(authenticate(request), request.body.expectedServerEpoch),
+    {
+      schema: {
+        body: Type.Object(
+          { expectedServerEpoch: Id, acceptingWork: Type.Optional(Type.Boolean()) },
+          { additionalProperties: false },
+        ),
+      },
+    },
+    async (request) =>
+      work.status(authenticate(request), request.body.expectedServerEpoch, request.body.acceptingWork),
   );
   app.post<{ Body: typeof SuggestionAgentTransition.static }>(
     '/api/suggestion-agent/transition',

@@ -1,5 +1,6 @@
 import { Photo } from './Photo.js';
 import { EntryDialog } from './EntryDialog.js';
+import { suggestionStatus } from './suggestions/status.js';
 import { Storage } from './Storage.js';
 import { AppUpdates } from './AppUpdates.js';
 import { CalendarSettings } from './calendars/CalendarSettings.js';
@@ -1235,6 +1236,11 @@ export function App({ client }: { client: ClientPlatform }) {
                           )}
                           <div className="entry-content">
                             <div className="entry-meta">
+                              {categoryOf(entry) === 'app_suggestion' && (
+                                <span className="scope-badge">
+                                  {suggestionStatus(state.suggestions, entry.inboxId)}
+                                </span>
+                              )}
                               <span
                                 className={`scope-badge ${entry.scopeId === sharedScope ? '' : 'private'}`}
                               >

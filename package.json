@@ -11,6 +11,7 @@
     "demo": "tsx scripts/demo.ts",
     "test:browser": "playwright test",
     "test:boundaries": "node scripts/check-boundaries.mjs",
+    "test:suggestion-bridge": "node --import tsx --test scripts/suggestion-bridge/bridge.test.mjs",
     "check:public-source": "node scripts/check-public-source.mjs",
     "android:assets": "pnpm --filter @our-place/web build && cap sync android",
     "dev": "pnpm --parallel --filter @our-place/server --filter @our-place/web dev",

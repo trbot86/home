@@ -205,7 +205,7 @@ export class SuggestionsRepository {
       this.db
         .prepare(
           `SELECT max(a.last_seen_at) AS seen FROM suggestion_agents a JOIN worker_actors w ON w.worker_id=a.agent_id
-      JOIN clients c ON c.client_id=a.client_id WHERE a.enabled=1 AND w.active=1 AND c.enabled=1`,
+      JOIN clients c ON c.client_id=a.client_id WHERE a.enabled=1 AND a.accepting_work=1 AND w.active=1 AND c.enabled=1`,
         )
         .get() as { seen: number | null }
     ).seen;
@@ -301,6 +301,19 @@ export class SuggestionsRepository {
       });
     } else {
       if (
+        c.deletedAt !== null &&
+        this.db
+          .prepare(
+            `SELECT 1 FROM suggestion_messages m JOIN records r ON r.record_id=m.message_id
+        WHERE m.suggestion_id=? AND r.deleted_at IS NULL AND NOT EXISTS (
+          SELECT 1 FROM record_changes wc JOIN record_changes mc ON mc.change_set_id=wc.change_set_id
+          WHERE wc.record_id=? AND wc.before_revision=0 AND mc.record_id=m.message_id AND mc.before_revision=0
+        ) LIMIT 1`,
+          )
+          .get(c.suggestionId, before.recordId)
+      )
+        throw new Rejection('discussion_has_later_messages');
+      if (
         this.db
           .prepare(
             "SELECT 1 FROM suggestion_work_requests WHERE suggestion_id=? AND state<>'cancelled' LIMIT 1",
@@ -363,6 +376,13 @@ export class SuggestionsRepository {
         now,
       );
       changes.push({ before: null, after: workflow });
+    } else {
+      const before = this.get(context, existing.workflow_id);
+      if (before.content.deletedAt !== null)
+        changes.push({
+          before,
+          after: this.setContent(context, before, { ...before.content, deletedAt: null }, now),
+        });
     }
     if (kind === 'PostSuggestionMessage' && args.replyToQuestionId) {
       const question = this.db

@@ -1,10 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readdir, copyFile, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { CommandKind, CommandOutcome } from '@our-place/contracts';
 import { integrationFixture } from './integration-fixture.js';
 import { buildApp } from '../src/app.js';
 import { createRecordFeatures } from '../src/application/record-features.js';
+import { migrationsRoot } from '../src/paths.js';
+import { migrate, immediate } from '../src/infrastructure/database.js';
+import { ensureRecipeWorker } from '../src/features/access/workers.js';
 import {
   provisionSuggestionAgent,
   authenticateSuggestionAgent,
@@ -15,6 +20,45 @@ function applied(outcome: CommandOutcome) {
   if (outcome.status !== 'Applied') throw new Error();
   return outcome;
 }
+test('022 preserves existing rows and recipe-worker identity, including rollback of its referenced-table rebuild', async () => {
+  const f = await integrationFixture();
+  try {
+    for (const name of (await readdir(migrationsRoot)).filter((n) => n.endsWith('.sql') && n < '022_'))
+      await copyFile(join(migrationsRoot, name), join(f.oldMigrations, name));
+    migrate(f.db, f.oldMigrations);
+    const worker = immediate(f.db, () => ensureRecipeWorker(f.db, f.legacy.contexts[0]!));
+    const tables = (
+      f.db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('schema_migrations','record_kinds','sqlite_sequence') ORDER BY name",
+        )
+        .all() as { name: string }[]
+    ).map((t) => t.name);
+    const snapshot = () => tables.map((t) => f.db.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all()),
+      before = snapshot();
+    const filename = '022_suggestion_discussions.sql',
+      sql = await readFile(join(migrationsRoot, filename), 'utf8');
+    for (const fault of [
+      'SELECT missing_suggestion_migration();',
+      "INSERT INTO suggestion_agents(agent_id,client_id,token_digest,created_at) VALUES ('missing-worker','missing-client','bad',0);",
+    ]) {
+      await writeFile(join(f.oldMigrations, filename), sql + '\n' + fault);
+      assert.throws(() => migrate(f.db, f.oldMigrations), /function|foreign key check/);
+      assert.deepEqual(snapshot(), before);
+      assert.equal(f.db.pragma('foreign_keys', { simple: true }), 1);
+    }
+    migrate(f.db);
+    assert.deepEqual(snapshot(), before);
+    assert.deepEqual(
+      immediate(f.db, () => ensureRecipeWorker(f.db, f.legacy.contexts[0]!)),
+      worker,
+    );
+    assert.equal(f.db.pragma('integrity_check', { simple: true }), 'ok');
+    assert.deepEqual(f.db.pragma('foreign_key_check'), []);
+  } finally {
+    await f.close();
+  }
+});
 export async function suggestionFixture() {
   const f = await integrationFixture();
   const service = await buildApp({
@@ -126,6 +170,25 @@ test('private discussion inherits access and invalid question rolls back every r
     assert.deepEqual(f.db.prepare('SELECT count(*) AS n FROM records').get(), baseline);
     assert.ok(count);
     assert.equal(f.features.suggestions.snapshot(f.a).work.length, 0);
+  } finally {
+    await f.close();
+  }
+});
+test('undo cannot hide a later discussion; replying after a fully undone discussion restores its workflow', async () => {
+  const f = await suggestionFixture();
+  try {
+    const id = f.suggestion(),
+      first = applied(f.run('PostSuggestionMessage', f.reply(id)));
+    applied(f.run('PostSuggestionMessage', f.reply(id), f.b));
+    assert.equal(f.run('UndoChangeSet', { changeSetId: first.changeSetId }).status, 'Rejected');
+    const other = f.suggestion(),
+      only = applied(f.run('PostSuggestionMessage', f.reply(other)));
+    applied(f.run('UndoChangeSet', { changeSetId: only.changeSetId }));
+    applied(f.run('RequestSuggestionWork', { recordId: randomUUID(), suggestionId: other }));
+    assert.equal(
+      f.features.suggestions.snapshot(f.a).workflows.find((w) => w.suggestionId === other)!.deletedAt,
+      null,
+    );
   } finally {
     await f.close();
   }
