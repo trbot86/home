@@ -2,6 +2,7 @@ import { isAbsolute, resolve } from 'node:path';
 import { chmod } from 'node:fs/promises';
 import { buildCaptureApp } from './capture-app.js';
 import { installation } from './infrastructure/database.js';
+import { prepareCaptureSocket } from './capture-socket.js';
 
 if (process.env['CAPTURE_ENABLED'] !== '1') throw new Error('Capture listener is disabled');
 const dataRoot = process.env['DATA_ROOT'],
@@ -25,6 +26,7 @@ if (socketPath) {
   // The parent directory is a dedicated socket volume shared only with the receiver.
   // Both processes use the same unprivileged UID. No database/media mount is shared with it.
   process.umask(0o077);
+  await prepareCaptureSocket(socketPath);
   await app.listen({ path: socketPath });
   if (process.platform !== 'win32') await chmod(socketPath, 0o600);
 } else {

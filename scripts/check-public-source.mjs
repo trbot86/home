@@ -47,9 +47,14 @@ for (const path of paths) {
   const content = bytes.toString('utf8');
   for (const [rule, pattern] of textRules) if (pattern.test(content)) report(path, rule);
   if (privateValues.some(value => content.includes(value))) report(path, 'local deployment value or credential');
+  // Exact reviewed IANA special-use ranges are public policy constants, never live addresses.
+  // Any change to this one file loses the exception until its full contents are reviewed again.
+  const standardNetworkPolicy = path === 'ops/alexa-network/non-public-v4.txt' &&
+    createHash('sha256').update(content.replaceAll('\r\n', '\n')).digest('hex') ===
+      '1ec11c882cb0b27b6f9122a92438c1609840b186a23687317888a31aaa6b2f31';
   for (const match of content.matchAll(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g)) {
     const ip = match[0], parts = ip.split('.').map(Number);
-    if (parts.some(n => n > 255) || ip === '10.0.2.2') continue; // Standard Android emulator host alias, never a household address.
+    if (standardNetworkPolicy || parts.some(n => n > 255) || ip === '10.0.2.2') continue; // Standard network constants, never household addresses.
     if (parts[0] === 10 || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) || (parts[0] === 192 && parts[1] === 168) ||
       (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) || (parts[0] === 169 && parts[1] === 254)) report(path, 'private network address');
   }

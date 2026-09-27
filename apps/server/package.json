@@ -5,7 +5,8 @@
   "type": "module",
   "files": [
     "dist",
-    "migrations"
+    "migrations",
+    "capture-entry.sh"
   ],
   "scripts": {
     "dev": "tsx watch src/main.ts --development",
