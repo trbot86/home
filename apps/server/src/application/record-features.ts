@@ -14,7 +14,7 @@ export function createRecordFeatures(db: Sqlite, access: AccessService, househol
   const shopping = new ShoppingRepository(db, access);
   const home = new HomeRepository(db, access);
   const recipes = new RecipesRepository(db, access);
-  const tasks = new TasksRepository(db, access, householdTimeZone, home);
+  const tasks = new TasksRepository(db, access, householdTimeZone, home, recipes);
   const records = new RecordRegistry(db, [
     inboxRecordAdapter(inbox),
     ...shopping.adapters(),

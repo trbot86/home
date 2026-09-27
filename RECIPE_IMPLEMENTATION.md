@@ -1,9 +1,9 @@
 # Recipes, cooking and recipe shopping groups
 
 Implementation branch after the deployed Home release. Product requirements remain
-in PLANNING.md and the connected schema in DATA_MODEL.md. Migrations 001–008 are
-immutable. Recipe migration 009 is committed on the feature branch and also remains
-immutable; it has not been deployed and no live recipe data exists yet.
+in PLANNING.md and the connected schema in DATA_MODEL.md. Committed migrations are
+immutable, including recipe migrations on this feature branch. The live household
+still uses 001–008; no recipe migration has been deployed.
 
 ## Intended workflow
 
@@ -195,8 +195,39 @@ images and Room/photo reading after the test server stopped. The reusable camera
 and gallery picker was previously verified with the Home photo editor; this pass
 checks recipe attachment transfer and display using a synthetic image.
 
-The current Windows server suite has 112 passes and one Unix-socket test skipped;
+At this checkpoint the Windows server suite had 112 passes and one Unix-socket test skipped;
 the contract and voice packages add five and fourteen passes. Type checking, package
 boundaries and the web/Android builds pass. These changes remain on the development
 branch. Custom collection management, linked cooking tasks, ingredient shopping
 groups and the final backup/upgrade/deployment checks remain before Food release.
+
+## Cooking task checkpoint (2026-09-27)
+
+Migration 013 adds a same-scope task-owned recipe link. The initial cooking task
+refers to one recipe, and a task chooses either a cooking or maintenance completion
+plan. Recipes retain their own revision: creating, postponing or completing a task
+does not rewrite its recipe or change collections and pins. Archiving keeps existing
+plans; a recipe with retained cooking tasks or meal records cannot be deleted.
+
+Completion creates the task completion, cooking record and optional next occurrence
+in one transaction, with one changeset and receipt. The actual date and performer
+are fixed by the completion; meal notes/photos remain editable. Undo/redo covers the
+whole action and refuses reversal after conflicting edits to the meal, task or next
+occurrence. Manual past cooking does not check off a task. Old task command bytes
+and receipts are unchanged; the optional cooking field defaults to null in retained
+history, and old editor buffers acquire an empty recipe selection when reopened.
+
+Food exposes Create a to-do, plan editing, actual completion, task history and the
+same date picker/postponement component used by Tasks. Task cards link back to the
+recipe. The browser workflow checks draft recovery, assignment, postponement without
+moving a real deadline, monthly recurrence from actual completion and compound
+undo/redo. The server checks replay, rollback, privacy, foreign keys, archive/delete
+dependencies and partner-edit guards. Current Linux checks pass 116 server tests,
+five contract tests and fourteen voice-package tests; Windows skips only the Unix
+socket test. Ingredient shopping groups and release verification remain outstanding.
+
+The Android emulator also passed linked task creation, recipe navigation, actual-date
+monthly recurrence and compound undo/redo alongside the existing native Food checks.
+Its APK build and ten unit tests pass. The eight affected Food, Tasks and Home browser
+flows pass; final release checks will cover the complete client again after shopping
+groups are connected. No cooking-task tests use the live household database.

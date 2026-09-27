@@ -2,6 +2,7 @@ import { Type, type Static } from '@sinclair/typebox';
 import { Id, Instant, Revision, object } from './primitives.js';
 import { Attachments } from './attachments.js';
 import { MaintenancePlan } from './home.js';
+import { CookingPlan } from './recipes.js';
 export const CalendarDate = Type.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' });
 const nullableDate = Type.Union([CalendarDate, Type.Null()]);
 const nullableId = Type.Union([Id, Type.Null()]);
@@ -21,8 +22,9 @@ export const TaskDefinitionFields = {
   defaultAssigneeId: nullableId,
   defaultPriority: TaskPriority,
   recurrence: Type.Union([TaskRecurrence, Type.Null()]),
-  // Optional on the wire: frozen requests and retained history predate maintenance links.
+  // Optional on the wire: frozen requests and retained history predate these completion plans.
   maintenance: Type.Optional(Type.Union([MaintenancePlan, Type.Null()])),
+  cooking: Type.Optional(Type.Union([CookingPlan, Type.Null()])),
 };
 export const TaskOccurrenceFields = {
   assigneeId: nullableId,

@@ -5,6 +5,7 @@ import { RecipeEditor } from './RecipeEditor.js';
 import { RecipeJournalEditor } from './RecipeJournalEditor.js';
 import { RecipeImportReview } from './RecipeImportReview.js';
 import { RecipeHistory } from './RecipeHistory.js';
+import { RecipeTasks } from './RecipeTasks.js';
 import { recipeDuration } from './format.js';
 import { AttachmentDialog, type AttachmentSaved } from '../AttachmentDialog.js';
 import { AttachmentGallery } from '../AttachmentGallery.js';
@@ -30,19 +31,21 @@ export function Food({
   run,
   onError,
   onPhotosSaved,
+  initialRecipeId,
 }: {
   client: ClientPlatform;
   state: ClientState;
   run: RunRecordCommand;
   onError: (error: unknown) => void;
   onPhotosSaved: AttachmentSaved;
+  initialRecipeId?: string | null;
 }) {
   const [view, setView] = useState('want_to_try'),
     [scope, setScope] = useState('all'),
     [search, setSearch] = useState(''),
     [limit, setLimit] = useState(24),
     [cookingLimit, setCookingLimit] = useState(20),
-    [selected, setSelected] = useState<string | null>(null);
+    [selected, setSelected] = useState<string | null>(initialRecipeId ?? null);
   const [editor, setEditor] = useState<'new' | 'edit' | null>(null),
     [journal, setJournal] = useState<{ mode: 'adjustment' | 'cooking'; id?: string } | null>(null),
     [photosId, setPhotosId] = useState<string | null>(null),
@@ -83,6 +86,9 @@ export function Food({
   const cooking = snapshot.cookingRecords
     .filter((c) => c.recipeId === selected && c.deletedAt === null)
     .sort((a, b) => b.cookedAt - a.cookedAt);
+  const hasCookingTasks = state.tasks.definitions.some(
+    (t) => t.cooking?.recipeId === selected && t.deletedAt === null,
+  );
   const editingAdjustment =
     journal?.mode === 'adjustment'
       ? recipe?.adjustments.find((a) => a.adjustmentId === journal.id)
@@ -447,6 +453,14 @@ export function Food({
               </div>
             )}
             <div className="food-recipe-body">
+              <RecipeTasks
+                key={recipe.recordId}
+                client={client}
+                state={state}
+                recipe={recipe}
+                run={run}
+                onError={onError}
+              />
               <section>
                 <h3>Ingredients</h3>
                 {recipe.ingredients.length ? (
@@ -626,10 +640,10 @@ export function Food({
               </div>
               {removing === recipe.recordId && (
                 <p className="notice">
-                  {cooking.length
-                    ? 'This recipe has cooking history. Archive it to keep everything together.'
+                  {cooking.length || hasCookingTasks
+                    ? 'This recipe has cooking history or linked tasks. Archive it to keep everything together.'
                     : 'Remove this recipe? Its text remains available in history.'}{' '}
-                  {!cooking.length && (
+                  {!cooking.length && !hasCookingTasks && (
                     <button
                       disabled={disabled(recipe.recordId)}
                       onClick={() => {

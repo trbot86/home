@@ -167,3 +167,57 @@ test('recipe forms survive reload and lost acknowledgement without duplicate sav
     .click();
   await expect(page.locator('.food-card').filter({ hasText: 'Private unfinished pie' })).toHaveCount(0);
 });
+
+test('recipe cooking tasks preserve plans, link back from Tasks, postpone independently and undo the whole meal completion', async ({
+  page,
+}) => {
+  await login(page);
+  await manual(page, 'Planned lentil soup');
+  await page.getByRole('button', { name: 'Create a to-do', exact: true }).click();
+  await expect(page.getByLabel('Task title', { exact: true })).toHaveValue('Make Planned lentil soup');
+  await expect(page.getByLabel('Cooks (optional)', { exact: true })).toHaveValue(/.+/);
+  await page.getByLabel('Assigned to', { exact: true }).selectOption({ label: 'Sam' });
+  await page.getByLabel('Flexible target', { exact: true }).fill('2026-10-01');
+  await page.getByLabel('Actual deadline (optional)', { exact: true }).fill('2026-11-30');
+  await page.getByLabel('Repeat after completion', { exact: true }).selectOption('months');
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.locator('.food-card').filter({ hasText: 'Planned lentil soup' }).click();
+  await page.getByRole('button', { name: 'Create a to-do', exact: true }).click();
+  await expect(page.getByLabel('Flexible target', { exact: true })).toHaveValue('2026-10-01');
+  await page.getByLabel('Task title', { exact: true }).press('Control+Enter');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  let plan = page.locator('.food-cooking-task').filter({ hasText: 'Make Planned lentil soup' });
+  await expect(plan).toContainText('Sam');
+  await expect(plan).toContainText('Target Oct 1, 2026');
+  await plan.getByText('Move a date', { exact: true }).click();
+  await plan.getByRole('button', { name: '+1 week', exact: true }).click();
+  await expect(plan).toContainText('Target Oct 8, 2026');
+  await expect(plan).toContainText('Deadline Nov 30, 2026');
+  await expect(page.locator('.food-cooking article')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Tasks', exact: true }).click();
+  await page.getByLabel('Task person').selectOption('everyone');
+  await page.getByRole('button', { name: 'All tasks', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipe: Planned lentil soup', exact: true }).click();
+  await expect(page.locator('.food-detail-heading')).toContainText('Planned lentil soup');
+  plan = page.locator('.food-cooking-task').filter({ hasText: 'Make Planned lentil soup' });
+  await plan.getByRole('button', { name: 'Record completion', exact: true }).click();
+  await page.getByLabel('Actually completed at', { exact: true }).fill('2026-08-31T18:30');
+  await page.getByLabel('Done by', { exact: true }).selectOption({ label: 'Sam' });
+  await page.getByLabel('Completion note', { exact: true }).fill('Made with smoked paprika.');
+  await page.getByLabel('Completion note', { exact: true }).press('Control+Enter');
+  await expect(page.locator('.food-cooking')).toContainText('smoked paprika');
+  await expect(plan).toContainText('Target Sep 30, 2026');
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('.food-cooking article')).toHaveCount(0);
+  await expect(plan).toContainText('Target Oct 8, 2026');
+  await page.keyboard.press('Control+Shift+z');
+  await expect(page.locator('.food-cooking article')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Edit cooking notes', exact: true }).click();
+  await expect(page.getByLabel('Cooked by', { exact: true })).toBeDisabled();
+  await expect(page.getByLabel('Cooked at', { exact: true })).toHaveAttribute('readonly', '');
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.setViewportSize({ width: 320, height: 1100 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

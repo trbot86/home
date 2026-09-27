@@ -44,8 +44,9 @@ and a source picture in the background. It offers Want to try, Favourites, indep
 Make soon pins, source editing, household adjustments, cooking notes/photos and
 history. Multiple recipes on a page, or an edit during import, require review before
 applying source details. Saved recipes remain readable offline; unfinished forms
-stay on the device until submitted online. Linked cooking tasks and ingredient
-shopping groups are still being built, and this slice is not yet deployed. See
+stay on the device until submitted online. Linked cooking tasks use ordinary task
+dates and recurrence, and record the meal when completed. Ingredient shopping groups
+are still being built, and this slice is not yet deployed. See
 [recipe implementation](RECIPE_IMPLEMENTATION.md) for verification and limits.
 
 To develop with live reload, bootstrap the default development data first with `pnpm --filter @our-place/server bootstrap` using JSON on stdin (format below), then `pnpm dev`. The web development server proxies `/api` to the local server. The prebuilt demo is the quickest first review.

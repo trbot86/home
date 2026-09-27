@@ -82,6 +82,26 @@ try {
   await page.getByLabel('Cooking notes', { exact: true }).fill('Shared native dinner.');
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('.food-cooking')).toContainText('Shared native dinner.');
+  await page.getByRole('button', { name: 'Create a to-do', exact: true }).click();
+  await expect(page.getByLabel('Task title', { exact: true })).toHaveValue(`Make ${title}`);
+  await page.getByLabel('Repeat after completion', { exact: true }).selectOption('months');
+  await page.getByRole('button', { name: 'Add task', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Tasks', exact: true }).click();
+  await page.getByRole('button', { name: 'All tasks', exact: true }).click();
+  await page.getByRole('button', { name: `Recipe: ${title}`, exact: true }).click();
+  const plan = page.locator('.food-cooking-task').filter({ hasText: `Make ${title}` });
+  await plan.getByRole('button', { name: 'Record completion', exact: true }).click();
+  await page.getByLabel('Actually completed at', { exact: true }).fill('2026-08-31T18:30');
+  await page.getByLabel('Done by', { exact: true }).selectOption({ label: 'Sam' });
+  await page.getByLabel('Completion note', { exact: true }).fill('Planned native dinner.');
+  await page.getByRole('dialog').getByRole('button', { name: 'Record completion', exact: true }).click();
+  await expect(plan).toContainText('Target Sep 30, 2026');
+  await expect(page.locator('.food-cooking article')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.locator('.food-cooking article')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(page.locator('.food-cooking article')).toHaveCount(2);
   await page.getByRole('button', { name: 'Save a recipe', exact: true }).click();
   await page.getByLabel('Recipe source link', { exact: true }).fill('https://example.com/multiple');
   await page.getByRole('button', { name: 'Save to Want to try', exact: true }).click();
@@ -137,7 +157,7 @@ try {
   for (const field of ['session', 'recipes', 'recipeImports', 'views'])
     assert.deepEqual(after[field], before[field]);
   console.log(
-    'PASS: native Food form recovery, Back, photo upload/download, notes, cooking, Soon, import review, history and offline Room/photo cache.',
+    'PASS: native Food form recovery, Back, photos, notes, linked cooking completion/recurrence/undo, Soon, import review, history and offline Room/photo cache.',
   );
 } finally {
   await browser.close();

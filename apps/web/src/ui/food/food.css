@@ -243,7 +243,8 @@
   border-radius: 12px;
 }
 .food-adjustments article + article,
-.food-cooking article + article {
+.food-cooking article + article,
+.food-plans article + article {
   border-top: 1px solid var(--line);
   padding-top: 16px;
   margin-top: 16px;

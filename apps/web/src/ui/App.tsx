@@ -73,6 +73,7 @@ export function App({ client }: { client: ClientPlatform }) {
   const reversal = useRef<typeof toast>(null);
   const reversalLock = useRef(false);
   const [selected, setSelected] = useState<{ id: string; history: boolean } | null>(null);
+  const [recipeTarget, setRecipeTarget] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [text, setText] = useState('');
   const [captureScope, setCaptureScope] = useState('');
@@ -243,6 +244,7 @@ export function App({ client }: { client: ClientPlatform }) {
         setDraft(null);
         setText('');
         setSelected(null);
+        setRecipeTarget(null);
         setToast(null);
         reversal.current = null;
         setScope('all');
@@ -283,6 +285,7 @@ export function App({ client }: { client: ClientPlatform }) {
       setScope('all');
       setSearch('');
       setView(nextView);
+      setRecipeTarget(null);
     } catch (error) {
       showError(error);
     } finally {
@@ -643,6 +646,10 @@ export function App({ client }: { client: ClientPlatform }) {
                 run={runCommand}
                 onError={showError}
                 onPhotosSaved={acceptOutcome}
+                onOpenRecipe={(id) => {
+                  setRecipeTarget(id);
+                  setView('food');
+                }}
               />
             ) : view === 'shopping' ? (
               <Shopping client={client} state={state} run={runCommand} onError={showError} />
@@ -661,6 +668,7 @@ export function App({ client }: { client: ClientPlatform }) {
                 run={runCommand}
                 onError={showError}
                 onPhotosSaved={acceptOutcome}
+                initialRecipeId={recipeTarget}
               />
             ) : view === 'storage' ? (
               <>

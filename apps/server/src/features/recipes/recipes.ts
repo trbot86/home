@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   emptyRecipes,
   isValid,
@@ -13,6 +14,8 @@ import {
   type RecipeSnapshot,
   type RecipeStep,
   type RecipeFields,
+  type CookingPlan,
+  type TaskCompletion,
 } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { NotFound, Rejection } from '../../application/errors.js';
@@ -270,6 +273,60 @@ export class RecipesRepository {
     if (revision !== undefined && record.revision !== revision) throw new Rejection('revision_conflict');
     return record;
   }
+  taskPlan(taskId: string): CookingPlan | null {
+    return (
+      (this.db.prepare('SELECT recipe_id AS recipeId FROM task_recipe_links WHERE task_id=?').get(taskId) as
+        CookingPlan | undefined) ?? null
+    );
+  }
+  validateTaskPlan(
+    context: RequestContext,
+    scopeId: string,
+    plan: CookingPlan | null,
+    previous: CookingPlan | null,
+  ): void {
+    if (!plan) return;
+    const recipe = this.require(context, plan.recipeId, 'recipe');
+    if (recipe.content.scopeId !== scopeId) throw new Rejection('scope_mismatch');
+    if (recipe.content.deletedAt !== null) throw new Rejection('recipe_unavailable');
+    if (recipe.content.archived && previous?.recipeId !== plan.recipeId)
+      throw new Rejection('recipe_archived');
+  }
+  saveTaskPlan(taskId: string, scopeId: string, plan: CookingPlan | null): void {
+    if (!this.db.inTransaction) throw new Error('Cooking relation must share the task transaction');
+    if (!plan) this.db.prepare('DELETE FROM task_recipe_links WHERE task_id=?').run(taskId);
+    else
+      this.db
+        .prepare(
+          `INSERT INTO task_recipe_links(task_id,scope_id,recipe_id) VALUES (?,?,?)
+      ON CONFLICT(task_id) DO UPDATE SET recipe_id=excluded.recipe_id`,
+        )
+        .run(taskId, scopeId, plan.recipeId);
+  }
+  recordCompletion(
+    context: RequestContext,
+    plan: CookingPlan,
+    completion: TaskCompletion,
+    now: number,
+  ): RecordChange {
+    const after = this.create(
+      context,
+      'recipe_cooking_record',
+      randomUUID(),
+      {
+        scopeId: completion.scopeId,
+        deletedAt: null,
+        attachments: [],
+        recipeId: plan.recipeId,
+        completionId: completion.recordId,
+        cookedAt: completion.completedAt,
+        cookedByPersonId: completion.performedByPersonId,
+        notes: completion.note,
+      },
+      now,
+    );
+    return { before: null, after };
+  }
   private checkReferences(context: RequestContext, kind: RecipeKind, id: string, c: RecordContent): void {
     this.access.requireScope(context, c.scopeId);
     if (kind === 'recipe') {
@@ -288,6 +345,16 @@ export class RecipesRepository {
           .get(id)
       )
         throw new Rejection('recipe_has_cooking_records');
+      if (
+        c.deletedAt !== null &&
+        this.db
+          .prepare(
+            `SELECT 1 FROM task_recipe_links l JOIN records t ON t.record_id=l.task_id
+        WHERE l.recipe_id=? AND t.deleted_at IS NULL LIMIT 1`,
+          )
+          .get(id)
+      )
+        throw new Rejection('recipe_has_cooking_tasks');
     } else if (kind === 'recipe_collection') {
       if (
         c.deletedAt !== null &&
@@ -303,6 +370,18 @@ export class RecipesRepository {
       if (recipe.content.scopeId !== c.scopeId) throw new Rejection('scope_mismatch');
       if (c.deletedAt === null && recipe.content.deletedAt !== null)
         throw new Rejection('recipe_unavailable');
+      if (c.completionId !== null) {
+        const completion = this.db
+          .prepare(
+            'SELECT scope_id,completed_at,performed_by_person_id FROM task_completions WHERE completion_id=?',
+          )
+          .get(c.completionId) as
+          { scope_id: string; completed_at: number; performed_by_person_id: string } | undefined;
+        if (!completion || completion.scope_id !== c.scopeId) throw new Rejection('completion_unavailable');
+        if (completion.completed_at !== c.cookedAt) throw new Rejection('completion_time_is_fixed');
+        if (completion.performed_by_person_id !== c.cookedByPersonId)
+          throw new Rejection('completion_performer_is_fixed');
+      }
       if (c.cookedByPersonId !== null) {
         const scope = this.db
           .prepare('SELECT owner_person_id FROM visibility_scopes WHERE scope_id=?')
@@ -582,6 +661,15 @@ export class RecipesRepository {
     return result();
   }
   private assertConsistent(): void {
+    if (
+      this.db
+        .prepare(
+          `SELECT 1 FROM task_recipe_links l JOIN records t ON t.record_id=l.task_id JOIN records r ON r.record_id=l.recipe_id
+      WHERE t.deleted_at IS NULL AND r.deleted_at IS NOT NULL LIMIT 1`,
+        )
+        .get()
+    )
+      throw new Rejection('recipe_has_cooking_tasks');
     if (
       this.db
         .prepare(

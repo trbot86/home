@@ -8,7 +8,6 @@ import {
   type TaskAttention,
 } from '@our-place/client';
 import {
-  addCalendarDate,
   calendarDateAt,
   type CommandKind,
   type TaskDefinition,
@@ -18,6 +17,7 @@ import {
 import { Icon } from '../Icon.js';
 import { date } from '../format.js';
 import { TaskEditor } from './TaskEditor.js';
+import { PostponeTask } from './PostponeTask.js';
 import { CompletionDialog } from './CompletionDialog.js';
 import { TaskHistory } from './TaskHistory.js';
 import { taskRecords, displayDate, priorityNames, type TaskRun } from './shared.js';
@@ -45,88 +45,20 @@ const groupOrder: TaskAttention[] = [
   'upcoming',
   'anytime',
 ];
-function Postpone({
-  item,
-  today,
-  disabled,
-  move,
-}: {
-  item: TaskOccurrence;
-  today: string;
-  disabled: boolean;
-  move: (field: 'targetDate' | 'reviewDate', value: string) => void;
-}) {
-  const [field, setField] = useState<'targetDate' | 'reviewDate'>('targetDate'),
-    [chosen, setChosen] = useState('');
-  const base = item[field] && item[field]! > today ? item[field]! : today;
-  return (
-    <details className="task-postpone">
-      <summary>Move a date</summary>
-      <div>
-        <label className="task-field">
-          Date to move
-          <select
-            aria-label="Date to move"
-            value={field}
-            onChange={(event) => setField(event.target.value as typeof field)}
-          >
-            <option value="targetDate">Flexible target</option>
-            <option value="reviewDate">Revisit date</option>
-          </select>
-        </label>
-        <p className="fine">From {displayDate(base)}. The deadline stays unchanged.</p>
-        <div className="task-presets">
-          {(
-            [
-              { count: 1, unit: 'days', label: '+1 day' },
-              { count: 1, unit: 'weeks', label: '+1 week' },
-              { count: 2, unit: 'weeks', label: '+2 weeks' },
-              { count: 1, unit: 'months', label: '+1 month' },
-            ] as const
-          ).map((preset) => (
-            <button
-              key={preset.label}
-              disabled={disabled}
-              title={`Move to ${addCalendarDate(base, preset.count, preset.unit)}`}
-              onClick={() => move(field, addCalendarDate(base, preset.count, preset.unit))}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-        <form
-          className="task-custom-date"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (chosen) move(field, chosen);
-          }}
-        >
-          <input
-            aria-label="Choose a new date"
-            type="date"
-            required
-            value={chosen}
-            disabled={disabled}
-            onChange={(event) => setChosen(event.target.value)}
-          />
-          <button disabled={disabled || !chosen}>Set date</button>
-        </form>
-      </div>
-    </details>
-  );
-}
 export function Tasks({
   client,
   state,
   run,
   onError,
   onPhotosSaved,
+  onOpenRecipe,
 }: {
   client: ClientPlatform;
   state: ClientState;
   run: TaskRun;
   onError: (error: unknown) => void;
   onPhotosSaved: AttachmentSaved;
+  onOpenRecipe: (id: string) => void;
 }) {
   const [view, setView] = useState<View>('focus'),
     [person, setPerson] = useState('mine'),
@@ -263,6 +195,15 @@ export function Tasks({
                 'linked asset'}
             </p>
           )}
+          {task.cooking && (
+            <p className="fine">
+              <button className="task-recipe-link" onClick={() => onOpenRecipe(task.cooking!.recipeId)}>
+                Recipe:{' '}
+                {state.recipes.recipes.find((recipe) => recipe.recordId === task.cooking!.recipeId)?.title ??
+                  'Open recipe'}
+              </button>
+            </p>
+          )}
           <AttachmentGallery client={client} attachments={task.attachments ?? []} />
           <div className="task-dates">
             {item.deadlineDate && (
@@ -345,7 +286,7 @@ export function Tasks({
               <Icon name="trash" size={16} />
             </button>
           </div>
-          <Postpone
+          <PostponeTask
             item={item}
             today={today}
             disabled={blocked}

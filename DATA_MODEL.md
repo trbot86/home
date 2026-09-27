@@ -181,7 +181,7 @@ erDiagram
 | `task_recurrences` | PK/FK `task_id`; mode `fixed/after_completion`, interval count/unit, anchor date, timezone, versioned schedule specification | Zero/one per task; task-owned. One recurrence module validates it. No hidden record IDs in JSON; exact supported fixed patterns remain a contract decision. |
 | `task_occurrences` (R) | `occurrence_id`; task, ordinal, state, nominal date?, assignee?, priority, deadline date/instant?, target date/instant?, review date? | Many/task over time; unique `(task_id, ordinal)`; **at most one open/task** initially. Occurrence changes do not silently edit task defaults. |
 | `task_completions` (R) | `completion_id`; occurrence, actual completed time, completing person?, notes, voided time? | At most one unvoided completion/occurrence. Recording time comes from changeset. |
-| `task_recipe_links` | PK `(task_id, recipe_id)`; purpose | Typed link owned by task. |
+| `task_recipe_links` | Initially PK `task_id`; recipe, scope, purpose `cooking` | Typed same-scope link owned by task. One recipe per cooking task initially; multiple-recipe meal bundles would extend this relationship. |
 | `home_assets` (R) | `asset_id`; name, model, serial?, location, acquired date? | Appliance/room/system, photos and documents. |
 | `maintenance_plans` | PK/FK `task_id`; asset, maintenance-specific instructions/reference | Extension of task, with no separate recurrence engine/registry ID. |
 | `maintenance_records` (R) | `maintenance_record_id`; asset, unique completion?, occurred time, notes, cost/currency? | Service log; can be historical without marking today's task complete. |

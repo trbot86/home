@@ -166,6 +166,7 @@ export function RecipeJournalEditor({
                 Cooked by
                 <select
                   aria-label="Cooked by"
+                  disabled={!!cooking?.completionId}
                   value={form.cookedByPersonId}
                   onChange={(e) => buffer.field('cookedByPersonId', e.target.value)}
                 >
@@ -184,7 +185,9 @@ export function RecipeJournalEditor({
                 </select>
               </label>
               <p className="fine">
-                Keep a record of this meal. This won’t complete an open task or change your favourites.
+                {cooking?.completionId
+                  ? 'The cooking date and person come from the task completion. Use its history to undo that action; you can edit these meal notes and photos here.'
+                  : 'Keep a record of this meal. This won’t complete an open task or change your favourites.'}
               </p>
             </>
           )}

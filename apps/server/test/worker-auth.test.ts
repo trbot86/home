@@ -15,6 +15,8 @@ import { ensureRecipeWorker, requireWorkerJob, type WorkerContext } from '../src
 import { HistoryService } from '../src/features/history/history.js';
 import { WriteCoordinator, requestDigest } from '../src/application/write-coordinator.js';
 import { Rejection, Unauthenticated } from '../src/application/errors.js';
+import { RecordRegistry } from '../src/features/records/record-registry.js';
+import { inboxRecordAdapter } from '../src/features/inbox/inbox-record.js';
 
 async function fixture() {
   const f = await integrationFixture();
@@ -269,12 +271,22 @@ test('010 preserves human/integration digests, rows, receipts and history while 
     const integrations = new IntegrationAccessService(f.db, f.now),
       issued = integrations.provision(human, 'Fixture speaker', 999999);
     const integration = integrations.authenticate(issued.secret);
-    const services = () => {
-      const records = createRecordFeatures(f.db, access),
-        history = new HistoryService(f.db, records.records, access);
-      return { history, writes: new WriteCoordinator(f.db, records.inbox, history, f.now, records.records) };
+    const services = (beforeUpgrade = false) => {
+      const features = createRecordFeatures(f.db, access);
+      // This pre-worker fixture contains only the older inbox/shopping/task roots.
+      // Its seed writer must not invoke invariants for recipe tables added later.
+      const records = beforeUpgrade
+        ? new RecordRegistry(f.db, [
+            inboxRecordAdapter(features.inbox),
+            ...features.shopping.adapters(),
+            ...features.tasks.adapters(),
+            ...features.home.adapters(),
+          ])
+        : features.records;
+      const history = new HistoryService(f.db, records, access);
+      return { history, writes: new WriteCoordinator(f.db, features.inbox, history, f.now, records) };
     };
-    const old = services(),
+    const old = services(true),
       id = randomUUID();
     const command: Envelope = {
       operationId: randomUUID(),

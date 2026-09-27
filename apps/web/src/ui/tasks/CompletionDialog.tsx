@@ -142,6 +142,12 @@ export function CompletionDialog({
           <p className="fine">
             This device’s time zone. Recurring work follows when it happened, even when recorded later.
           </p>
+          {task.cooking && (
+            <p className="fine">
+              This also saves a cooking record with the recipe. Your favourites and Make soon pin stay as you
+              chose them.
+            </p>
+          )}
           <label className="task-field">
             Done by
             <select

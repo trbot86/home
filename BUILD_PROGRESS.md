@@ -115,6 +115,9 @@ are unchanged by pins. Migrations 009–012 have not been applied to the live ho
 
 Verification includes 23 browser flows, ten Android unit tests, native Food flows,
 in-place APK preservation and a real public recipe import into a disposable database.
-See RECIPE_IMPLEMENTATION.md for exact coverage and limitations. Linked cooking tasks,
-ingredient shopping groups and release verification remain; the live app and its
+See RECIPE_IMPLEMENTATION.md for exact coverage and limitations. Cooking tasks are
+now connected through migration 013, with atomic meal/completion/recurrence history,
+guarded undo and shared date controls. The Linux build passes all 135 tests across
+server, contract and voice packages. Ingredient shopping groups and release
+verification remain; the live app and its
 private download still use the previous release.

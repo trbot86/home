@@ -6,6 +6,7 @@ import type {
   TaskOccurrence,
   TaskRecurrence,
   HomeAsset,
+  Recipe,
 } from '@our-place/contracts';
 import { RecordDialog } from '../RecordDialog.js';
 import { useSavedForm } from '../useSavedForm.js';
@@ -21,6 +22,7 @@ export function TaskEditor({
   onSaved,
   onError,
   asset,
+  recipe,
 }: {
   client: ClientPlatform;
   state: ClientState;
@@ -32,6 +34,7 @@ export function TaskEditor({
   onSaved: () => void;
   onError: (error: unknown) => void;
   asset?: HomeAsset;
+  recipe?: Recipe;
 }) {
   const session = state.session!,
     definition = mode !== 'occurrence',
@@ -40,8 +43,11 @@ export function TaskEditor({
     taskId: task?.recordId ?? crypto.randomUUID(),
     occurrenceId: occurrence?.recordId ?? crypto.randomUUID(),
     scopeId:
-      task?.scopeId ?? asset?.scopeId ?? session.scopes.find((scope) => scope.kind === 'shared')!.scopeId,
-    title: task?.title ?? '',
+      task?.scopeId ??
+      asset?.scopeId ??
+      recipe?.scopeId ??
+      session.scopes.find((scope) => scope.kind === 'shared')!.scopeId,
+    title: task?.title ?? (recipe ? `Make ${recipe.title}`.slice(0, 300) : ''),
     instructions: task?.instructions ?? '',
     context: task?.context ?? 'home',
     assigneeId: occurrence?.assigneeId ?? '',
@@ -56,9 +62,12 @@ export function TaskEditor({
     timeZone: task?.recurrence?.timeZone ?? state.tasks.timeZone,
     maintenanceAssetId: task?.maintenance?.assetId ?? asset?.recordId ?? '',
     maintenanceReference: task?.maintenance?.reference ?? '',
+    cookingRecipeId: task?.cooking?.recipeId ?? recipe?.recordId ?? '',
   });
   const record = mode === 'occurrence' ? occurrence : task,
-    key = record?.recordId ?? (asset ? `task:new:${asset.recordId}` : 'task:new');
+    key =
+      record?.recordId ??
+      (asset ? `task:new:${asset.recordId}` : recipe ? `task:recipe:${recipe.recordId}:new` : 'task:new');
   const buffer = useSavedForm(
       client,
       key,
@@ -69,6 +78,7 @@ export function TaskEditor({
       (saved) => ({
         maintenanceAssetId: task?.maintenance?.assetId ?? asset?.recordId ?? '',
         maintenanceReference: task?.maintenance?.reference ?? '',
+        cookingRecipeId: task?.cooking?.recipeId ?? recipe?.recordId ?? '',
         ...saved,
       }),
     ),
@@ -131,6 +141,7 @@ export function TaskEditor({
         maintenance: form.maintenanceAssetId
           ? { assetId: form.maintenanceAssetId, reference: form.maintenanceReference }
           : null,
+        cooking: form.cookingRecipeId ? { recipeId: form.cookingRecipeId } : null,
       };
       const plan = {
         assigneeId: form.assigneeId || null,
@@ -282,6 +293,7 @@ export function TaskEditor({
                       onChange={(event) => {
                         buffer.field('scopeId', event.target.value);
                         buffer.field('maintenanceAssetId', '');
+                        buffer.field('cookingRecipeId', '');
                         if (
                           session.scopes.find((scope) => scope.scopeId === event.target.value)?.kind ===
                           'private'
@@ -305,7 +317,10 @@ export function TaskEditor({
                 <select
                   aria-label="Maintains (optional)"
                   value={form.maintenanceAssetId}
-                  onChange={(event) => buffer.field('maintenanceAssetId', event.target.value)}
+                  onChange={(event) => {
+                    buffer.field('maintenanceAssetId', event.target.value);
+                    if (event.target.value) buffer.field('cookingRecipeId', '');
+                  }}
                 >
                   <option value="">No linked appliance or system</option>
                   {state.home.assets
@@ -339,6 +354,38 @@ export function TaskEditor({
                     Completing this task also records the work in the asset’s service log.
                   </p>
                 </>
+              )}
+              <label className="task-field">
+                Cooks (optional)
+                <select
+                  aria-label="Cooks (optional)"
+                  value={form.cookingRecipeId}
+                  onChange={(event) => {
+                    buffer.field('cookingRecipeId', event.target.value);
+                    if (event.target.value) buffer.field('maintenanceAssetId', '');
+                  }}
+                >
+                  <option value="">No linked recipe</option>
+                  {state.recipes.recipes
+                    .filter(
+                      (item) =>
+                        item.scopeId === form.scopeId &&
+                        item.deletedAt === null &&
+                        (!item.archived || item.recordId === form.cookingRecipeId),
+                    )
+                    .map((item) => (
+                      <option key={item.recordId} value={item.recordId}>
+                        {item.title}
+                        {item.archived ? ' · archived' : ''}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {form.cookingRecipeId && (
+                <p className="fine">
+                  Completing this task also records when the recipe was cooked, who made it and your
+                  completion note.
+                </p>
               )}
             </>
           )}

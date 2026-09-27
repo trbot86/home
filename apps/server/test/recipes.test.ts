@@ -175,6 +175,201 @@ function fixture(migrationsPath?: string) {
   };
 }
 
+function cookingTask(recipeId: string, scopeId: string) {
+  return {
+    recordId: randomUUID(),
+    occurrenceId: randomUUID(),
+    scopeId,
+    title: 'Make the soup',
+    instructions: '',
+    context: 'home',
+    defaultAssigneeId: null,
+    defaultPriority: 1,
+    recurrence: {
+      version: 1,
+      mode: 'after_completion',
+      count: 1,
+      unit: 'months',
+      timeZone: 'America/Toronto',
+    },
+    cooking: { recipeId },
+    assigneeId: null,
+    priority: 1,
+    deadlineDate: null,
+    targetDate: '2026-08-31',
+    reviewDate: null,
+  };
+}
+function cookingCompletion(f: ReturnType<typeof fixture>, task: ReturnType<typeof cookingTask>) {
+  return {
+    recordId: task.occurrenceId,
+    expectedRevision: f.active.tasks.get(f.a, task.occurrenceId).revision,
+    expectedTaskRevision: f.active.tasks.get(f.a, task.recordId).revision,
+    completionId: randomUUID(),
+    nextOccurrenceId: randomUUID(),
+    completedAt: Date.parse('2026-08-31T18:00:00Z'),
+    performedByPersonId: f.b.personId,
+    note: 'Made with extra lemon.',
+  };
+}
+
+test('cooking tasks record actual cooking, completion and recurrence atomically with replay and guarded undo', () => {
+  const f = fixture();
+  try {
+    const recipe = f.recipeArgs();
+    applied(f.run('CreateRecipe', recipe));
+    const task = cookingTask(recipe.recordId, f.shared);
+    applied(f.run('CreateTask', task));
+    assert.deepEqual(f.active.tasks.get(f.a, task.recordId).content.cooking, { recipeId: recipe.recordId });
+    assert.equal(f.get(recipe.recordId).revision, 1);
+    applied(
+      f.run('PostponeTaskOccurrence', {
+        recordId: task.occurrenceId,
+        expectedRevision: 1,
+        field: 'targetDate',
+        date: '2026-09-07',
+      }),
+    );
+    assert.equal(f.active.recipes.snapshot(f.a).cookingRecords.length, 0);
+    const completion = cookingCompletion(f, task),
+      request = f.envelope(completion),
+      outcome = applied(f.active.writes.execute(f.a, 'CompleteTaskOccurrence', request));
+    assert.equal(outcome.result.records.length, 5);
+    const log = f.active.recipes.snapshot(f.a).cookingRecords[0]!;
+    assert.equal(log.completionId, completion.completionId);
+    assert.equal(log.cookedAt, completion.completedAt);
+    assert.equal(log.cookedByPersonId, f.b.personId);
+    assert.equal(log.notes, completion.note);
+    assert.equal(f.active.tasks.get(f.a, completion.nextOccurrenceId).content.targetDate, '2026-09-30');
+    assert.equal(
+      f.active.history.list(f.a, log.recordId, 'recipe_cooking_record')[0]!.changeSetId,
+      outcome.changeSetId,
+    );
+    assert.equal(f.get(recipe.recordId).revision, 1);
+    assert.deepEqual(f.get(recipe.recordId).collectionIds, []);
+    assert.equal(applied(f.active.writes.execute(f.a, 'CompleteTaskOccurrence', request)).replayed, true);
+    assert.equal(f.active.recipes.snapshot(f.a).cookingRecords.length, 1);
+    rejected(f.run('UndoChangeSet', { changeSetId: outcome.changeSetId }, f.b), 'unavailable');
+    const undone = applied(f.run('UndoChangeSet', { changeSetId: outcome.changeSetId }));
+    assert.notEqual(f.active.recipes.get(f.a, log.recordId).content.deletedAt, null);
+    assert.equal(f.active.tasks.get(f.a, task.occurrenceId).content.state, 'open');
+    applied(f.run('RedoChangeSet', { changeSetId: undone.changeSetId }));
+    const latest = f.active.recipes.snapshot(f.a).cookingRecords[0]!;
+    rejected(
+      f.run('UpdateRecipeCookingRecord', {
+        recordId: latest.recordId,
+        expectedRevision: latest.revision,
+        cookedAt: latest.cookedAt + 1,
+        cookedByPersonId: latest.cookedByPersonId,
+        notes: latest.notes,
+      }),
+      'completion_time_is_fixed',
+    );
+    rejected(
+      f.run('UpdateRecipeCookingRecord', {
+        recordId: latest.recordId,
+        expectedRevision: latest.revision,
+        cookedAt: latest.cookedAt,
+        cookedByPersonId: f.a.personId,
+        notes: latest.notes,
+      }),
+      'completion_performer_is_fixed',
+    );
+    rejected(
+      f.run('DeleteRecipeCookingRecord', { recordId: latest.recordId, expectedRevision: latest.revision }),
+      'use_completion_history_to_undo',
+    );
+    applied(
+      f.run(
+        'UpdateRecipeCookingRecord',
+        {
+          recordId: latest.recordId,
+          expectedRevision: latest.revision,
+          cookedAt: latest.cookedAt,
+          cookedByPersonId: latest.cookedByPersonId,
+          notes: 'Partner added dinner notes.',
+        },
+        f.b,
+      ),
+    );
+    const redo = f.active.history.list(f.a, task.recordId, 'task')[0]!;
+    rejected(f.run('UndoChangeSet', { changeSetId: redo.changeSetId }), 'revision_conflict');
+    assert.deepEqual(f.db.pragma('foreign_key_check'), []);
+  } finally {
+    f.close();
+  }
+});
+
+test('cooking links enforce privacy and recipe dependencies; archived recipes retain existing plans', () => {
+  const f = fixture();
+  try {
+    const privateRecipe = f.recipeArgs(f.privateScope);
+    applied(f.run('CreateRecipe', privateRecipe));
+    rejected(f.run('CreateTask', cookingTask(privateRecipe.recordId, f.shared)), 'scope_mismatch');
+    rejected(f.run('CreateTask', cookingTask(privateRecipe.recordId, f.privateScope), f.b), 'unavailable');
+    const privateTask = cookingTask(privateRecipe.recordId, f.privateScope);
+    applied(f.run('CreateTask', privateTask));
+    assert.equal(f.active.tasks.snapshot(f.b).definitions.length, 0);
+    const recipe = f.recipeArgs(),
+      created = applied(f.run('CreateRecipe', recipe)),
+      task = cookingTask(recipe.recordId, f.shared);
+    applied(f.run('CreateTask', task));
+    assert.throws(
+      () =>
+        f.db
+          .prepare('UPDATE task_recipe_links SET recipe_id=? WHERE task_id=?')
+          .run(privateRecipe.recordId, task.recordId),
+      /FOREIGN KEY/,
+    );
+    rejected(f.run('UndoChangeSet', { changeSetId: created.changeSetId }), 'recipe_has_cooking_tasks');
+    rejected(
+      f.run('DeleteRecipe', { recordId: recipe.recordId, expectedRevision: 1 }),
+      'recipe_has_cooking_tasks',
+    );
+    applied(f.run('SetRecipeArchived', { recordId: recipe.recordId, expectedRevision: 1, archived: true }));
+    rejected(f.run('CreateTask', cookingTask(recipe.recordId, f.shared)), 'recipe_archived');
+    const manual = {
+      recordId: randomUUID(),
+      scopeId: f.shared,
+      recipeId: recipe.recordId,
+      cookedAt: f.now() - 10000,
+      cookedByPersonId: f.a.personId,
+      notes: 'An earlier meal',
+    };
+    applied(f.run('CreateRecipeCookingRecord', manual));
+    assert.equal(f.active.tasks.get(f.a, task.occurrenceId).content.state, 'open');
+    applied(f.run('CompleteTaskOccurrence', cookingCompletion(f, task)));
+    assert.equal(f.active.recipes.snapshot(f.a).cookingRecords.length, 2);
+  } finally {
+    f.close();
+  }
+});
+
+test('failed cooking completion rolls back every effect and preserves the retry request', () => {
+  const f = fixture();
+  try {
+    const recipe = f.recipeArgs();
+    applied(f.run('CreateRecipe', recipe));
+    const task = cookingTask(recipe.recordId, f.shared);
+    applied(f.run('CreateTask', task));
+    const command = f.envelope(cookingCompletion(f, task)),
+      before = f.active.tasks.snapshot(f.a);
+    const receipts = f.db.prepare('SELECT * FROM operation_receipts').all(),
+      history = f.db.prepare('SELECT * FROM change_sets').all();
+    f.failCommit = true;
+    assert.throws(() => f.active.writes.execute(f.a, 'CompleteTaskOccurrence', command), /injected failure/);
+    f.failCommit = false;
+    assert.deepEqual(f.active.tasks.snapshot(f.a), before);
+    assert.deepEqual(f.active.recipes.snapshot(f.a).cookingRecords, []);
+    assert.deepEqual(f.db.prepare('SELECT * FROM operation_receipts').all(), receipts);
+    assert.deepEqual(f.db.prepare('SELECT * FROM change_sets').all(), history);
+    applied(f.active.writes.execute(f.a, 'CompleteTaskOccurrence', command));
+    assert.equal(f.active.recipes.snapshot(f.a).cookingRecords.length, 1);
+  } finally {
+    f.close();
+  }
+});
+
 test('default recipe collections converge without duplicates; membership belongs to the recipe and moves atomically', () => {
   const f = fixture();
   try {

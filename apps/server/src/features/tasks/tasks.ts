@@ -17,6 +17,7 @@ import {
   type TaskSnapshot,
   type Attachment,
   type MaintenancePlan,
+  type CookingPlan,
 } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { NotFound, Rejection } from '../../application/errors.js';
@@ -30,6 +31,7 @@ import type {
 import type { CommandHandler, RecordMutation } from '../records/command-handler.js';
 import { AttachmentRepository } from '../media/attachments.js';
 import { HomeRepository } from '../home/home.js';
+import { RecipesRepository } from '../recipes/recipes.js';
 type TaskCommandKind = keyof typeof taskCommands;
 const tables: Record<TaskKind, [string, string]> = {
   task: ['tasks', 'task_id'],
@@ -52,6 +54,7 @@ export class TasksRepository {
     private readonly access: AccessService,
     private readonly timeZone = 'America/Toronto',
     private readonly home?: HomeRepository,
+    private readonly recipes?: RecipesRepository,
   ) {
     if (!isTimeZone(timeZone)) throw new Error('Invalid household timezone');
     this.attachments = new AttachmentRepository(db, access);
@@ -91,7 +94,7 @@ export class TasksRepository {
       : {
           ...c,
           attachments: c.attachments ?? [],
-          ...(kind === 'task' ? { maintenance: c.maintenance ?? null } : {}),
+          ...(kind === 'task' ? { maintenance: c.maintenance ?? null, cooking: c.cooking ?? null } : {}),
         };
   }
   get(context: RequestContext, id: string, expectedKind?: TaskKind): TrackedRecord {
@@ -122,6 +125,7 @@ export class TasksRepository {
         defaultPriority: data.default_priority,
         recurrence: rule ?? null,
         maintenance: this.home?.taskPlan(id) ?? null,
+        cooking: this.recipes?.taskPlan(id) ?? null,
       };
     } else if (row.kind === 'task_occurrence')
       fields = {
@@ -234,6 +238,10 @@ export class TasksRepository {
       const plan = (c.maintenance ?? null) as MaintenancePlan | null;
       if (plan && !this.home) throw new Rejection('maintenance_unavailable');
       this.home?.validateTaskPlan(context, c.scopeId, plan, this.home.taskPlan(id));
+      const cooking = (c.cooking ?? null) as CookingPlan | null;
+      if (cooking && plan) throw new Rejection('task_has_multiple_completion_plans');
+      if (cooking && !this.recipes) throw new Rejection('recipes_unavailable');
+      this.recipes?.validateTaskPlan(context, c.scopeId, cooking, this.recipes.taskPlan(id));
     } else if (kind === 'task_occurrence') {
       this.person(context, c.scopeId, c.assigneeId as string | null);
       const task = this.require(context, String(c.taskId), 'task');
@@ -294,6 +302,7 @@ export class TasksRepository {
         .run(id, c.scopeId, c.title, c.instructions, c.context, c.defaultAssigneeId, c.defaultPriority);
       this.saveRecurrence(id, c.recurrence as TaskRecurrence | null);
       this.home?.saveTaskPlan(id, c.scopeId, c.maintenance as MaintenancePlan | null);
+      this.recipes?.saveTaskPlan(id, c.scopeId, c.cooking as CookingPlan | null);
     } else if (kind === 'task_occurrence')
       this.db
         .prepare("INSERT INTO task_occurrences VALUES (?,'task_occurrence',?,?,?,?,?,?,?,?,?,1)")
@@ -353,6 +362,7 @@ export class TasksRepository {
         .run(c.title, c.instructions, c.context, c.defaultAssigneeId, c.defaultPriority, id);
       this.saveRecurrence(id, c.recurrence as TaskRecurrence | null);
       this.home?.saveTaskPlan(id, c.scopeId, c.maintenance as MaintenancePlan | null);
+      this.recipes?.saveTaskPlan(id, c.scopeId, c.cooking as CookingPlan | null);
     } else if (before.kind === 'task_occurrence') {
       if (c.taskId !== before.content.taskId || c.ordinal !== before.content.ordinal)
         throw new Error('Occurrence identity cannot change');
@@ -408,6 +418,7 @@ export class TasksRepository {
         defaultPriority: a.defaultPriority,
         recurrence: a.recurrence,
         maintenance: a.maintenance ?? null,
+        cooking: a.cooking ?? null,
       });
       create('task_occurrence', a.occurrenceId, {
         scopeId: a.scopeId,
@@ -534,6 +545,17 @@ export class TasksRepository {
         this.home.recordCompletion(
           context,
           definition.maintenance,
+          this.project(completion) as TaskCompletion,
+          now,
+        ),
+      );
+    }
+    if (definition.cooking) {
+      if (!this.recipes) throw new Rejection('recipes_unavailable');
+      changes.push(
+        this.recipes.recordCompletion(
+          context,
+          definition.cooking,
           this.project(completion) as TaskCompletion,
           now,
         ),

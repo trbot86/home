@@ -22,6 +22,8 @@ export const RecipeAdjustment = object({
 export type RecipeIngredient = Static<typeof RecipeIngredient>;
 export type RecipeStep = Static<typeof RecipeStep>;
 export type RecipeAdjustment = Static<typeof RecipeAdjustment>;
+export const CookingPlan = object({ recipeId: Id });
+export type CookingPlan = Static<typeof CookingPlan>;
 export const RecipeFields = {
   title: Type.String({ minLength: 1, maxLength: 300 }),
   description: Type.String({ maxLength: 10000 }),
