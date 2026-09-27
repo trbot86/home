@@ -59,7 +59,7 @@ physical phone’s launcher or speech recognizer.
 
 - `pnpm check`: 215 package tests passed, one platform-specific Windows skip;
   type checking, package boundaries and builds passed. The production Linux
-  image passes all 216 package tests, including the Windows-only skip�s test.
+  image passes all 216 package tests with no skips.
 - Ten affected browser flows passed: tasks, calendars and agenda layouts.
 - Four widget Android tests plus ten existing tests passed, including native
   RemoteViews inflation/intents, filtering, cached identity and recovery checks.
@@ -82,7 +82,7 @@ content, private server address or test-device report belongs in the source repo
 
 The deployed server uses the reviewed production Linux image. The private APK
 matches the local tested artifact byte for byte. No schema migration was needed;
-migrations001�021 remain unchanged. Both profiles, all 19 pre-existing records,
+migrations 001 through 021 remain unchanged. Both profiles, all 19 pre-existing records,
 installation identity and recovery epoch were preserved. SQLite integrity and
 foreign-key checks passed. A fresh online release backup was copied and verified
 at the configured secondary location. The preceding deployment image is retained

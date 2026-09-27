@@ -33,7 +33,7 @@ Updated 2026-09-27.
 
 Inbox filing is deployed on the web and private Android download. Inbox notes can
 create or link tasks, shopping items and project pages while retaining the source
-and its photos. Migrations001�021 are published and immutable. See
+and its photos. Migrations 001 through 021 are published and immutable. See
 INBOX_FILING_IMPLEMENTATION.md for transaction and retention details.
 
 Personal agenda customisation is deployed: section order, counts and visibility,
