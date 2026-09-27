@@ -23,7 +23,7 @@ interrupted save. Migration006 is published and immutable. Maintenance assets
 and the service log are next.
 See MAINTENANCE_IMPLEMENTATION.md.
 
-The current usability update adds a house favicon, clickable web addresses in
+The deployed usability update adds a house favicon, clickable web addresses in
 notes and captions, and a Storage shortcut to this household's Android
 installation page. Android opens links in the external browser and preserves
 unfinished edits when returning. The installation shortcut downloads through
@@ -47,6 +47,8 @@ The usability update passed 14 browser flows and ten Android unit tests. After
 the final link-component refinement, the eight affected browser flows passed
 again. An isolated Android emulator verified actual browser handoff, returning
 to an unfinished editor, and the installation shortcut's configured endpoint.
+Live checks verified the matching icon, web bundle, Android download, installation
+page and a fresh secondary backup. Existing household records and identity were preserved.
 
 ## Remaining work
 
