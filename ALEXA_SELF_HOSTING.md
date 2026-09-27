@@ -94,8 +94,10 @@ exposes internal port 3000. Building it neither runs it nor publishes a port.
 At deployment, use a read-only filesystem, no added capabilities, no-new-privileges
 and bounded memory/process resources. Do not attach it to the household app's
 ordinary Docker network. The kernel network boundary has passed a rehearsal on
-the deployment host. The Tailscale identity and tailnet policy still need review
-before preparing the live Compose configuration.
+the deployment host. An enrollment-only Compose configuration is now available
+in `ops/alexa-ingress.compose.yaml`; follow `ops/ALEXA_INGRESS.md` to review the
+tailnet policy and enroll the dedicated identity. It starts only the guard and
+Tailscale daemon, with no receiver, public service or household connection.
 
 The executable requires `ALEXA_ENABLED=1`, `ALEXA_PORT`, and `ALEXA_CONFIG_FILE`
 pointing to a private mounted JSON file containing exactly:

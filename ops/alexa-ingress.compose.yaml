@@ -1,0 +1,74 @@
+# Enrollment stage only: no receiver, capture helper, household volume or published port.
+name: our-place-alexa
+services:
+  network:
+    image: our-place-alexa-network:local
+    build:
+      context: ..
+      dockerfile: ops/alexa-network.Dockerfile
+    container_name: our-place-alexa-network
+    labels:
+      com.our-place.role: alexa-ingress
+    environment:
+      ALEXA_NETWORK_GUARD: isolated-namespace
+    networks: [edge]
+    dns: [1.1.1.1]
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN, SETUID, SETGID, SETPCAP]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /run/guard:size=1m,mode=0755
+      - /tmp:size=16m,mode=1777
+    mem_limit: 128m
+    pids_limit: 32
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+  ingress:
+    image: our-place-alexa-tailscale:local
+    build:
+      context: ..
+      dockerfile: ops/alexa-tailscale.Dockerfile
+    container_name: our-place-alexa-ingress
+    labels:
+      com.our-place.role: alexa-ingress
+    depends_on:
+      network:
+        condition: service_healthy
+        restart: true
+    network_mode: service:network
+    user: '1000:1000'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /run/tailscale:size=16m,uid=1000,gid=1000,mode=0700
+      - /tmp:size=32m,mode=1777
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+    mem_limit: 384m
+    pids_limit: 96
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, 'test -S /run/tailscale/tailscaled.sock']
+      interval: 5s
+      timeout: 2s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+networks:
+  edge:
+    enable_ipv6: true
+    labels:
+      com.our-place.role: alexa-ingress
+volumes:
+  tailscale-state:
+    labels:
+      com.our-place.role: alexa-ingress
