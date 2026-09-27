@@ -7,7 +7,9 @@ import { provisionHousehold } from '../apps/server/src/features/access/access.js
 import { buildApp } from '../apps/server/src/app.js';
 import { buildCaptureApp } from '../apps/server/src/capture-app.js';
 import { IntegrationAccessService } from '../apps/server/src/features/access/integrations.js';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomBytes } from 'node:crypto';
+import { CalendarSecretBox } from '../apps/server/src/features/calendars/secret-box.js';
+import { calendarReadScopes } from '../apps/server/src/features/calendars/authorization-provider.js';
 import { RecipeImportWorker } from '../apps/server/src/features/recipes/import-worker.js';
 import { extractRecipeMetadata } from '../apps/server/src/features/recipes/extractor.js';
 import { sha256 } from '../apps/server/src/features/media/file-media-store.js';
@@ -24,10 +26,48 @@ const { app, access, recipeImports, media } = await buildApp({
   db,
   dataRoot,
   development: true,
-  publicOrigin: 'http://127.0.0.1:4173',
+  publicOrigin: process.env['OUR_PLACE_ANDROID_BROWSER_TEST'] === '1'
+    ? 'http://10.0.2.2:4173'
+    : 'http://127.0.0.1:4173',
   webRoot: resolve('apps/web/dist'),
   authenticationMode: 'trusted-network',
   requestLimit: 10000,
+  calendars: {
+    secrets: new CalendarSecretBox('fixture', new Map([['fixture', randomBytes(32)]])),
+    authorization: {
+      clientId: 'synthetic-browser-client',
+      authorizationUrl: (state, challenge) =>
+        `https://accounts.google.com/o/oauth2/v2/auth?state=${state}&code_challenge=${challenge}`,
+      exchange: async (code) => ({
+        clientId: 'synthetic-browser-client',
+        subject: `fixture-${code}`,
+        accessToken: 'synthetic-browser-access',
+        refreshToken: 'synthetic-browser-refresh',
+        expiresAt: Date.now() + 3600000,
+        scopes: [...calendarReadScopes],
+      }),
+      refresh: async (previous) => ({ ...previous, expiresAt: Date.now() + 3600000 }),
+    },
+    events: {
+      listCalendars: async () => [
+        {
+          providerId: 'fixture-private-source@example.com',
+          title: 'Personal calendar',
+          timeZone: 'America/Toronto',
+          primary: true,
+          accessRole: 'owner',
+        },
+        {
+          providerId: 'fixture-availability@example.com',
+          title: 'Availability only',
+          timeZone: 'America/Toronto',
+          primary: false,
+          accessRole: 'freeBusyReader',
+        },
+      ],
+      readEvents: async (_token, _id, window) => ({ window, timeZone: 'America/Toronto', events: [] }),
+    },
+  },
 });
 const capture = await buildCaptureApp({ db, dataRoot });
 const recipeWorker = new RecipeImportWorker(recipeImports, media, {

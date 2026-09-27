@@ -212,3 +212,22 @@ and UI still need wiring. No live Google account, key or token has been provisio
 the running app and published Android download remain on the maintenance release.
 Typechecking, package boundaries and builds pass. The package suite passes 186
 tests with one platform-specific skip on Windows.
+
+## Calendar settings checkpoint (2026-09-27; not deployed)
+
+The development branch now wires optional host-only configuration, browser consent,
+owner-scoped calendar settings, and receipt-backed selection and disconnection.
+Migration 019 binds each encrypted callback to its original browser session. Google
+codes and state are excluded from application redirects and request logs. Android
+opens settings in the external browser and keeps unfinished captures in the app.
+No live Google account, client configuration, encryption key or token was created.
+
+Five HTTP tests and three browser flows cover consent binding, profile switching,
+source privacy, retry, selection, disconnection and responsive layouts. The dedicated
+Android emulator passed actual browser launch and Back with its draft preserved;
+in-place installation separately preserved its existing cached data, photos and
+editors. The package suite passes 191 tests with one Windows-specific skip, along
+with typechecking, package boundaries and production builds. Calendar scheduling,
+the full 35-flow browser suite, and 192 passing Linux package tests in the Docker
+candidate. Calendar scheduling, agenda rendering and physical-device Google consent remain. The live app, database
+and published APK are unchanged.

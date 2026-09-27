@@ -17,6 +17,8 @@ import type {
   RecipeImportSummary,
   RecipeImportDetails,
   SavedView,
+  CalendarSettings,
+  BeginCalendarConnection,
 } from '@our-place/contracts';
 export type Draft = {
   draftId: string;
@@ -124,6 +126,13 @@ export interface ClientPlatform {
   storage(): Promise<StorageUsage>;
   backups(): Promise<BackupStatus>;
   createBackup(): Promise<void>;
+  /** Account setup uses the system browser on Android; these methods are browser-only. */
+  calendarSettings?(): Promise<CalendarSettings>;
+  beginCalendarConnection?(
+    input: BeginCalendarConnection,
+  ): Promise<{ authorizationUrl: string; expiresAt: number }>;
+  finishCalendarConnection?(handoffId: string): Promise<{ connectionId: string }>;
+  discoverCalendars?(connectionId: string): Promise<unknown>;
   serverAddress?(): Promise<string>;
   /** Native hosts open web links outside the app so unfinished work stays in place. */
   openExternalUrl?(url: string): Promise<void>;

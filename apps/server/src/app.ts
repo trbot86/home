@@ -28,6 +28,10 @@ import { HistoryService } from './features/history/history.js';
 import { WriteCoordinator } from './application/write-coordinator.js';
 import { RecipeImports } from './features/recipes/imports.js';
 import { ViewPreferences } from './features/views/views.js';
+import { CalendarsRepository } from './features/calendars/calendars.js';
+import { registerCalendarRoutes } from './features/calendars/routes.js';
+import { CalendarProviderError } from './features/calendars/provider.js';
+import type { CalendarConfiguration } from './features/calendars/configuration.js';
 import { Deferral, NotFound, ProtocolConflict, Rejection, Unauthenticated } from './application/errors.js';
 import { FileMediaStore } from './features/media/file-media-store.js';
 import { MediaRetentionGate } from './features/media/retention-gate.js';
@@ -48,6 +52,7 @@ export type AppOptions = {
   clientDownloadRoot?: string;
   authenticationMode?: 'password' | 'trusted-network';
   householdTimeZone?: string;
+  calendars?: CalendarConfiguration;
   /** Server construction option for isolated load/flow tests; deployed default stays bounded. */
   requestLimit?: number;
 };
@@ -92,6 +97,7 @@ export async function buildApp(options: AppOptions) {
   const history = new HistoryService(db, records, access);
   const recipeImports = new RecipeImports(db, recipes, history, records, now);
   const views = new ViewPreferences(db, access);
+  const calendars = new CalendarsRepository(db, access, now);
   const writes = new WriteCoordinator(db, inbox, history, now, records, undefined, [
     shopping.commands(),
     shoppingGroups.commands(),
@@ -101,6 +107,7 @@ export async function buildApp(options: AppOptions) {
     recipes.commands(),
     recipeImports.commands(),
     views.commands(),
+    calendars.commands(),
   ]);
   const files = new FileMediaStore(join(options.dataRoot, 'media'), options.development === true);
   await files.initialise();
@@ -115,7 +122,17 @@ export async function buildApp(options: AppOptions) {
   await backups.initialise();
   const app = Fastify({
     logger: options.logger
-      ? { redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'] }
+      ? {
+          redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
+          serializers: {
+            req: (request: FastifyRequest) => ({
+              method: request.method,
+              url: request.url.split('?')[0] ?? '/',
+              hostname: request.hostname,
+              remoteAddress: request.ip,
+            }),
+          },
+        }
       : false,
     bodyLimit: 128 * 1024,
     ajv: { customOptions: { coerceTypes: false, removeAdditional: false, useDefaults: false } },
@@ -161,6 +178,8 @@ export async function buildApp(options: AppOptions) {
     if (error instanceof ProtocolConflict) return reply.code(409).send({ code: 'operation_id_conflict' });
     if (error instanceof Rejection) return reply.code(400).send({ code: error.code });
     if (error instanceof Deferral) return reply.code(503).send({ status: 'Deferred', code: error.code });
+    if (error instanceof CalendarProviderError)
+      return reply.code(503).send({ code: 'calendar_' + error.code });
     const status = (error as { statusCode?: number }).statusCode;
     if (status === 429) return reply.code(429).send({ code: 'too_many_requests_try_again_shortly' });
     if (status && status < 500) return reply.code(status).send({ code: 'invalid_request' });
@@ -341,9 +360,19 @@ export async function buildApp(options: AppOptions) {
     return reply.code(202).send({ accepted: true });
   });
   registerClientDownloads(app, options.clientDownloadRoot);
+  const calendarRoutes = registerCalendarRoutes(
+    app,
+    db,
+    calendars,
+    authenticate,
+    origin,
+    now,
+    options.calendars,
+  );
   const webRoot = options.webRoot ?? defaultWebRoot;
   if (existsSync(webRoot)) await app.register(staticFiles, { root: webRoot });
   app.addHook('onClose', async () => {
+    await calendarRoutes.stop();
     await backups.wait();
     if (!options.db) db.close();
   });

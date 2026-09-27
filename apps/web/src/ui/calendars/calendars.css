@@ -1,0 +1,101 @@
+.calendar-settings {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+}
+.calendar-settings p {
+  line-height: 1.6;
+}
+.calendar-connect {
+  display: flex;
+  gap: 0.8rem;
+  align-items: end;
+  margin-top: 1.3rem;
+}
+.calendar-settings label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  min-width: 0;
+}
+.calendar-connect label {
+  flex: 1;
+}
+.calendar-settings input,
+.calendar-settings select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0.7rem;
+}
+.calendar-connections {
+  display: grid;
+  gap: 1rem;
+}
+.calendar-connection {
+  padding: 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  min-width: 0;
+}
+.calendar-connection h3,
+.calendar-source h4 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.calendar-state {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.calendar-actions,
+.calendar-return {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+}
+.calendar-return {
+  padding: 1rem 0;
+}
+.calendar-return p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.calendar-message {
+  padding: 0.8rem 1rem;
+  border-radius: 10px;
+  background: var(--wash);
+}
+.calendar-error {
+  color: var(--error);
+}
+.calendar-source {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(13rem, 1fr);
+  gap: 1rem;
+  border-top: 1px solid var(--line);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+.calendar-settings .fine {
+  color: var(--muted);
+}
+@media (max-width: 600px) {
+  .calendar-settings {
+    padding: 1rem;
+  }
+  .calendar-connect {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .calendar-source {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .calendar-connection .section-heading {
+    align-items: start;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+}

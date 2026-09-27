@@ -5,7 +5,9 @@ import {
   isCalendarDate,
   isTimeZone,
   type AgendaEvent as Event,
+  type Command,
 } from '@our-place/contracts';
+import type { CommandHandler } from '../records/command-handler.js';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { NotFound, Rejection } from '../../application/errors.js';
 import { AccessService, requireHuman, type HumanRequestContext } from '../access/access.js';
@@ -77,6 +79,32 @@ export class CalendarsRepository {
     private readonly access: AccessService,
     private readonly now: () => number,
   ) {}
+  commands(): CommandHandler {
+    return {
+      kinds: ['SelectCalendar', 'DisconnectCalendar'],
+      execute: (context, kind, args) => {
+        try {
+          if (kind === 'SelectCalendar') {
+            const value = args as Command<'SelectCalendar'>['arguments'];
+            this.setSelection(
+              context,
+              value.calendarId,
+              value.expectedRevision,
+              value.scopeId,
+              value.context,
+            );
+          } else {
+            const value = args as Command<'DisconnectCalendar'>['arguments'];
+            this.disconnect(context, value.connectionId, value.expectedGeneration);
+          }
+          return { records: [], changes: [] };
+        } catch (error) {
+          if (error instanceof NotFound) throw new Rejection('unavailable');
+          throw error;
+        }
+      },
+    };
+  }
   private writing() {
     if (!this.db.inTransaction) throw new Error('Calendar writes require a transaction');
   }

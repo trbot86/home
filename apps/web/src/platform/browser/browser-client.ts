@@ -19,6 +19,8 @@ import type {
   RecipeImportSummary,
   RecipeImportDetails,
   SavedView,
+  CalendarSettings,
+  BeginCalendarConnection,
 } from '@our-place/contracts';
 import {
   categoryOf,
@@ -123,6 +125,24 @@ export class BrowserClient implements ClientPlatform {
   }
   authenticationOptions(): Promise<AuthenticationOptions> {
     return this.request('/auth/options');
+  }
+  calendarSettings(): Promise<CalendarSettings> {
+    return this.request('/calendars/settings', {}, this.requireSession().clientId);
+  }
+  beginCalendarConnection(
+    input: BeginCalendarConnection,
+  ): Promise<{ authorizationUrl: string; expiresAt: number }> {
+    return this.post('/calendars/authorization/begin', input, this.requireSession().clientId);
+  }
+  finishCalendarConnection(handoffId: string): Promise<{ connectionId: string }> {
+    return this.post('/calendars/authorization/finish', { handoffId }, this.requireSession().clientId);
+  }
+  discoverCalendars(connectionId: string): Promise<unknown> {
+    return this.post(
+      `/calendars/connections/${encodeURIComponent(connectionId)}/discover`,
+      {},
+      this.requireSession().clientId,
+    );
   }
   async login(username: string, password: string): Promise<Session> {
     if (this.switchingProfile) throw new ClientError('profile_switch_in_progress');

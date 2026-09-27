@@ -2,6 +2,7 @@ import { Photo } from './Photo.js';
 import { EntryDialog } from './EntryDialog.js';
 import { Storage } from './Storage.js';
 import { AppUpdates } from './AppUpdates.js';
+import { CalendarSettings } from './calendars/CalendarSettings.js';
 import { LinkedText } from './LinkedText.js';
 import { NoteLinksProvider, noteIdFromUrl } from './NoteLinks.js';
 import { date } from './format.js';
@@ -61,7 +62,9 @@ function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
 export function App({ client }: { client: ClientPlatform }) {
   const [state, setState] = useState<ClientState>(emptyState);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<View>('inbox');
+  const [view, setView] = useState<View>(() =>
+    new URL(window.location.href).searchParams.get('settings') === 'calendars' ? 'storage' : 'inbox',
+  );
   const navigationRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const reveal = () => {
@@ -558,7 +561,7 @@ export function App({ client }: { client: ClientPlatform }) {
                   { id: 'food', label: 'Food', compactLabel: 'Food', icon: 'food' },
                   { id: 'projects', label: 'Projects', compactLabel: 'Projects', icon: 'projects' },
                   { id: 'trash', label: 'Recently deleted', compactLabel: 'Deleted', icon: 'trash' },
-                  { id: 'storage', label: 'Storage & backups', compactLabel: 'Storage', icon: 'settings' },
+                  { id: 'storage', label: 'Settings', compactLabel: 'Settings', icon: 'settings' },
                 ] as const
               ).map((item) => (
                 <button
@@ -630,7 +633,7 @@ export function App({ client }: { client: ClientPlatform }) {
                                 ? 'Care for the place we call home.'
                                 : view === 'trash'
                                   ? 'Room for second thoughts.'
-                                  : 'Everything accounted for.'}
+                                  : 'Your household settings.'}
                 </h1>
                 <p>
                   {view === 'inbox'
@@ -649,7 +652,7 @@ export function App({ client }: { client: ClientPlatform }) {
                                 ? 'The details worth keeping, and the care that keeps things going.'
                                 : view === 'trash'
                                   ? 'Deleted entries keep their history. Bring one back when you need it.'
-                                  : 'A clear view of what’s saved, and where.'}
+                                  : 'Calendar connections, storage, backups and app updates.'}
                 </p>
               </div>
               <div className="connection">
@@ -743,6 +746,7 @@ export function App({ client }: { client: ClientPlatform }) {
               />
             ) : view === 'storage' ? (
               <>
+                <CalendarSettings client={client} state={state} run={runCommand} />
                 <Storage client={client} state={state} onError={showError} />
                 <AppUpdates client={client} online={state.online} onError={showError} />
                 {state.session.isAdministrator && (

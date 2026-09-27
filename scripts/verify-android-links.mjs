@@ -30,7 +30,7 @@ try {
   await card.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(page.getByLabel('Entry text')).toHaveValue(text + '\nKeep my unfinished native edit');
   await page.getByRole('button', { name: 'Close entry', exact: true }).click();
-  await page.getByRole('button', { name: 'Storage & backups', exact: true }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const install = page.getByRole('link', { name: 'Open Android installation page', exact: false });
   await expect(install).toHaveAttribute('href', 'http://10.0.2.2:4173/install/');
   await install.click(); await expect.poll(active).toContain('org.chromium.webview_shell');

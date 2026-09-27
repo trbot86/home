@@ -53,7 +53,7 @@ test('favicon stays available offline and update link uses this installation ori
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Alex', exact: true }).click();
-  await page.getByRole('button', { name: 'Storage & backups', exact: true }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const link = page.getByRole('link', { name: 'Open Android installation page', exact: false });
   await expect(link).toHaveAttribute('href', new URL('/install/', page.url()).href);
   await expect(link).toHaveAttribute('target', '_blank');

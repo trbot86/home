@@ -1,0 +1,4 @@
+:root { color-scheme: dark; background: #20231f; color: #edf0e7; font-family: system-ui, sans-serif; }
+body { max-width: 36rem; margin: 12vh auto; padding: 1.5rem; line-height: 1.6; }
+h1 { font: 2rem Georgia, serif; }
+a { color: #bacfac; text-underline-offset: .25em; }

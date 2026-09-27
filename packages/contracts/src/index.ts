@@ -8,6 +8,8 @@ import { recipeCommands } from './recipes.js';
 import { recipeImportCommands } from './recipe-import.js';
 import { viewCommands } from './views.js';
 import { projectCommands } from './projects.js';
+import { calendarCommands } from './calendars.js';
+export * from './calendars.js';
 export * from './projects.js';
 export * from './views.js';
 import { Attachment, SetRecordAttachments } from './attachments.js';
@@ -72,6 +74,7 @@ export const argumentSchemas = {
   ...recipeImportCommands,
   ...viewCommands,
   ...projectCommands,
+  ...calendarCommands,
   SetRecordAttachments,
   CreateInboxEntry,
   SetInboxEntryText,

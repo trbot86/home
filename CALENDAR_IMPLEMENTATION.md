@@ -12,12 +12,13 @@ The development branch contains a provider-neutral event contract, a bounded
 Google reader, transactional calendar ownership/cache storage and an asynchronous
 synchronizer. Migration 017 adds connection, source and event-cache tables without
 changing household records, receipts or history. The live app still runs migrations
-001–016; this checkpoint adds no calendar UI or live account connection.
+001–016. Calendar settings and browser consent are now wired in the development
+branch; no live account is connected and no agenda has been released.
 
 `CalendarSynchronizer` resolves an opaque credential reference through the
 `CalendarCredentials` port and performs network work outside SQLite transactions.
 The authorization service described below implements that credential resolver;
-runtime configuration and OAuth routes still need wiring. Each result rechecks the
+runtime configuration and OAuth routes are described below. Each result rechecks the
 connection generation, source selection revision and operation generation before
 publication. A disconnect, reselection, newer refresh or discovery therefore
 invalidates older in-flight work. Source deletion cascades to its cached events.
@@ -84,7 +85,7 @@ purpose, reference, installation and recovery epoch. A host-supplied key ring al
 new writes to use a new key while retaining old keys for existing ciphertext.
 Missing keys and authentication failures never generate replacement keys. Keys and
 OAuth client configuration remain outside the database, public source and client
-payloads; their runtime configuration loader is still to be connected.
+payloads. The optional runtime configuration loader is described below.
 
 The database backup includes token ciphertext, but excludes encryption keys and
 plaintext external credentials. Restoring a backup discards pending consent and
@@ -98,19 +99,65 @@ matching, token rotation, retry behavior, expired/replaced/revoked sessions, gua
 commit and disconnect races, key rotation/tampering, populated-schema migration and
 backup/restore. No real account has been connected.
 
+## Browser settings and Android handoff (not deployed)
+
+Settings now includes profile-owned Google connections, discovery, explicit
+Home/Work/private/shared selection, reconnection and confirmed disconnection.
+Selection and disconnection use the existing command receipts. Connection metadata
+stays owner-only; calendar provider IDs and credentials do not reach these screens.
+Sources start unselected, and availability-only sources cannot expose event details.
+The former Storage & backups navigation entry is named Settings and retains all
+existing storage, backup and app-update controls. Failed settings loads offer a retry.
+
+Migration 019 adds expiring browser handoffs associated with the original consent
+attempt. Begin sets a short-lived HttpOnly, SameSite=Lax browser-binding cookie.
+The callback requires both the state and that cookie, captures the code as encrypted
+data and redirects without provider secrets. It performs no token exchange. The
+user then finishes from the original authenticated browser profile, client and
+session. Switching profiles, replacing consent, expiry or restore cannot transfer
+the grant to another identity. Restores cascade deletion of these handoffs. Callback
+logging is disabled, and request logging elsewhere strips query strings. Callback
+failure pages use the same dark theme and never echo provider errors.
+
+Android opens the household website's calendar settings in its external browser.
+The user selects their profile there; native credentials are never passed through a
+URL or browser session. Setup and consent belong to that browser session. Returning
+to Android keeps its unfinished work intact. The dedicated test emulator verified
+the actual external-browser launch, settings profile selection and Back navigation;
+its system browser is a WebView test shell, so this does not verify Google's real
+consent restrictions or a physical phone's browser behavior.
+
+Five HTTP tests cover ownership, receipt replay, origin checks, cookie binding,
+callback replay and expiry, encrypted handoff, profile changes and configuration
+failure. Three browser flows cover simulated cross-site consent, selection, drafts,
+disconnection, responsive layouts, profile isolation, retry and offline behavior.
+Installing the candidate APK over the prior emulator installation preserved its
+session, cached records, photos and unfinished editors before disposable flow tests.
+
+## Host configuration
+
+Without `CALENDAR_CONFIG_FILE`, the server starts normally and settings explains
+that account setup is pending. When set, it names a host-managed JSON file containing
+`clientId`, `clientSecret`, `activeKeyId` and a `keys` object. Each named key is exactly
+32 random bytes in canonical base64url encoding; the active ID must name one of the
+supplied keys. Existing key IDs must retain their original values during rotation.
+The file must be a regular non-symlink file at most 64 KiB. Invalid configuration
+stops startup with a generic error that excludes its values and path.
+
+Keep this file in ignored local configuration outside the household data and backup
+trees. For Docker, mount only this configuration file read-only and set
+`CALENDAR_CONFIG_FILE` to its container path. The loader derives the exact callback
+as `/oauth/calendar/callback` under `PUBLIC_ORIGIN`; register that exact private URL
+in the Google OAuth client. Never put the real callback, client credentials or keys
+in public source, APKs or documentation. No such live file or credentials have been
+created. Google account configuration and actual consent remain interactive steps.
+
 ## Remaining connection and UI work
 
-The common foundation is not an end-to-end integration. It still needs host
-configuration, a scheduler, receipt-backed selection/disconnect routes,
-browser/Android settings and agenda views, and client-cache invalidation when
-visibility or connection state changes. The OAuth callback and browser/Android
-handoff must establish the original authenticated client before calling `finish`;
-constructing a trusted context from a callback's state alone is forbidden. A callback
-must not log its code/state or expose them to page assets. Test both browser session
-binding and Android's system-browser return before enabling account connection.
-
-The read-only-versus-household-editing question remains open. Build and verify the
-chosen user flow before deploying migrations 017–018 or requesting real account consent.
+The integration still needs event scheduling, an agenda, client-cache invalidation
+when visibility or connection state changes, and end-to-end account verification.
+The read-only-versus-household-editing question remains open. Complete the agenda
+flow before deploying migrations 017–019 or requesting real account consent.
 Calendar write scopes and event editing are not part of this checkpoint.
 
 ## Common foundation
@@ -131,7 +178,8 @@ existing trusted-network access model.
 
 Use server-side authorization-code exchange, single-use expiring state tied to
 the initiating person/client, and an exact configured callback. Android opens
-Google authorization in the system browser. The server owns token refresh and
+the household calendar settings in the system browser, which then starts Google
+authorization. The server owns token refresh and
 reports revoked or expired access as needing reconnection, without discarding
 saved household records. Account consent is an interactive user step. OAuth
 configuration and redirect addresses must remain in ignored local configuration.
