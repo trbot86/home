@@ -1,10 +1,70 @@
-# Calendar integration: next design boundary
+# Calendar integration
 
 Projects and optional maintenance ideas are deployed. Calendar integration follows
 the ownership and privacy boundaries in DATA_MODEL.md, section 12. The user is
 being asked whether the first release should only display an agenda or also
 create/edit events in a separate household calendar. No Google account, OAuth
 client, token or live calendar connection has been configured.
+
+## Implemented foundation (not deployed)
+
+The development branch contains a provider-neutral event contract, a bounded
+Google reader, transactional calendar ownership/cache storage and an asynchronous
+synchronizer. Migration 017 adds connection, source and event-cache tables without
+changing household records, receipts or history. The live app still runs migrations
+001–016; this checkpoint adds no calendar UI or live account connection.
+
+`CalendarSynchronizer` resolves an opaque credential reference through the
+`CalendarCredentials` port and performs network work outside SQLite transactions.
+The credential resolver is an interface only: token storage, OAuth routes and
+refresh-token handling still need implementation. Each result rechecks the
+connection generation, source selection revision and operation generation before
+publication. A disconnect, reselection, newer refresh or discovery therefore
+invalidates older in-flight work. Source deletion cascades to its cached events.
+
+Discovery returns owner-only source metadata. Sources start unselected; the owner
+must explicitly choose a scope. Work calendars require a private scope. Sharing a
+selected calendar omits Google events marked private or confidential from the other
+profile's projection, including their counts. Source identifiers and credential
+references are absent from the shared calendar metadata. Revoked authentication
+suppresses all snapshots from that connection. Lost source access clears its cache;
+transient failures retain the last complete snapshot and record a safe error code.
+
+The Google adapter fetches expanded instances for one complete window, up to
+366 days, before publishing anything. Limits are 80 pages, 4 MiB per page, 16 MiB
+per fetch and 10,000 events. Stored event payloads are limited to 16 MiB per person,
+with at most 12 selected calendars and eight active connections. Exceeding a limit
+fails the refresh rather than presenting a partial agenda. Google quota responses
+remain retryable; provider response bodies, tokens and arbitrary error messages
+are not persisted.
+
+All-day dates retain their exclusive civil end date. Timed events retain explicit
+instants and the display timezone; moved recurring instances retain their original
+identity. HTML descriptions become plain text, attendee lists are omitted and only
+validated Google HTTPS event links remain. Ambiguous or nonexistent local times
+without an explicit offset fail normalization. Cancellation disappears on complete
+snapshot replacement.
+
+Eighteen focused tests cover these boundaries, full pagination, streamed limits,
+quota/authentication failures, DST, cancellation, moved instances, atomic rollback,
+privacy, ownership and asynchronous disconnect races. An isolated upgrade test
+preserves every pre-calendar table and installation identity. No test accesses a
+real Google account or writes to the live household.
+
+## Remaining connection and UI work
+
+The common foundation is not an end-to-end integration. It still needs protected
+credential storage and rotation, single-use OAuth state, account binding, returned
+scope verification, a scheduler, receipt-backed selection/disconnect routes,
+browser/Android settings and agenda views, and client-cache invalidation when
+visibility or connection state changes. Reconnecting must verify the Google account
+identity before preserving calendar sharing; switching accounts must not reuse the
+previous account's selections. Do not silently register a replacement connection
+and strand the original selection/cache state.
+
+The read-only-versus-household-editing question remains open. Build and verify the
+chosen user flow before publishing migration 017 or requesting real account consent.
+Calendar write scopes and event editing are not part of this checkpoint.
 
 ## Common foundation
 

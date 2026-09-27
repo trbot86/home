@@ -17,6 +17,7 @@ export * from './shopping.js';
 export * from './tasks.js';
 export * from './home.js';
 export * from './calendar-date.js';
+export * from './agenda.js';
 export * from './capture.js';
 export * from './recipe-import.js';
 export * from './recipes.js';

@@ -177,3 +177,21 @@ tests. The release requires no schema change. A fresh online backup and its
 secondary copy were verified before publication. Both profiles' existing record
 hashes and installation/recovery identity stayed unchanged, and served web/APK
 bytes match the tested builds. Live checks added no synthetic household records.
+
+## Calendar foundation checkpoint (2026-09-27; not deployed)
+
+The development branch adds a Google reader, provider-neutral event contract,
+owner-controlled selection/cache repository and asynchronous synchronization port.
+All 18 focused tests pass, covering pagination, DST and recurring instances,
+private/shared projections, atomic replacement, access loss and disconnect races.
+Migration 017 preserves pre-existing tables and household identity in an isolated
+upgrade test. Network work does not hold a database transaction, and every cache
+publication rechecks the authority under which it started.
+Typechecking, package boundaries and production builds pass. The package suite
+passes 172 tests with one platform-specific skip on Windows.
+
+Account connection, token storage, routes, scheduling and calendar UI are not yet
+wired. The live maintenance-ideas release and private APK remain unchanged, with
+schema 001–016. The first-release choice between a read-only agenda and household
+event editing is still awaiting user input. See CALENDAR_IMPLEMENTATION.md for
+the implemented boundaries and remaining integration work.
