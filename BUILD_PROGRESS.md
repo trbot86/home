@@ -248,3 +248,18 @@ passed actual offline agenda rendering, profile isolation, Home/Work filtering a
 in-place APK preservation. No test used a real Google account or the live household.
 The implementation still needs account configuration, real consent and release
 verification. The running app and published APK remain unchanged.
+
+## Calendar agenda release (2026-09-27)
+
+Agenda and calendar Settings are deployed, with an updated private Android
+download. Google remains unconfigured pending account setup and real consent;
+the personal task overview works without it. The served web and APK match the
+tested artifacts.
+
+The independent secondary-backup restore rehearsal preserved 44 retained tables
+and two media files under production Linux while migrating through 019. The live
+upgrade created another verified backup and preserved both profiles' 19 existing
+record hashes, installation identity and recovery epoch. Integrity and foreign-key
+checks passed, and the upgrade backup is verified at the secondary destination.
+Live desktop/phone-width checks were read-only. Installing the published APK on
+physical phones and completing real Google consent remain user/device steps.

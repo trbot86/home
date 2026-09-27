@@ -1,20 +1,20 @@
 # Calendar integration
 
 Projects and optional maintenance ideas are deployed. Calendar integration follows
-the ownership and privacy boundaries in DATA_MODEL.md, section 12. The user is
-building a read-only agenda first; household event editing remains a separate
-decision. No Google account, OAuth
+the ownership and privacy boundaries in DATA_MODEL.md, section 12. The first
+calendar release provides a read-only agenda; household event editing remains a
+separate decision. No Google account, OAuth
 client, token or live calendar connection has been configured.
 
-## Implemented foundation (not deployed)
+## Implemented storage and provider boundary
 
 The development branch contains a provider-neutral event contract, a bounded
 Google reader, transactional calendar ownership/cache storage and an asynchronous
 synchronizer. Migration 017 adds connection, source and event-cache tables without
-changing household records, receipts or history. The live app still runs migrations
-001–016. Calendar settings and browser consent are now wired in the development
-branch, including a cached agenda; no live account is connected and no agenda has
-been released.
+changing household records, receipts or history. The live app runs migrations
+001–019, with calendar settings, browser consent and the cached agenda deployed.
+Google account configuration is still absent, and the app explicitly reports that
+setup is pending. The private Android download contains the same tested release.
 
 `CalendarSynchronizer` resolves an opaque credential reference through the
 `CalendarCredentials` port and performs network work outside SQLite transactions.
@@ -53,7 +53,7 @@ privacy, ownership and asynchronous disconnect races. An isolated upgrade test
 preserves every pre-calendar table and installation identity. No test accesses a
 real Google account or writes to the live household.
 
-## Authorization service (not deployed)
+## Authorization service
 
 Migration 018 adds encrypted credential storage, expiring authorization attempts
 and stable Google account bindings. `CalendarAuthorizationService` begins a
@@ -100,7 +100,7 @@ matching, token rotation, retry behavior, expired/replaced/revoked sessions, gua
 commit and disconnect races, key rotation/tampering, populated-schema migration and
 backup/restore. No real account has been connected.
 
-## Browser settings and Android handoff (not deployed)
+## Browser settings and Android handoff
 
 Settings now includes profile-owned Google connections, discovery, explicit
 Home/Work/private/shared selection, reconnection and confirmed disconnection.
@@ -153,7 +153,7 @@ in the Google OAuth client. Never put the real callback, client credentials or k
 in public source, APKs or documentation. No such live file or credentials have been
 created. Google account configuration and actual consent remain interactive steps.
 
-## Agenda and scheduled refresh (not deployed)
+## Agenda and scheduled refresh
 
 The Agenda screen combines calendar events with today's assigned or unassigned
 tasks that need attention. It has Home/Work/combined filtering, a date picker and
@@ -190,13 +190,25 @@ dedicated Android emulator verifies scheduled data, profile isolation and exact
 SQLite cache preservation after server shutdown and app reload. In-place APK
 installation separately preserves earlier cached sections, drafts, photos and text.
 
-## Remaining account and release work
+## Remaining account work
 
 The implemented read-only flow still needs a live host configuration, real Google
-account consent and exact callback/device verification. A restore rehearsal and
-normal backed-up upgrade must precede deployment of migrations 017–019. Google
+account consent and exact callback/device verification. Google
 account setup is optional for household tasks; the unconfigured app shows that
 state explicitly. Calendar write scopes and event editing are not implemented.
+
+## Release verification
+
+The deployed candidate passes 198 Linux package tests, all 36 browser flows across
+the regression and focused runs, and ten Android unit tests. An independently
+verified secondary backup was restored into a disposable production Linux container
+and migrated through 019, preserving all 44 retained tables and both media files.
+The live upgrade then created another verified backup before applying the three
+calendar migrations. Both profiles' 19 existing record hashes, installation identity
+and recovery epoch were unchanged. SQLite integrity and foreign keys passed, and
+the upgrade backup is verified at the secondary destination. Served web and APK
+bytes match the tested artifacts. Live UI checks were read-only; no synthetic
+household records or Google credentials were added to the live database.
 
 ## Common foundation
 
