@@ -38,6 +38,7 @@ import { ProfileControl } from './ProfileControl.js';
 import { FilingDialog } from './inbox/FilingDialog.js';
 import { FilingLinks, CaptureSources } from './inbox/FilingLinks.js';
 import { filingOf } from '@our-place/contracts';
+import { widgetNavigationError, type WidgetNavigation } from '@our-place/client';
 
 const emptyState: ClientState = {
   session: null,
@@ -111,7 +112,10 @@ export function App({ client }: { client: ClientPlatform }) {
   const [selected, setSelected] = useState<{ id: string; history: boolean } | null>(null);
   const [recipeTarget, setRecipeTarget] = useState<string | null>(null);
   const [linkedTarget, setLinkedTarget] = useState<string | null>(null);
+  const [widgetTarget, setWidgetTarget] = useState<WidgetNavigation | null>(null);
+  const widgetNavigationLock = useRef(false);
   function openLinkedRecord(reference: RecordReference) {
+    setWidgetTarget(null);
     if (reference.kind === 'inbox') {
       void openNote(reference.recordId).catch(() => {});
       return;
@@ -187,6 +191,46 @@ export function App({ client }: { client: ClientPlatform }) {
   }
   const openNoteRef = useRef(openNote);
   openNoteRef.current = openNote;
+  useEffect(() => {
+    if (
+      !client.takeWidgetNavigation ||
+      !state.session ||
+      busy ||
+      saving ||
+      switching ||
+      widgetNavigationLock.current
+    )
+      return;
+    const owner = currentOwner.current;
+    widgetNavigationLock.current = true;
+    void (async () => {
+      const request = await client.takeWidgetNavigation!();
+      if (!request) return;
+      let latest = await client.state();
+      if (latest.online) {
+        await client.refresh().catch(() => {});
+        latest = await client.state();
+      }
+      if (owner !== currentOwner.current) return;
+      const problem = widgetNavigationError(latest, request);
+      if (problem) {
+        showError(new Error(problem));
+        return;
+      }
+      setState(latest);
+      setSelected(null);
+      setFilingId(null);
+      setRecipeTarget(null);
+      setLinkedTarget(request.recordId);
+      setWidgetTarget(request);
+      setView('tasks');
+      setError('');
+    })()
+      .catch(showError)
+      .finally(() => {
+        widgetNavigationLock.current = false;
+      });
+  }, [client, state, busy, saving, switching]);
   useEffect(() => {
     if (!state.session || switching) return;
     const followLocation = () => {
@@ -304,6 +348,7 @@ export function App({ client }: { client: ClientPlatform }) {
         setInboxFilter('unfiled');
         setRecipeTarget(null);
         setLinkedTarget(null);
+        setWidgetTarget(null);
         setToast(null);
         reversal.current = null;
         setScope('all');
@@ -324,6 +369,7 @@ export function App({ client }: { client: ClientPlatform }) {
     navigationLock.current = true;
     setBusy(true);
     try {
+      setWidgetTarget(null);
       if (nextView === 'inbox' || nextView === 'suggestions') {
         const nextCategory = nextView === 'suggestions' ? 'app_suggestion' : 'inbox';
         if (!draft || categoryOf(draft) !== nextCategory) {
@@ -743,14 +789,16 @@ export function App({ client }: { client: ClientPlatform }) {
                 onRecord={openLinkedRecord}
                 onSettings={() => setView('storage')}
                 onTask={(id) => {
+                  setWidgetTarget(null);
                   setLinkedTarget(id);
                   setView('tasks');
                 }}
               />
             ) : view === 'tasks' ? (
               <Tasks
-                key={linkedTarget ?? 'tasks'}
+                key={widgetTarget?.recordId === linkedTarget ? widgetTarget.token : (linkedTarget ?? 'tasks')}
                 initialRecordId={linkedTarget}
+                initialAction={widgetTarget?.recordId === linkedTarget ? widgetTarget.action : 'show'}
                 client={client}
                 state={state}
                 run={runCommand}

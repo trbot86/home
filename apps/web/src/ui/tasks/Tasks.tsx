@@ -54,6 +54,7 @@ export function Tasks({
   onPhotosSaved,
   onOpenRecipe,
   initialRecordId,
+  initialAction = 'show',
 }: {
   client: ClientPlatform;
   state: ClientState;
@@ -62,6 +63,7 @@ export function Tasks({
   onPhotosSaved: AttachmentSaved;
   onOpenRecipe: (id: string) => void;
   initialRecordId?: string | null;
+  initialAction?: 'show' | 'complete' | 'postpone';
 }) {
   const initial = taskRecords(state.tasks).find((r) => r.recordId === initialRecordId);
   const initialOccurrence =
@@ -90,7 +92,9 @@ export function Tasks({
     [limit, setLimit] = useState(30);
   const [editor, setEditor] = useState<Editor | null>(null),
     [photosId, setPhotosId] = useState<string | null>(null),
-    [completionId, setCompletionId] = useState<string | null>(null),
+    [completionId, setCompletionId] = useState<string | null>(
+      initialAction === 'complete' && initialOccurrence?.state === 'open' ? initialOccurrence.recordId : null,
+    ),
     [historyId, setHistoryId] = useState<string | null>(
       initial && (initial.kind === 'task_completion' || initialOccurrence?.state === 'completed')
         ? initial.recordId
@@ -316,6 +320,7 @@ export function Tasks({
             </button>
           </div>
           <PostponeTask
+            initialOpen={initialAction === 'postpone' && initialOccurrence?.recordId === item.recordId}
             item={item}
             today={today}
             disabled={blocked}

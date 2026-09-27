@@ -11,6 +11,7 @@ import {
   Envelope,
   Id,
   isValid,
+  taskWidgetSnapshot,
   type AuthenticationOptions,
   type CommandKind,
   type ShoppingKind,
@@ -243,10 +244,18 @@ export async function buildApp(options: AppOptions) {
   // The old endpoint remains supported by already-installed phones.
   app.get('/api/cache/inbox', async (request) => {
     const context = authenticate(request);
+    const taskSnapshot = tasks.snapshot(context);
+    const sampledAt = now();
     return {
-      ...inbox.snapshot(context, now()),
+      ...inbox.snapshot(context, sampledAt),
       shopping: { ...shopping.snapshot(context), groups: shoppingGroups.snapshot(context) },
-      tasks: tasks.snapshot(context),
+      tasks: taskSnapshot,
+      taskWidget: taskWidgetSnapshot(
+        taskSnapshot,
+        context.personId,
+        access.scopes(context).map((s) => s.scopeId),
+        sampledAt,
+      ),
       home: home.snapshot(context),
       recipes: recipes.snapshot(context),
       projects: projects.snapshot(context),

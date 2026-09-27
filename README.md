@@ -48,6 +48,11 @@ the next occurrence from actual completion, with calendar-month clamping; fixed
 calendar schedules and notification delivery remain future work. History and
 guarded undo cover the whole completion action. Cached tasks are read-only offline.
 
+An Android task widget is implemented and undergoing final launcher verification.
+It supports Home/Work filtering, row limits and optional private tasks, with cached
+reading and shortcuts to completion/date controls. See
+[task widget implementation](TASK_WIDGET_IMPLEMENTATION.md) for its current status.
+
 From an asset in Home, **Browse maintenance ideas** offers optional starting points
 with source guidance. Customize a task before saving; its dates and recurrence
 start unset. Unfinished suggestion drafts remain separate from manually written
@@ -85,16 +90,16 @@ storage. Enable the privacy hook once per checkout with
 and `node scripts/check-public-source.mjs --staged` before pushing. The checks
 complement manual review; they do not prove the absence of every possible secret.
 
-| Location | Responsibility |
-| --- | --- |
-| `packages/contracts` | Strict wire schemas and shared TypeScript/Kotlin fixtures |
-| `packages/client` | React-free client ports and presentation types |
-| `apps/server/src/features` | Access, inbox, history, immutable media, backup/restore |
-| `apps/server/src/application` | Atomic command, history and idempotency receipt coordination |
-| `apps/web/src/ui` | Responsive components using only the client port |
-| `apps/web/src/platform` | Browser persistence/networking and typed Android bridge |
+| Location                                                | Responsibility                                                                         |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `packages/contracts`                                    | Strict wire schemas and shared TypeScript/Kotlin fixtures                              |
+| `packages/client`                                       | React-free client ports and presentation types                                         |
+| `apps/server/src/features`                              | Access, inbox, history, immutable media, backup/restore                                |
+| `apps/server/src/application`                           | Atomic command, history and idempotency receipt coordination                           |
+| `apps/web/src/ui`                                       | Responsive components using only the client port                                       |
+| `apps/web/src/platform`                                 | Browser persistence/networking and typed Android bridge                                |
 | `apps/android/app/src/main/java/dev/ourplace/household` | Room queue, credentials, native HTTP/worker, camera, gallery, widget and voice capture |
-| `ops` | Single-service Docker Compose configuration |
+| `ops`                                                   | Single-service Docker Compose configuration                                            |
 
 ```powershell
 pnpm check
@@ -116,7 +121,12 @@ The intended target is a separate Compose project on the Windows Docker host. Li
 2. Bootstrap once by passing JSON on stdin to `docker run --rm -i --mount type=volume,source=our-place-data,target=/data our-place:local node apps/server/dist/bootstrap.js`. The JSON contains exactly two people; the first is the administrator. Use real, distinct credentials, provided privately through stdin. Example structure:
 
    ```json
-   {"people":[{"username":"first","displayName":"First","password":"replace-this-password"},{"username":"second","displayName":"Second","password":"replace-this-password-too"}]}
+   {
+     "people": [
+       { "username": "first", "displayName": "First", "password": "replace-this-password" },
+       { "username": "second", "displayName": "Second", "password": "replace-this-password-too" }
+     ]
+   }
    ```
 
 3. Record the printed `EXPECTED_INSTALLATION_ID`. Configure it, `PUBLIC_ORIGIN` (the private HTTPS origin), and `BACKUP_OUTPUT_DIR` in an untracked environment file. `HOUSEHOLD_DATA_VOLUME` defaults to `our-place-data`; `BACKUP_HOUR` defaults to 6 in `TZ=America/Toronto`.

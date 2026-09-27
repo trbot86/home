@@ -6,6 +6,7 @@ import type {
   Draft,
   EditorBuffer,
   StorageUsage,
+  WidgetNavigation,
 } from '@our-place/client';
 import type {
   AuthenticationOptions,
@@ -21,6 +22,7 @@ import type {
 } from '@our-place/contracts';
 type NativeMethod =
   | 'state'
+  | 'takeWidgetNavigation'
   | 'endpoint'
   | 'openExternalUrl'
   | 'configure'
@@ -109,6 +111,9 @@ export class AndroidClient implements ClientPlatform {
   }
   state(): Promise<ClientState> {
     return this.invoke('state');
+  }
+  takeWidgetNavigation(): Promise<WidgetNavigation | null> {
+    return this.invoke('takeWidgetNavigation');
   }
   serverAddress(): Promise<string> {
     return this.invoke('endpoint');

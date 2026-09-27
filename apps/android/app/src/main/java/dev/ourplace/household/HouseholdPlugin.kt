@@ -10,6 +10,7 @@ import dev.ourplace.household.capture.PhotoCaptureActivity
 import dev.ourplace.household.capture.QuickCaptureActivity
 import dev.ourplace.household.storage.json
 import dev.ourplace.household.platform.WebLinks
+import dev.ourplace.household.widgets.WidgetNavigation
 import org.json.JSONObject
 import java.util.concurrent.Executors
 
@@ -21,10 +22,12 @@ class HouseholdPlugin : Plugin() {
     override fun load() {
         core = ClientCore.get(context)
         unsubscribe = core.subscribe { Handler(Looper.getMainLooper()).post { notifyListeners("changed", JSObject()) } }
+        core.executor.execute { WidgetNavigation.accept(core, activity.intent) }
         network.execute { runCatching { core.sync() } }
     }
     override fun handleOnResume() { network.execute { runCatching { core.sync() } } }
     override fun handleOnDestroy() { unsubscribe?.invoke(); network.shutdown() }
+    override fun handleOnNewIntent(intent: Intent) { core.executor.execute { WidgetNavigation.accept(core, intent) } }
     @PluginMethod fun invoke(call: PluginCall) {
         val method = call.getString("method") ?: return call.reject("method_required")
         val args = call.getObject("args") ?: JSObject()
@@ -43,6 +46,7 @@ class HouseholdPlugin : Plugin() {
             try {
                 val result: Any? = when (method) {
                     "state" -> core.state()
+                    "takeWidgetNavigation" -> WidgetNavigation.take(core)
                     "endpoint" -> core.endpoint()
                     "configure" -> { core.configure(args.requireText("url")); null }
                     "login" -> core.login(args.requireText("username"), args.requireText("password"))

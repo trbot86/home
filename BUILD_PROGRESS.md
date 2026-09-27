@@ -31,22 +31,19 @@ Updated 2026-09-27.
 
 ## Current development
 
-Photo editing is deployed on the web and in the private Android download.
-Browser and Room drafts retain originals and immutable requests through an
-interrupted save. Migrations001–020 are published and immutable. Home assets
-and the service log are deployed on the web and in the private Android download.
-See MAINTENANCE_IMPLEMENTATION.md.
+Inbox filing is deployed on the web and private Android download. Inbox notes can
+create or link tasks, shopping items and project pages while retaining the source
+and its photos. Migrations001�021 are published and immutable. See
+INBOX_FILING_IMPLEMENTATION.md for transaction and retention details.
 
-Personal agenda customisation is deployed on the web and private Android download:
-section order, counts and visibility, Home/Work defaults, recipe and project
-panels, durable editor drafts and private preference sync. See
-AGENDA_LAYOUT_IMPLEMENTATION.md for the contract and migration020.
+Personal agenda customisation is deployed: section order, counts and visibility,
+Home/Work defaults, recipe and project panels, durable editor drafts and private
+preference sync. See AGENDA_LAYOUT_IMPLEMENTATION.md.
 
-The candidate passes 203 Linux package tests, 12 affected browser flows and
-the ten Android unit tests. Native layout sync, profile separation, Back,
-offline reload and in-place APK preservation passed on the dedicated emulator.
-A production-Linux restore from the secondary backup preserved 50 retained
-tables and both media files while migrating through 020.
+The Android task widget is under final launcher verification. It reuses the
+server's authorised task projection, supports per-widget views and opens the
+existing completion/date controls. It requires no database migration. See
+TASK_WIDGET_IMPLEMENTATION.md for the contract and verification status.
 
 The separate Alexa task's capture backend is integrated. Integration actors are
 distinct from people, and the separate listener can only capture shared inbox

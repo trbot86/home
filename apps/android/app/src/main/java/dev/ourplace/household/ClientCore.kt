@@ -13,6 +13,7 @@ import java.io.FileOutputStream
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.Executors
 import java.util.concurrent.Callable
+import dev.ourplace.household.widgets.TaskWidget
 
 class ClientCore private constructor(val context: Context) {
     val db = LocalDatabase.open(context); val captures = CaptureStore(db); val media = MediaStore(context, db)
@@ -31,7 +32,7 @@ class ClientCore private constructor(val context: Context) {
         if (result.getString("state") != "ready") api.bytes("/media/$mediaId/bytes", "PUT", media.read(ownerClientId, mediaId), ownerClientId, epoch)
     }
     fun subscribe(listener: () -> Unit): () -> Unit { listeners.add(listener); return { listeners.remove(listener) } }
-    fun changed() { listeners.forEach { it() } }
+    fun changed() { listeners.forEach { it() }; TaskWidget.refreshAll(context) }
     fun session(): JSONObject? = dao.value("activeProfile")?.let { dao.value(it) }?.let(::JSONObject)
     fun requireSession(): JSONObject = session() ?: error("sign_in_required")
     fun clientId(): String = requireSession().getString("clientId")
@@ -56,13 +57,15 @@ class ClientCore private constructor(val context: Context) {
         previous?.let { args.put("clientId", it.getString("clientId")) }
         val result = api.json("/auth/login", "POST", args.toString())
         credentials.put(result.getString("clientId"), result.getString("credential")); result.remove("credential")
-        db.runInTransaction { dao.putValue(ValueRow(profile, result.toString())); dao.putValue(ValueRow("activeProfile", profile)) }
+        TaskWidget.profileChange(context) {
+            db.runInTransaction { dao.putValue(ValueRow(profile, result.toString())); dao.putValue(ValueRow("activeProfile", profile)) }
+        }
         online = true; try { refresh() } finally { changed() }; return result
     }
     fun logout() {
         val clientId = clientId()
         try { api.json("/auth/logout", "POST", "{}", clientId) } catch (error: ApiException) { if (error.status != 401) throw error }
-        credentials.remove(clientId); dao.deleteValue("activeProfile"); changed()
+        TaskWidget.profileChange(context) { credentials.remove(clientId); dao.deleteValue("activeProfile") }; changed()
     }
     fun state(): JSONObject {
         val session = session(); val clientId = session?.getString("clientId"); val cache = clientId?.let { dao.value("$it:cache") }?.let(::JSONObject)
@@ -80,6 +83,15 @@ class ClientCore private constructor(val context: Context) {
             .put("online", online).put("sampledAt", cache?.getLong("sampledAt") ?: JSONObject.NULL).put("pendingEdits", pending)
             .put("recoveryRequired", clientId != null && dao.value("$clientId:recovery") == "true")
     }
+    fun widgetState(): JSONObject = db.runInTransaction(Callable {
+        val current = session()
+        val owner = current?.getString("clientId")
+        val cache = owner?.let { dao.value("$it:cache") }?.let(::JSONObject)
+        JSONObject().put("session", current ?: JSONObject.NULL)
+            .put("taskWidget", cache?.optJSONObject("taskWidget") ?: JSONObject.NULL)
+            .put("sampledAt", cache?.optLong("sampledAt") ?: JSONObject.NULL)
+            .put("recoveryRequired", owner != null && dao.value("$owner:recovery") == "true")
+    })
     fun createDraft(scopeId: String, source: String = "typed", category: String = "inbox"): DraftRow = captures.create(clientId(), scopeId, source, category).also { changed() }
     fun saveDraft(id: String, text: String, scopeId: String, revision: Int? = null): DraftRow = captures.save(clientId(), id, text, scopeId, revision).also { changed() }
     fun submitDraft(id: String) { val session = requireSession(); captures.freeze(session.getString("clientId"), id, session.getString("serverEpoch")); changed(); UploadWorker.schedule(context) }

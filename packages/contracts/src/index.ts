@@ -20,6 +20,8 @@ export * from './attachments.js';
 export { Id, Instant, Revision, Digest } from './primitives.js';
 export * from './shopping.js';
 export * from './tasks.js';
+export * from './task-views.js';
+export * from './task-widget.js';
 export * from './home.js';
 export * from './calendar-date.js';
 export * from './agenda.js';

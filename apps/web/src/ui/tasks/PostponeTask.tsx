@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { addCalendarDate, type TaskOccurrence } from '@our-place/contracts';
 import { displayDate } from './shared.js';
 export function PostponeTask({
@@ -6,17 +6,29 @@ export function PostponeTask({
   today,
   disabled,
   move,
+  initialOpen = false,
 }: {
   item: TaskOccurrence;
   today: string;
   disabled: boolean;
   move: (field: 'targetDate' | 'reviewDate', value: string) => void;
+  initialOpen?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(initialOpen);
+  const details = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (initialOpen) details.current?.scrollIntoView({ block: 'center' });
+  }, []);
   const [field, setField] = useState<'targetDate' | 'reviewDate'>('targetDate'),
     [chosen, setChosen] = useState('');
   const base = item[field] && item[field]! > today ? item[field]! : today;
   return (
-    <details className="task-postpone">
+    <details
+      ref={details}
+      className="task-postpone"
+      open={expanded}
+      onToggle={(e) => setExpanded(e.currentTarget.open)}
+    >
       <summary>Move a date</summary>
       <div>
         <label className="task-field">

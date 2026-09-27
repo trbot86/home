@@ -76,6 +76,14 @@ export type AttachmentDraft = {
 };
 export * from './task-views.js';
 export * from './agenda-view.js';
+export * from './widget-navigation.js';
+export type WidgetNavigation = {
+  token: string;
+  clientId: string;
+  serverEpoch: string;
+  recordId: string;
+  action: 'show' | 'complete' | 'postpone';
+};
 export type RunRecordCommand = (
   target: { recordId: string },
   kind: CommandKind,
@@ -84,6 +92,8 @@ export type RunRecordCommand = (
   epoch?: string,
 ) => Promise<CommandOutcome | null>;
 export interface ClientPlatform {
+  /** Consume one native widget shortcut. This requests navigation only, never a mutation. */
+  takeWidgetNavigation?(): Promise<WidgetNavigation | null>;
   /** Dialogs dismiss first, then nested detail navigation, then the app-level fallback. */
   onBack?(listener: () => boolean, priority?: 'dialog' | 'detail'): () => void;
   subscribe(listener: () => void): () => void;
