@@ -1,0 +1,17 @@
+{
+  "name": "@our-place/alexa",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/skill.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@our-place/contracts": "workspace:*"
+  }
+}
