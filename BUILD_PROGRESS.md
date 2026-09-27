@@ -340,3 +340,19 @@ unfinished text, profile and cached sections. Deployment required no migration,
 preserved all 19 existing records and installation identity, and passed database
 integrity and foreign-key checks. A fresh release backup was verified at the
 secondary location. See TASK_WIDGET_IMPLEMENTATION.md.
+
+## Recently done checkpoint (2026-09-27; publication pending)
+
+A separate quiet feed combines actual task completions, purchases, cooking and
+maintenance. It defaults to shared records, filters person/Home/Work/kind/text,
+and groups dates in the household time zone. Linked records appear once. Unknown
+performers remain explicit; entering a record does not claim credit for its work.
+The feed follows undo/redo and uses the existing coherent offline snapshots.
+
+Five projection tests, two activity browser flows, seven related task/filing
+flows, fourteen Android unit tests and the dedicated emulator activity workflow
+pass. The production Linux image passes all 221 package tests. The emulator
+update preserves the previous profile, caches, photo captures and unfinished
+text. Second-profile downloaded photos remain visible with the test server off.
+No server schema or native database migration is required. See
+ACTIVITY_IMPLEMENTATION.md for privacy and offline-media boundaries.

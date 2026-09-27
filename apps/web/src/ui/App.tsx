@@ -39,6 +39,7 @@ import { FilingDialog } from './inbox/FilingDialog.js';
 import { FilingLinks, CaptureSources } from './inbox/FilingLinks.js';
 import { filingOf } from '@our-place/contracts';
 import { widgetNavigationError, type WidgetNavigation } from '@our-place/client';
+import { Activity } from './activity/Activity.js';
 
 const emptyState: ClientState = {
   session: null,
@@ -69,6 +70,7 @@ type View =
   | 'projects'
   | 'trash'
   | 'storage'
+  | 'activity'
   | 'agenda';
 function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
   const candidates = drafts.filter((d) => d.state === 'DRAFT' && categoryOf(d) === category);
@@ -633,6 +635,7 @@ export function App({ client }: { client: ClientPlatform }) {
                   { id: 'home', label: 'Home', compactLabel: 'Home', icon: 'home' },
                   { id: 'food', label: 'Food', compactLabel: 'Food', icon: 'food' },
                   { id: 'projects', label: 'Projects', compactLabel: 'Projects', icon: 'projects' },
+                  { id: 'activity', label: 'Recently done', compactLabel: 'Done', icon: 'check' },
                   { id: 'trash', label: 'Recently deleted', compactLabel: 'Deleted', icon: 'trash' },
                   { id: 'storage', label: 'Settings', compactLabel: 'Settings', icon: 'settings' },
                 ] as const
@@ -694,46 +697,50 @@ export function App({ client }: { client: ClientPlatform }) {
               <div>
                 <p className="eyebrow">Your household, together</p>
                 <h1>
-                  {view === 'agenda'
-                    ? 'A little room for today.'
-                    : view === 'inbox'
-                      ? 'A place for the little things.'
-                      : view === 'suggestions'
-                        ? 'Make our place a little better.'
-                        : view === 'shopping'
-                          ? 'A little less to remember.'
-                          : view === 'tasks'
-                            ? 'Tasks, at your pace.'
-                            : view === 'projects'
-                              ? 'Room for the bigger ideas.'
-                              : view === 'food'
-                                ? 'Good food, good company.'
-                                : view === 'home'
-                                  ? 'Care for the place we call home.'
-                                  : view === 'trash'
-                                    ? 'Room for second thoughts.'
-                                    : 'Your household settings.'}
+                  {view === 'activity'
+                    ? 'The things we got done.'
+                    : view === 'agenda'
+                      ? 'A little room for today.'
+                      : view === 'inbox'
+                        ? 'A place for the little things.'
+                        : view === 'suggestions'
+                          ? 'Make our place a little better.'
+                          : view === 'shopping'
+                            ? 'A little less to remember.'
+                            : view === 'tasks'
+                              ? 'Tasks, at your pace.'
+                              : view === 'projects'
+                                ? 'Room for the bigger ideas.'
+                                : view === 'food'
+                                  ? 'Good food, good company.'
+                                  : view === 'home'
+                                    ? 'Care for the place we call home.'
+                                    : view === 'trash'
+                                      ? 'Room for second thoughts.'
+                                      : 'Your household settings.'}
                 </h1>
                 <p>
-                  {view === 'agenda'
-                    ? 'Your calendar, your priorities, and what needs a little attention.'
-                    : view === 'inbox'
-                      ? 'Catch a thought now. Figure out the details later.'
-                      : view === 'suggestions'
-                        ? 'Ideas, rough edges, and things you’d like this app to do.'
-                        : view === 'shopping'
-                          ? 'What we need, what we love, and what’s running low.'
-                          : view === 'tasks'
-                            ? 'A plan for what matters, and a record of what got done.'
-                            : view === 'projects'
-                              ? 'Plans, inspiration and the next small step, all together.'
-                              : view === 'food'
-                                ? 'Recipes to try, favourites to return to, and notes that make them ours.'
-                                : view === 'home'
-                                  ? 'The details worth keeping, and the care that keeps things going.'
-                                  : view === 'trash'
-                                    ? 'Deleted entries keep their history. Bring one back when you need it.'
-                                    : 'Calendar connections, storage, backups and app updates.'}
+                  {view === 'activity'
+                    ? 'A quiet record of everyday effort, together.'
+                    : view === 'agenda'
+                      ? 'Your calendar, your priorities, and what needs a little attention.'
+                      : view === 'inbox'
+                        ? 'Catch a thought now. Figure out the details later.'
+                        : view === 'suggestions'
+                          ? 'Ideas, rough edges, and things you’d like this app to do.'
+                          : view === 'shopping'
+                            ? 'What we need, what we love, and what’s running low.'
+                            : view === 'tasks'
+                              ? 'A plan for what matters, and a record of what got done.'
+                              : view === 'projects'
+                                ? 'Plans, inspiration and the next small step, all together.'
+                                : view === 'food'
+                                  ? 'Recipes to try, favourites to return to, and notes that make them ours.'
+                                  : view === 'home'
+                                    ? 'The details worth keeping, and the care that keeps things going.'
+                                    : view === 'trash'
+                                      ? 'Deleted entries keep their history. Bring one back when you need it.'
+                                      : 'Calendar connections, storage, backups and app updates.'}
                 </p>
               </div>
               <div className="connection">
@@ -767,7 +774,9 @@ export function App({ client }: { client: ClientPlatform }) {
                 )}
               </div>
             )}
-            {view === 'agenda' ? (
+            {view === 'activity' ? (
+              <Activity client={client} state={state} onRecord={openLinkedRecord} />
+            ) : view === 'agenda' ? (
               <PersonalAgenda
                 client={client}
                 state={state}

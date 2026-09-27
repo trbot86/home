@@ -54,6 +54,14 @@ and shortcuts to completion/date controls. Resize it to fit your home screen.
 It hides task content when you switch profiles. The widget is available in the
 private Android download; see [task widget implementation](TASK_WIDGET_IMPLEMENTATION.md).
 
+**Recently done** combines completed tasks, purchases, cooking and maintenance,
+ordered by when they happened and attributed to the recorded performer. Linked
+cooking/maintenance actions appear once. Filter by person, Home/Work, kind or
+text; private activity requires opting into your own records. Notes, photos,
+history and source links keep the details close. Offline metadata and notes remain
+readable; Android also retains a bounded cache of viewed photos. See
+[activity implementation](ACTIVITY_IMPLEMENTATION.md).
+
 From an asset in Home, **Browse maintenance ideas** offers optional starting points
 with source guidance. Customize a task before saving; its dates and recurrence
 start unset. Unfinished suggestion drafts remain separate from manually written

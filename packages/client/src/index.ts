@@ -156,3 +156,4 @@ export interface ClientPlatform {
   recoverDraft(draftId: string): Promise<Draft | null>;
   reconcileEdits(): Promise<void>;
 }
+export * from './activity.js';

@@ -1,0 +1,142 @@
+.activity {
+  max-width: 1050px;
+}
+.activity-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+}
+.activity-filters label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.activity-filters select,
+.activity-filters input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+.activity-search {
+  grid-column: 1/-1;
+}
+.activity-explanation {
+  margin: 18px 0 26px;
+  line-height: 1.6;
+}
+.activity-day {
+  margin: 26px 0;
+}
+.activity-day > h2 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+.activity-card {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 14px;
+  padding: 20px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+}
+.activity-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--wash);
+  color: var(--green);
+}
+.activity-content {
+  min-width: 0;
+}
+.activity-content h3 {
+  margin: 7px 0;
+  font-size: 18px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+.activity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.activity-audience {
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.activity-note {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.activity-details summary {
+  padding: 10px 0;
+  cursor: pointer;
+  color: var(--green);
+  font-size: 13px;
+}
+.activity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.activity-actions button {
+  min-height: 40px;
+  font-size: 12px;
+}
+.activity-empty {
+  padding: 50px 24px;
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  color: var(--muted);
+}
+.activity-empty p {
+  max-width: 440px;
+  margin: 12px auto;
+  line-height: 1.6;
+}
+.activity-empty h2 {
+  color: var(--ink);
+  font-size: 22px;
+}
+.activity-more {
+  min-height: 44px;
+}
+@media (max-width: 600px) {
+  .activity-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 14px;
+    gap: 12px;
+  }
+  .activity-card {
+    padding: 14px;
+    gap: 10px;
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+  .activity-mark {
+    width: 28px;
+    height: 28px;
+  }
+  .activity-content h3 {
+    font-size: 16px;
+  }
+}
