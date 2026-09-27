@@ -12,14 +12,15 @@ Updated 2026-09-27.
 - Actual-completion recurrence, performer attribution, completion notes and compound undo.
 - Online database/media backups, secondary-copy verification, isolated restore and upgrade protection.
 - Private Android distribution with locally compiled server configuration.
+- Reusable photo/receipt editing for Inbox, tasks and completions, with captions,
+  ordering, removal, full-size previews and historical images.
 
 ## Current development
 
-Reusable photo editing is implemented for Inbox entries, task definitions and
-completion records: captions, ordering, removal, full-size viewing and history.
+Photo editing is deployed on the web and in the private Android download.
 Browser and Room drafts retain originals and immutable requests through an
-interrupted save. The editor is verified and awaiting deployment; Migration006
-remains unpublished. Maintenance assets and the service log are next.
+interrupted save. Migration006 is published and immutable. Maintenance assets
+and the service log are next.
 See MAINTENANCE_IMPLEMENTATION.md.
 
 ## Verification
@@ -33,6 +34,8 @@ emulator also passed native draft/Back handling, partner downloads, undo, histor
 images, and actual camera and gallery acquisition into a task's photo draft.
 Local reports contain exact build, backup and deployment evidence. They are
 intentionally excluded from this public repository.
+The release preserved existing record hashes and installation/recovery identity.
+Both the secondary backup and a restore into a new isolated folder were verified.
 
 ## Remaining work
 

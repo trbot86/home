@@ -1,7 +1,7 @@
 # Maintenance records and reusable photo attachments
 
 Next slice after the deployed Tasks release. Follow DATA_MODEL.md and retain the
-existing live household. Migrations001–005 are published and immutable. No
+existing live household. Migrations001–006 are published and immutable. No
 additional household input is needed to implement the bounded work below.
 
 ## Usable result
@@ -39,10 +39,10 @@ support explicitly; do not make every registered kind silently editable through
 a universal unvalidated patch API. Legacy history lacking attachment fields must
 normalize safely, and retained command receipts must remain replayable unchanged.
 
-The deployed placement table has `UNIQUE(record_id,position)`, including removed
-rows. Replacement/reordering therefore needs an explicit migration or ordered
-write strategy; simply tombstoning a placement and reusing its position is wrong.
-Preserve attachment identity and old history when resolving this constraint.
+Migration006 now makes display positions unique only among live placements,
+preserving placement identity and old history. The reusable photo editor and
+attachment repository are deployed; see ATTACHMENT_IMPLEMENTATION.md. The Home
+slice can reuse them without another attachment-table migration.
 
 ## Client durability
 

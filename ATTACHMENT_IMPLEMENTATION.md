@@ -1,5 +1,7 @@
 # Record photos and receipts
 
+Deployed 2026-09-27. Migration006 is published and must not be edited.
+
 Inbox entries, task definitions and task completions share a photo editor. The
 editor accepts JPEG, PNG and WebP images, captions, reordering and removal, with
 20 photos per record and a 25 MB limit per photo. The image viewer also works
