@@ -9,6 +9,7 @@ export { Id, Instant, Revision, Digest } from './primitives.js';
 export * from './shopping.js';
 export * from './tasks.js';
 export * from './calendar-date.js';
+export * from './capture.js';
 
 export const Source = object({
   kind: Type.Union([

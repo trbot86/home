@@ -98,6 +98,12 @@ importers:
         specifier: 8.3.1
         version: 8.3.1(@types/node@24.13.6)(esbuild@0.28.2)(tsx@4.23.15)
 
+  packages/alexa:
+    dependencies:
+      '@our-place/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
   packages/client:
     dependencies:
       '@our-place/contracts':
