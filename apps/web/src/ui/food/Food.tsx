@@ -6,6 +6,7 @@ import { RecipeJournalEditor } from './RecipeJournalEditor.js';
 import { RecipeImportReview } from './RecipeImportReview.js';
 import { RecipeHistory } from './RecipeHistory.js';
 import { RecipeTasks } from './RecipeTasks.js';
+import { RecipeShopping } from './RecipeShopping.js';
 import { recipeDuration } from './format.js';
 import { AttachmentDialog, type AttachmentSaved } from '../AttachmentDialog.js';
 import { AttachmentGallery } from '../AttachmentGallery.js';
@@ -32,6 +33,7 @@ export function Food({
   onError,
   onPhotosSaved,
   initialRecipeId,
+  onOpenShopping,
 }: {
   client: ClientPlatform;
   state: ClientState;
@@ -39,6 +41,7 @@ export function Food({
   onError: (error: unknown) => void;
   onPhotosSaved: AttachmentSaved;
   initialRecipeId?: string | null;
+  onOpenShopping: () => void;
 }) {
   const [view, setView] = useState('want_to_try'),
     [scope, setScope] = useState('all'),
@@ -51,6 +54,7 @@ export function Food({
     [photosId, setPhotosId] = useState<string | null>(null),
     [historyId, setHistoryId] = useState<string | null>(null),
     [review, setReview] = useState<string | null>(null),
+    [shopping, setShopping] = useState(false),
     [removing, setRemoving] = useState<string | null>(null);
   const [working, setWorking] = useState<string[]>([]),
     locks = useRef(new Set<string>()),
@@ -463,6 +467,14 @@ export function Food({
               />
               <section>
                 <h3>Ingredients</h3>
+                {!!recipe.ingredients.length && (
+                  <button
+                    disabled={!state.online || recipe.deletedAt !== null}
+                    onClick={() => setShopping(true)}
+                  >
+                    Shop for this recipe
+                  </button>
+                )}
                 {recipe.ingredients.length ? (
                   <ul>
                     {recipe.ingredients.map((i) => (
@@ -705,6 +717,18 @@ export function Food({
           pending={state.pendingEdits.includes(photos.recordId)}
           close={() => setPhotosId(null)}
           onSaved={onPhotosSaved}
+        />
+      )}
+      {shopping && recipe && (
+        <RecipeShopping
+          key={recipe.recordId}
+          client={client}
+          state={state}
+          recipe={recipe}
+          run={run}
+          close={() => setShopping(false)}
+          onError={onError}
+          onOpenShopping={onOpenShopping}
         />
       )}
       {history && (

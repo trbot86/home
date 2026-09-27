@@ -99,7 +99,7 @@ export class BrowserClient implements ClientPlatform {
     return {
       session,
       entries: cache?.entries ?? [],
-      shopping: cache?.shopping ?? emptyShopping(),
+      shopping: { ...emptyShopping(), ...cache?.shopping },
       tasks: cache?.tasks ?? emptyTasks(),
       home: cache?.home ?? emptyHome(),
       recipes: cache?.recipes ?? emptyRecipes(),

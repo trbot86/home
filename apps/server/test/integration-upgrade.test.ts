@@ -17,6 +17,7 @@ import { buildCaptureApp } from '../src/capture-app.js';
 import { requestDigest } from '../src/application/write-coordinator.js';
 import { IntegrationAccessService } from '../src/features/access/integrations.js';
 import { NotFound, Unauthenticated } from '../src/application/errors.js';
+import { emptyRecipeFields, type CommandKind, type Envelope } from '@our-place/contracts';
 
 test('verified 006 upgrade preserves golden requests, identity, media, human history and queued writes; current backup restores', async () => {
   const f = await integrationFixture();
@@ -52,6 +53,7 @@ test('verified 006 upgrade preserves golden requests, identity, media, human his
       '011_recipe_imports.sql',
       '012_view_pins.sql',
       '013_recipe_tasks.sql',
+      '014_shopping_groups.sql',
     ]);
     assert.deepEqual(f.snapshot(), before);
     assert.deepEqual(installation(f.db), state);
@@ -149,6 +151,52 @@ test('verified 006 upgrade preserves golden requests, identity, media, human his
         await capture.app.close();
       }
       assert.equal(receipt.status, 'Applied');
+      const scopeId = app.access.scopes(alice).find((s) => s.kind === 'shared')!.scopeId;
+      const recipeId = randomUUID(),
+        listId = randomUUID(),
+        groupId = randomUUID(),
+        ingredientId = randomUUID(),
+        entryId = randomUUID();
+      const command = (kind: CommandKind, args: unknown) => {
+        const envelope: Envelope = {
+          operationId: randomUUID(),
+          contractVersion: 1,
+          expectedServerEpoch: state.recovery_epoch,
+          arguments: args,
+        };
+        const outcome = app.writes.execute(alice, kind, envelope);
+        assert.equal(outcome.status, 'Applied', JSON.stringify(outcome));
+        return { envelope, outcome };
+      };
+      command('CreateRecipe', {
+        recordId: recipeId,
+        scopeId,
+        ...emptyRecipeFields(),
+        title: 'Backup soup',
+        collectionIds: [],
+        ingredients: [{ ingredientId, text: '3 carrots' }],
+      });
+      command('CreateShoppingList', {
+        recordId: listId,
+        scopeId,
+        name: 'Backup groceries',
+        purpose: 'groceries',
+      });
+      const recipeShopping = command('AddRecipeIngredients', {
+        recordId: groupId,
+        listId,
+        expectedListRevision: 1,
+        recipeId,
+        expectedRecipeRevision: 1,
+        name: 'Soup groceries',
+        ingredients: [
+          { ingredientId, entryId, sourceId: randomUUID(), label: 'Carrots', quantity: '3', notes: '' },
+        ],
+      });
+      const groupTables = ['shopping_groups', 'shopping_entry_groups', 'recipe_shopping_sources'];
+      const groupRows = groupTables.map((table) =>
+        JSON.stringify(f.db.prepare(`SELECT * FROM ${table}`).all()),
+      );
       f.setTime(2000);
       const completed = await backups.create();
       await verifyArchive(join(outputRoot, completed.archive.name), completed);
@@ -170,6 +218,35 @@ test('verified 006 upgrade preserves golden requests, identity, media, human his
         assert.equal(installation(r.db).installation_id, state.installation_id);
         assert.equal(sha256((await r.media.read(alice, 'fixture-media')).bytes), f.legacy.media.digest);
         assert.equal(r.inbox.get(alice, 'fixture-pending').text, 'Frozen offline note');
+        groupTables.forEach((table, index) =>
+          assert.equal(JSON.stringify(r.db.prepare(`SELECT * FROM ${table}`).all()), groupRows[index], table),
+        );
+        assert.deepEqual(r.writes.execute(alice, 'AddRecipeIngredients', recipeShopping.envelope), {
+          ...recipeShopping.outcome,
+          replayed: true,
+        });
+        if (recipeShopping.outcome.status !== 'Applied') throw new Error();
+        const undoGroup = r.writes.execute(alice, 'UndoChangeSet', {
+          operationId: randomUUID(),
+          contractVersion: 1,
+          expectedServerEpoch: restored.serverEpoch,
+          arguments: { changeSetId: recipeShopping.outcome.changeSetId },
+        });
+        assert.equal(undoGroup.status, 'Applied', JSON.stringify(undoGroup));
+        assert.ok(
+          (
+            r.db.prepare('SELECT deleted_at FROM records WHERE record_id=?').get(groupId) as {
+              deleted_at: number | null;
+            }
+          ).deleted_at,
+        );
+        assert.ok(
+          (
+            r.db.prepare('SELECT deleted_at FROM records WHERE record_id=?').get(entryId) as {
+              deleted_at: number | null;
+            }
+          ).deleted_at,
+        );
         assert.deepEqual(
           (await rc.app.inject({ method: 'POST', url: '/capture/inbox', headers, payload })).json(),
           { ...receipt, replayed: true },

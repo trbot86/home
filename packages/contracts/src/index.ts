@@ -1,7 +1,7 @@
 import { Type, type Static, type TSchema } from '@sinclair/typebox';
 import { Value } from '@sinclair/typebox/value';
 import { Id, Instant, Revision, Digest, object } from './primitives.js';
-import { shoppingCommands } from './shopping.js';
+import { shoppingCommands, shoppingGroupCommands } from './shopping.js';
 import { taskCommands } from './tasks.js';
 import { homeCommands } from './home.js';
 import { recipeCommands } from './recipes.js';
@@ -62,6 +62,7 @@ export const AbandonRestoredOperation = object({
 });
 export const argumentSchemas = {
   ...shoppingCommands,
+  ...shoppingGroupCommands,
   ...taskCommands,
   ...homeCommands,
   ...recipeCommands,

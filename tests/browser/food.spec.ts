@@ -26,6 +26,102 @@ async function runImport(page: Page) {
   expect(response.ok()).toBe(true);
   await page.getByRole('button', { name: 'Refresh and sync', exact: true }).click();
 }
+async function shoppingList(page: Page, name: string) {
+  await page.getByRole('button', { name: 'Shopping', exact: true }).click();
+  await page.getByRole('button', { name: 'New list', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill(name);
+  await page.getByRole('dialog').getByLabel('Name', { exact: true }).press('Control+Enter');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Food', exact: true }).click();
+}
+
+test('recipe shopping preserves a selected checklist, collapsed named groups, source links and safe group removal', async ({
+  page,
+  browser,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await login(page);
+  await shoppingList(page, 'Recipe groceries');
+  await manual(page, 'Shopping carrot soup');
+  await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
+  await page.getByLabel('Ingredient shopping list').selectOption({ label: 'Recipe groceries' });
+  await page.getByLabel('Ingredient group name').fill('Soup for Sunday');
+  await page.getByLabel('Include 1 onion', { exact: true }).uncheck();
+  await page.getByLabel('Quantity for 2 carrots', { exact: true }).fill('One bag');
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.locator('.food-card').filter({ hasText: 'Shopping carrot soup' }).click();
+  await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
+  await expect(page.getByLabel('Ingredient group name')).toHaveValue('Soup for Sunday');
+  await expect(page.getByLabel('Include 1 onion', { exact: true })).not.toBeChecked();
+  await expect(page.getByLabel('Quantity for 2 carrots', { exact: true })).toHaveValue('One bag');
+  for (const width of [320, 390, 820, 1440]) {
+    await page.setViewportSize({ width, height: 1100 });
+    expect(await page.getByRole('dialog').evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+  }
+  await page.getByLabel('Ingredient group name').press('Control+Enter');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Shopping', exact: true }).click();
+  await page.getByLabel('Shopping list', { exact: true }).selectOption({ label: 'Recipe groceries' });
+  const group = page
+    .locator('.shopping-group')
+    .filter({ has: page.locator('summary').filter({ hasText: 'Soup for Sunday' }) });
+  await expect(group).not.toHaveAttribute('open', '');
+  await expect(group.locator('summary').first()).toContainText('1 needed');
+  await group.locator('summary').first().click();
+  await expect(group.locator('.shopping-row')).toHaveCount(1);
+  await expect(group).toContainText('One bag');
+  for (const width of [320, 390, 820, 1440]) {
+    await page.setViewportSize({ width, height: 1100 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      `Grouped shopping fits ${width}`,
+    ).toBe(true);
+    await page.screenshot({ path: `test-results/shopping-group-${width}.png`, fullPage: true });
+  }
+  await group.getByRole('button', { name: 'Recipe: Shopping carrot soup', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Edit recipe', exact: true }).click();
+  await page.getByLabel('Recipe name', { exact: true }).fill('Renamed carrot soup');
+  await page.getByLabel('Ingredients', { exact: true }).fill('4 carrots');
+  await page.getByLabel('Ingredients', { exact: true }).press('Control+Enter');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Shopping', exact: true }).click();
+  await page.getByLabel('Shopping list', { exact: true }).selectOption({ label: 'Recipe groceries' });
+  await group.locator('summary').first().click();
+  await group.getByText('From a recipe', { exact: true }).click();
+  await expect(group.locator('.shopping-source')).toContainText('2 carrots');
+  await expect(group.locator('.shopping-source')).toContainText('Shopping carrot soup');
+  await group.getByRole('button', { name: 'Delete Soup for Sunday', exact: true }).click();
+  await page.getByRole('button', { name: 'Remove group, keep items', exact: true }).click();
+  await expect(group).toHaveCount(0);
+  await expect(page.locator('.shopping-row')).toHaveCount(1);
+  await page.keyboard.press('Control+z');
+  await expect(group).toHaveCount(1);
+  await group.locator('summary').first().click();
+  const partnerContext = await browser.newContext();
+  try {
+    const partner = await partnerContext.newPage();
+    await partner.goto('/');
+    await partner.getByRole('button', { name: 'Sam', exact: true }).click();
+    await partner.getByRole('button', { name: 'Shopping', exact: true }).click();
+    await partner.getByLabel('Shopping list', { exact: true }).selectOption({ label: 'Recipe groceries' });
+    const partnerGroup = partner.locator('.shopping-group').filter({ hasText: 'Soup for Sunday' });
+    await partnerGroup.locator('summary').first().click();
+    await partnerGroup.getByRole('button', { name: 'Bought 2 carrots', exact: true }).click();
+    await expect(partnerGroup.locator('summary').first()).toContainText('0 needed');
+    await page.getByRole('button', { name: 'Refresh and sync', exact: true }).click();
+    await page.keyboard.press('Control+Shift+z');
+    await expect(group).toHaveCount(1);
+    await page.getByRole('button', { name: 'Purchased', exact: true }).click();
+    await group.locator('summary').first().click();
+    await expect(group).toContainText('Bought by Sam');
+  } finally {
+    await partnerContext.close();
+  }
+  expect(errors).toEqual([]);
+});
 
 test('Food keeps photos, adjustments, cooking notes and independent Soon pins across collections at all screen sizes', async ({
   page,
@@ -94,6 +190,46 @@ test('Food keeps photos, adjustments, cooking notes and independent Soon pins ac
   await expect(page.locator('.food-detail-heading')).toContainText('Archived recipe');
   await expect(page.locator('.food-cooking')).toContainText('extra lemon');
   expect(errors).toEqual([]);
+});
+
+test('a lost recipe-shopping response is reconciled once and grouped shopping remains readable offline', async ({
+  page,
+  context,
+}) => {
+  await login(page);
+  await shoppingList(page, 'Retry recipe groceries');
+  await manual(page, 'Retry vegetable soup');
+  await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
+  await page.getByLabel('Ingredient shopping list').selectOption({ label: 'Retry recipe groceries' });
+  await page.getByLabel('Ingredient group name').fill('Retry Sunday soup');
+  await page.route(
+    '**/api/commands/AddRecipeIngredients',
+    async (route) => {
+      await route.fetch();
+      await route.abort('failed');
+    },
+    { times: 1 },
+  );
+  await page.getByLabel('Ingredient group name').press('Control+Enter');
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.getByRole('button', { name: 'Refresh and sync', exact: true }).click();
+  await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Shopping', exact: true }).click();
+  await page.getByLabel('Shopping list', { exact: true }).selectOption({ label: 'Retry recipe groceries' });
+  const group = page.locator('.shopping-group');
+  await expect(group).toHaveCount(1);
+  await group.locator('summary').first().click();
+  await expect(group.locator('.shopping-row')).toHaveCount(2);
+  await context.setOffline(true);
+  await page.getByRole('button', { name: 'Refresh and sync', exact: true }).click();
+  await expect(group.getByRole('button', { name: 'Bought 2 carrots', exact: true })).toBeDisabled();
+  await expect(group).toContainText('Retry Sunday soup');
+  await group.getByRole('button', { name: 'Recipe: Retry vegetable soup', exact: true }).first().click();
+  await expect(page.locator('.food-detail')).toContainText('2 carrots');
+  await expect(page.getByRole('button', { name: 'Shop for this recipe', exact: true })).toBeDisabled();
+  await context.setOffline(false);
+  await page.getByRole('button', { name: 'Refresh and sync', exact: true }).click();
 });
 
 test('pasted link saves immediately, ambiguous source is reviewed, duplicate links open the existing recipe and offline cache remains readable', async ({

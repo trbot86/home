@@ -652,7 +652,16 @@ export function App({ client }: { client: ClientPlatform }) {
                 }}
               />
             ) : view === 'shopping' ? (
-              <Shopping client={client} state={state} run={runCommand} onError={showError} />
+              <Shopping
+                client={client}
+                state={state}
+                run={runCommand}
+                onError={showError}
+                onOpenRecipe={(id) => {
+                  setRecipeTarget(id);
+                  setView('food');
+                }}
+              />
             ) : view === 'home' ? (
               <Home
                 client={client}
@@ -669,6 +678,7 @@ export function App({ client }: { client: ClientPlatform }) {
                 onError={showError}
                 onPhotosSaved={acceptOutcome}
                 initialRecipeId={recipeTarget}
+                onOpenShopping={() => setView('shopping')}
               />
             ) : view === 'storage' ? (
               <>

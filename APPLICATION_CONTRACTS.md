@@ -164,6 +164,21 @@ If still open, require both occurrence and task revisions. Use the validated rec
 | `ApplyRecipeImport` | Import result ID, recipe ID, expected revision, explicit selected imported fields → new revision | Authorised worker or human review path; result must belong to recipe. Retains household adjustments. |
 | `PlanRecipeMeal` | Recipe ID/revision, proposed task/occurrence IDs, target, selected ingredient IDs, explicit shopping destinations and quantities → created/updated IDs/revisions | Atomic Tasks + Shopping + typed links/provenance; requires current source revision and authorised destinations. |
 
+The current UI separates planning a cooking task from choosing groceries. Its
+implemented `AddRecipeIngredients` command takes the recipe and list revisions,
+a proposed group ID/name, and one proposed entry/source ID plus explicit label and
+quantity for each selected ingredient. It creates the group, entries and immutable
+source snapshots in one transaction, changeset and receipt. It does not create a
+task or merge with existing entries. `PlanRecipeMeal` remains a possible later
+combined workflow rather than a second current command.
+
+`CreateShoppingGroup` and `UpdateShoppingGroup` create/rename ordinary groups.
+`MoveShoppingEntry` optionally selects a group in the destination list;
+omitting it when changing lists clears the old group. `DeleteShoppingGroup`
+requires the complete current live member IDs/revisions and ungroups them before
+deleting the group. `RestoreShoppingGroup` restores the group alone; undoing its
+deletion restores the original memberships too, if their revisions still permit it.
+
 Extractor returns a typed `RecipeCandidate` containing title, ingredients, steps, yield, image candidates and field provenance. It has no write context. Metadata and optional later LLM extraction use this same boundary. The worker prepares media and calls the application layer; arbitrary extracted text never selects a command or author.
 
 An import that collides with a recipe edit becomes reviewable work. A user-reviewed apply has a new operation ID and the current expected revision; do not mutate/retry the worker's rejected payload under its original ID. Causality links the request and applied result while attribution distinguishes worker from user.

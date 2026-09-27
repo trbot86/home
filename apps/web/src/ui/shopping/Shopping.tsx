@@ -3,24 +3,26 @@ import { LinkedText, WebLink } from '../LinkedText.js';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { ShoppingRecord } from '@our-place/contracts';
 import { Icon } from '../Icon.js';
-import { date } from '../format.js';
+import { ShoppingItems } from './ShoppingItems.js';
 import { ShoppingEditor } from './ShoppingEditor.js';
 import { ShoppingHistory } from './ShoppingHistory.js';
 import { QuickAdd } from './QuickAdd.js';
-import { shoppingKind, shoppingLabel, shoppingRecords, type ShoppingRun } from './shared.js';
+import { ShoppingDialog, shoppingKind, shoppingLabel, shoppingRecords, type ShoppingRun } from './shared.js';
 import './shopping.css';
 type Tab = 'needed' | 'purchased' | 'restock' | 'deleted';
-type Editor = { mode: 'list' | 'entry' | 'restock'; record?: ShoppingRecord };
+type Editor = { mode: 'list' | 'entry' | 'restock' | 'group'; record?: ShoppingRecord };
 export function Shopping({
   client,
   state,
   run,
   onError,
+  onOpenRecipe,
 }: {
   client: ClientPlatform;
   state: ClientState;
   run: ShoppingRun;
   onError: (error: unknown) => void;
+  onOpenRecipe: (id: string) => void;
 }) {
   const [selectedList, setSelectedList] = useState(''),
     [tab, setTab] = useState<Tab>('needed'),
@@ -29,6 +31,7 @@ export function Shopping({
   const [editor, setEditor] = useState<Editor | null>(null),
     [historyId, setHistoryId] = useState<string | null>(null),
     [working, setWorking] = useState<string | null>(null);
+  const [removingGroup, setRemovingGroup] = useState<string | null>(null);
   const snapshot = state.shopping,
     lists = snapshot.lists.filter((list) => !list.deletedAt),
     list = lists.find((item) => item.recordId === selectedList) ?? lists[0];
@@ -63,9 +66,19 @@ export function Shopping({
         !item.deletedAt &&
         item.listId === list?.recordId &&
         item.state === (tab === 'purchased' ? 'purchased' : 'needed') &&
-        matches(item),
+        (matches(item) || (snapshot.groups ?? []).some((g) => g.recordId === item.groupId && matches(g))),
     )
     .sort((a, b) => a.position - b.position || a.recordId.localeCompare(b.recordId));
+  const groups = (snapshot.groups ?? [])
+    .filter(
+      (g) =>
+        !g.deletedAt &&
+        g.listId === list?.recordId &&
+        (matches(g) || entries.some((e) => e.groupId === g.recordId)) &&
+        (tab !== 'purchased' || entries.some((e) => e.groupId === g.recordId)),
+    )
+    .sort((a, b) => a.position - b.position);
+  const removing = (snapshot.groups ?? []).find((g) => g.recordId === removingGroup);
   const products = snapshot.restockItems.filter(
     (item) => !item.deletedAt && (!list || item.scopeId === list.scopeId) && matches(item),
   );
@@ -82,10 +95,21 @@ export function Shopping({
       : 'Shared';
   const edit = (record: ShoppingRecord) =>
     setEditor({
-      mode: record.kind === 'shopping_list' ? 'list' : record.kind === 'restock_item' ? 'restock' : 'entry',
+      mode:
+        record.kind === 'shopping_list'
+          ? 'list'
+          : record.kind === 'restock_item'
+            ? 'restock'
+            : record.kind === 'shopping_group'
+              ? 'group'
+              : 'entry',
       record,
     });
   const remove = (record: ShoppingRecord) => {
+    if (record.kind === 'shopping_group') {
+      setRemovingGroup(record.recordId);
+      return;
+    }
     void action(
       record,
       'DeleteShoppingRecord',
@@ -189,9 +213,14 @@ export function Shopping({
             <Icon name="plus" size={16} /> New product
           </button>
         ) : tab === 'needed' && list ? (
-          <button disabled={!state.online} onClick={() => setEditor({ mode: 'entry' })}>
-            Add with notes
-          </button>
+          <div className="shopping-actions">
+            <button disabled={!state.online} onClick={() => setEditor({ mode: 'group' })}>
+              New group
+            </button>
+            <button disabled={!state.online} onClick={() => setEditor({ mode: 'entry' })}>
+              Add with notes
+            </button>
+          </div>
         ) : null}
       </div>
       {!list && tab !== 'deleted' && tab !== 'restock' ? (
@@ -203,7 +232,7 @@ export function Shopping({
             Create a list
           </button>
         </div>
-      ) : count === 0 ? (
+      ) : count === 0 && !((tab === 'needed' || tab === 'purchased') && groups.length) ? (
         <div className="shopping-empty">
           <Icon name={tab === 'restock' ? 'refresh' : 'check'} size={30} />
           <h3>
@@ -229,117 +258,18 @@ export function Shopping({
         </div>
       ) : null}
       {(tab === 'needed' || tab === 'purchased') && list && (
-        <div className="shopping-rows">
-          {entries.slice(0, limit).map((item) => {
-            const purchase = snapshot.purchases.find(
-              (p) => !p.deletedAt && p.items.some((line) => line.shoppingEntryId === item.recordId),
-            );
-            const product = snapshot.restockItems.find((p) => p.recordId === item.restockItemId);
-            return (
-              <article
-                className={`shopping-row ${item.state === 'purchased' ? 'is-purchased' : ''}`}
-                key={item.recordId}
-              >
-                {item.state === 'needed' ? (
-                  <button
-                    className="shopping-check"
-                    aria-label={`Bought ${item.label}`}
-                    disabled={disabled(item.recordId)}
-                    onClick={() => {
-                      void action(
-                        item,
-                        'PurchaseShoppingEntry',
-                        {
-                          recordId: item.recordId,
-                          expectedRevision: item.revision,
-                          purchaseId: crypto.randomUUID(),
-                          purchaseItemId: crypto.randomUUID(),
-                          boughtAt: Date.now(),
-                        },
-                        'Purchase recorded',
-                      );
-                    }}
-                  >
-                    <Icon name="check" size={22} />
-                  </button>
-                ) : (
-                  <span className="shopping-check checked">
-                    <Icon name="check" size={22} />
-                  </span>
-                )}
-                <div className="shopping-row-body">
-                  <div className="shopping-item-title">
-                    <h3>{item.label}</h3>
-                    {item.quantity && <span>{item.quantity}</span>}
-                  </div>
-                  {item.notes && (
-                    <p className="shopping-notes">
-                      <LinkedText client={client} text={item.notes} />
-                    </p>
-                  )}
-                  {product && (
-                    <p className="fine">
-                      {product.model || 'From your restock shelf'}
-                      {product.productUrl && (
-                        <>
-                          {' '}
-                          ·{' '}
-                          <WebLink client={client} href={product.productUrl}>
-                            Product link
-                          </WebLink>
-                        </>
-                      )}
-                    </p>
-                  )}
-                  {purchase && (
-                    <p className="fine">
-                      Bought by {purchase.buyerName} · {date(purchase.boughtAt)}
-                    </p>
-                  )}
-                  {state.pendingEdits.includes(item.recordId) && (
-                    <p className="fine" role="status">
-                      Waiting for confirmation…
-                    </p>
-                  )}
-                  <div className="shopping-row-footer">
-                    {tools(item)}
-                    {lists.some(
-                      (other) => other.scopeId === item.scopeId && other.recordId !== item.listId,
-                    ) && (
-                      <select
-                        aria-label={`Move ${item.label} to list`}
-                        value=""
-                        disabled={disabled(item.recordId)}
-                        onChange={(event) => {
-                          if (event.target.value)
-                            void action(
-                              item,
-                              'MoveShoppingEntry',
-                              {
-                                recordId: item.recordId,
-                                expectedRevision: item.revision,
-                                listId: event.target.value,
-                              },
-                              'Moved to list',
-                            );
-                        }}
-                      >
-                        <option value="">Move to…</option>
-                        {lists
-                          .filter((other) => other.scopeId === item.scopeId && other.recordId !== item.listId)
-                          .map((other) => (
-                            <option key={other.recordId} value={other.recordId}>
-                              {other.name}
-                            </option>
-                          ))}
-                      </select>
-                    )}
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+        <ShoppingItems
+          key={list.recordId + ':' + tab + ':' + search}
+          client={client}
+          state={state}
+          entries={entries}
+          groups={groups}
+          searching={!!search}
+          disabled={disabled}
+          action={action}
+          tools={tools}
+          onOpenRecipe={onOpenRecipe}
+        />
       )}
       {tab === 'restock' && (
         <div className="restock-grid">
@@ -412,7 +342,7 @@ export function Shopping({
                   onClick={() => {
                     void action(
                       record,
-                      'RestoreShoppingRecord',
+                      record.kind === 'shopping_group' ? 'RestoreShoppingGroup' : 'RestoreShoppingRecord',
                       { recordId: record.recordId, expectedRevision: record.revision },
                       'Restored',
                     );
@@ -426,7 +356,7 @@ export function Shopping({
           ))}
         </div>
       )}
-      {count > limit && (
+      {(tab === 'restock' || tab === 'deleted') && count > limit && (
         <button className="load-more" onClick={() => setLimit((value) => value + 40)}>
           Show more · {count - limit} remaining
         </button>
@@ -463,6 +393,33 @@ export function Shopping({
           close={() => setHistoryId(null)}
           onError={onError}
         />
+      )}
+      {removing && (
+        <ShoppingDialog client={client} title="Remove group" close={() => setRemovingGroup(null)}>
+          <p>Remove “{removing.name}”? Its items will stay on the list, ungrouped.</p>
+          <div className="dialog-footer">
+            <button onClick={() => setRemovingGroup(null)}>Keep group</button>
+            <button
+              disabled={disabled(removing.recordId)}
+              onClick={() => {
+                void action(
+                  removing,
+                  'DeleteShoppingGroup',
+                  {
+                    recordId: removing.recordId,
+                    expectedRevision: removing.revision,
+                    members: snapshot.entries
+                      .filter((e) => !e.deletedAt && e.groupId === removing.recordId)
+                      .map((e) => ({ recordId: e.recordId, expectedRevision: e.revision })),
+                  },
+                  'Group removed; items kept',
+                ).then(() => setRemovingGroup(null));
+              }}
+            >
+              Remove group, keep items
+            </button>
+          </div>
+        </ShoppingDialog>
       )}
     </section>
   );

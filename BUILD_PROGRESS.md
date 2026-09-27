@@ -118,6 +118,10 @@ in-place APK preservation and a real public recipe import into a disposable data
 See RECIPE_IMPLEMENTATION.md for exact coverage and limitations. Cooking tasks are
 now connected through migration 013, with atomic meal/completion/recurrence history,
 guarded undo and shared date controls. The Linux build passes all 135 tests across
-server, contract and voice packages. Ingredient shopping groups and release
-verification remain; the live app and its
-private download still use the previous release.
+server, contract and voice packages. Ingredient shopping groups now add a durable
+recipe checklist, immutable source details and collapsible named groups. Group
+removal keeps items and protects concurrent edits; compound undo/redo includes
+membership changes. Migration 014 is additive. All 27 browser flows and 139 Linux
+package tests pass; the APK update preserves the previous emulator data and drafts.
+Deeper collection controls and final release verification remain; the live app and
+its private download still use the previous release.

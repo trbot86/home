@@ -102,6 +102,40 @@ try {
   await expect(page.locator('.food-cooking article')).toHaveCount(1);
   await page.getByRole('button', { name: 'Redo', exact: true }).click();
   await expect(page.locator('.food-cooking article')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Shopping', exact: true }).click();
+  await page.getByRole('button', { name: 'New list', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill('Native recipe groceries');
+  await page.getByRole('dialog').getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.locator('.food-card').filter({ hasText: title }).click();
+  await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
+  await page.getByLabel('Ingredient group name').fill('Native Sunday soup');
+  await page.getByLabel('Include 1 onion', { exact: true }).uncheck();
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.locator('.food-card').filter({ hasText: title }).click();
+  await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
+  await expect(page.getByLabel('Include 1 onion', { exact: true })).not.toBeChecked();
+  await expect(page.getByLabel('Ingredient group name')).toHaveValue('Native Sunday soup');
+  await page.getByRole('button', { name: 'Add 1 item to shopping', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect
+    .poll(async () => (await invoke('state')).shopping.groups.filter((g) => g.deletedAt === null).length)
+    .toBe(0);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await page.getByRole('button', { name: 'Shopping', exact: true }).click();
+  const shoppingGroup = page.locator('.shopping-group').filter({ hasText: 'Native Sunday soup' });
+  await expect(shoppingGroup).not.toHaveAttribute('open', '');
+  await shoppingGroup.locator('summary').first().click();
+  await expect(shoppingGroup.locator('.shopping-row')).toHaveCount(1);
+  await shoppingGroup
+    .getByRole('button', { name: `Recipe: ${title}`, exact: true })
+    .first()
+    .click();
+  await expect(page.locator('.food-detail-heading')).toContainText(title);
   await page.getByRole('button', { name: 'Save a recipe', exact: true }).click();
   await page.getByLabel('Recipe source link', { exact: true }).fill('https://example.com/multiple');
   await page.getByRole('button', { name: 'Save to Want to try', exact: true }).click();
@@ -156,8 +190,18 @@ try {
   const after = await invoke('state');
   for (const field of ['session', 'recipes', 'recipeImports', 'views'])
     assert.deepEqual(after[field], before[field]);
+  assert.deepEqual(after.shopping, before.shopping);
+  await page.getByRole('button', { name: 'Shopping', exact: true }).click();
+  await shoppingGroup.locator('summary').first().click();
+  await expect(shoppingGroup.locator('.shopping-row')).toHaveCount(1);
+  await expect(shoppingGroup.getByRole('button', { name: 'Bought 2 carrots', exact: true })).toBeDisabled();
+  await shoppingGroup
+    .getByRole('button', { name: `Recipe: ${title}`, exact: true })
+    .first()
+    .click();
+  await expect(page.locator('.food-detail-heading')).toContainText(title);
   console.log(
-    'PASS: native Food form recovery, Back, photos, notes, linked cooking completion/recurrence/undo, Soon, import review, history and offline Room/photo cache.',
+    'PASS: native Food form recovery, Back, photos, notes, linked cooking completion/recurrence/undo, recipe shopping selection/groups/undo/backlinks, Soon, import review, history and offline Room/photo cache.',
   );
 } finally {
   await browser.close();

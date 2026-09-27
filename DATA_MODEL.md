@@ -202,6 +202,8 @@ Rule edits leave past completions unchanged. Record the calculation's rule versi
 | Table | Keys and main fields | Relationships / rules |
 | --- | --- | --- |
 | `shopping_lists` (R) | `shopping_list_id`; name, purpose | Groceries, wants, private gifts or user grouping. |
+| `shopping_groups` (R) | `group_id`; list, name, position, optional recipe ID/revision/title snapshot | One list and scope; collapsed initially. Renaming revises the group. Deleting ungroups its live items in the same action. |
+| `shopping_entry_groups` | `entry_id`; group, list, scope | Entry-owned membership. Composite FKs require the entry and group to belong to the same list and scope. |
 | `restock_items` (R) | `restock_item_id`; name, model/size, product URL, default quantity text | Reusable exact product with optional photo. Tasks/reminders can reference it. |
 | `shopping_entries` (R) | `shopping_entry_id`; list, restock item?, label, quantity text, parsed amount/unit?, state `needed/purchased/cancelled`, position, notes | Same scope as list. Partial unique `(list, restock item)` when needed and restock is not null. Freeform duplicates allowed. |
 | `purchases` (R) | `purchase_id`; bought time, buyer?, merchant?, total/currency?, notes | One scope, with receipt attachments. |
@@ -211,6 +213,13 @@ Rule edits leave past completions unchanged. Record the calculation's rule versi
 | `gift_plan_items` | PK `(gift_plan_id, shopping_entry_id)` | Plan-owned; same scope. |
 
 “Need this” returns the existing needed entry for that restock item/list or creates a new entry. It never toggles or revives purchased history. Quantity changes are explicit; do not sum unparseable text. Moving to a list already containing that needed restock item requires explicit combine/keep handling or a rejected conflict.
+
+Group removal includes the expected revisions of all live members. A concurrent
+purchase, move, edit or new member rejects the whole removal; retained items are
+never deleted implicitly. Undo restores both the group and those memberships,
+subject to ordinary per-person revision guards. Moving an item to another list
+clears its previous grouping. Removed recipes and retired ingredients remain as
+typed identities so immutable shopping snapshots retain their references.
 
 A private plan → shared suggestion link changes no shared state. Private shopping, purchase, reminder and media rows stay private. A receipt containing groceries and a secret gift remains private unless a redacted copy is explicitly shared; separate purchase records represent the audiences. No private backlinks/counts/search/notification/activity leak through shared screens. See the [gift transaction](WORKED_TRANSACTIONS.md#6-private-gift-planning).
 

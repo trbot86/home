@@ -1,6 +1,91 @@
 .shopping {
   max-width: 1120px;
 }
+.shopping-group {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin: 12px 0;
+  background: var(--paper);
+}
+.shopping-group > summary {
+  cursor: pointer;
+  padding: 18px;
+  overflow-wrap: anywhere;
+}
+.shopping-group > summary strong {
+  font-weight: 500;
+}
+.shopping-group > summary span {
+  margin-left: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.shopping-group-content {
+  padding: 0 16px 12px;
+}
+.shopping-group-content > .shopping-row-footer {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.shopping-recipe-link {
+  padding: 6px 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.shopping-source {
+  margin: 10px 0;
+  font-size: 12px;
+}
+.shopping-source summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+.shopping-source p {
+  overflow-wrap: anywhere;
+}
+.shopping-source button {
+  padding: 4px 0;
+  text-align: left;
+}
+.shopping-move-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+  min-width: 0;
+}
+.shopping-move-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.shopping-move-controls select {
+  min-width: 0;
+  max-width: 220px;
+}
+@media (max-width: 540px) {
+  .shopping-filter {
+    flex-wrap: wrap;
+  }
+  .shopping-filter .search {
+    min-width: 100%;
+  }
+  .shopping-group-content > .shopping-row-footer {
+    flex-wrap: wrap;
+  }
+  .shopping-group .shopping-row {
+    gap: 10px;
+  }
+  .shopping-group-content {
+    padding: 0 10px 10px;
+  }
+  .shopping-move-controls select {
+    max-width: 100%;
+    width: 100%;
+  }
+}
 .shopping-toolbar,
 .shopping-list-heading,
 .shopping-filter,

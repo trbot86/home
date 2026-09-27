@@ -14,6 +14,7 @@ export const shoppingRecords = (snapshot: ShoppingSnapshot): ShoppingRecord[] =>
   ...snapshot.entries,
   ...snapshot.restockItems,
   ...snapshot.purchases,
+  ...(snapshot.groups ?? []),
 ];
 export const shoppingLabel = (record: ShoppingRecord) =>
   record.kind === 'shopping_entry'
@@ -22,9 +23,13 @@ export const shoppingLabel = (record: ShoppingRecord) =>
       ? record.items.map((item) => item.label).join(', ')
       : record.name;
 export const shoppingKind = (record: ShoppingRecord) =>
-  ({ shopping_list: 'List', shopping_entry: 'Item', restock_item: 'Restock product', purchase: 'Purchase' })[
-    record.kind
-  ];
+  ({
+    shopping_list: 'List',
+    shopping_entry: 'Item',
+    restock_item: 'Restock product',
+    purchase: 'Purchase',
+    shopping_group: 'Group',
+  })[record.kind];
 export function ShoppingDialog({
   client,
   title,

@@ -24,7 +24,7 @@ export function ShoppingHistory({
     let alive = true;
     if (state.online)
       void client
-        .shoppingHistory(record.recordId)
+        .recordHistory<ShoppingRecord>(record.recordId)
         .then((value) => {
           if (alive) setHistory(value);
         })

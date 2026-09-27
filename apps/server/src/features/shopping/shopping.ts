@@ -20,6 +20,7 @@ import type {
 } from '../records/record-registry.js';
 import { NotFound, Rejection } from '../../application/errors.js';
 import type { CommandHandler } from '../records/command-handler.js';
+import type { ShoppingEntryRelations } from './entry-relations.js';
 
 export type ShoppingCommandKind = keyof typeof shoppingCommands;
 const tables: Record<ShoppingKind, [string, string]> = {
@@ -49,6 +50,7 @@ export class ShoppingRepository {
   constructor(
     private readonly db: Sqlite,
     private readonly access: AccessService,
+    private readonly relations?: ShoppingEntryRelations,
   ) {}
   private content(kind: ShoppingKind, value: unknown): RecordContent {
     if (!isValid(shoppingContentSchemas[kind], value)) throw new Error('Invalid shopping history content');
@@ -66,7 +68,9 @@ export class ShoppingRepository {
         throw new Rejection('invalid_product_url');
       }
     }
-    return content;
+    return kind === 'shopping_entry'
+      ? { ...content, groupId: content.groupId ?? null, recipeSources: content.recipeSources ?? [] }
+      : content;
   }
   adapters(): RecordAdapter[] {
     return (Object.keys(tables) as ShoppingKind[]).map((kind) => ({
@@ -112,6 +116,7 @@ export class ShoppingRepository {
         notes: data.notes,
         state: data.state,
         position: data.position,
+        ...(this.relations?.read(id) ?? { groupId: null, recipeSources: [] }),
       };
     else
       fields = {
@@ -215,11 +220,13 @@ export class ShoppingRepository {
       this.db
         .prepare("INSERT INTO restock_items VALUES (?,'restock_item',?,?,?,?,?,?)")
         .run(id, c.scopeId, c.name, c.model, c.quantity, c.notes, c.productUrl);
-    else if (kind === 'shopping_entry')
+    else if (kind === 'shopping_entry') {
       this.db
         .prepare("INSERT INTO shopping_entries VALUES (?,'shopping_entry',?,?,?,?,?,?,?,?,1)")
         .run(id, c.scopeId, c.listId, c.restockItemId, c.label, c.quantity, c.notes, c.state, c.position);
-    else {
+      this.relations?.saveGroup(id, c);
+      this.relations?.createSources(id, c);
+    } else {
       this.db
         .prepare("INSERT INTO purchases VALUES (?,'purchase',?,?,?,?,?)")
         .run(id, c.scopeId, c.boughtAt, c.buyerPersonId, c.buyerName, c.notes);
@@ -265,6 +272,7 @@ export class ShoppingRepository {
     else if (before.kind === 'shopping_entry') {
       const list = this.require(context, String(c.listId), 'shopping_list');
       if (list.content.scopeId !== c.scopeId) throw new Rejection('scope_mismatch');
+      this.relations?.assertSourcesUnchanged(before.content, c);
       // Check the final slot before the unique index, including resurrection by undo.
       if (
         c.deletedAt === null &&
@@ -273,11 +281,13 @@ export class ShoppingRepository {
         this.needed(String(c.listId), String(c.restockItemId), id)
       )
         throw new Rejection('restock_already_needed');
+      this.relations?.clearGroup(id);
       this.db
         .prepare(
           'UPDATE shopping_entries SET shopping_list_id=?,label=?,quantity=?,notes=?,state=?,position=? WHERE shopping_entry_id=?',
         )
         .run(c.listId, c.label, c.quantity, c.notes, c.state, c.position, id);
+      this.relations?.saveGroup(id, c);
       if (c.restockItemId !== before.content.restockItemId) throw new Error('Restock identity cannot change');
     } else {
       const { deletedAt: _old, ...old } = before.content;
@@ -304,6 +314,31 @@ export class ShoppingRepository {
         .prepare('SELECT COALESCE(MAX(position),-1)+1 AS next FROM shopping_entries WHERE shopping_list_id=?')
         .get(listId) as { next: number }
     ).next;
+  }
+  /** Used by the recipe planner inside the coordinator's compound transaction. */
+  createEntry(
+    context: RequestContext,
+    id: string,
+    listId: string,
+    fields: Pick<ShoppingEntry, 'label' | 'quantity' | 'notes' | 'groupId' | 'recipeSources'>,
+    now: number,
+  ): TrackedRecord {
+    const list = this.live(this.require(context, listId, 'shopping_list'));
+    return this.create(
+      context,
+      'shopping_entry',
+      id,
+      {
+        ...fields,
+        scopeId: list.content.scopeId,
+        deletedAt: null,
+        listId,
+        restockItemId: null,
+        state: 'needed',
+        position: this.position(listId),
+      },
+      now,
+    );
   }
   execute(context: RequestContext, kind: ShoppingCommandKind, payload: unknown, now: number): Result {
     requireHuman(context);
@@ -357,6 +392,7 @@ export class ShoppingRepository {
             restockItemId,
             state: 'needed',
             position: this.position(args.listId),
+            groupId: args.groupId ?? null,
           },
           now,
         ),
@@ -422,6 +458,12 @@ export class ShoppingRepository {
       return changed(before, {
         ...before.content,
         listId: move.listId,
+        groupId:
+          move.groupId !== undefined
+            ? move.groupId
+            : move.listId === before.content.listId
+              ? before.content.groupId
+              : null,
         position: this.position(move.listId),
       });
     }

@@ -29,6 +29,43 @@ async function add(page: Page, label: string, quantity = '') {
   return row;
 }
 
+test('named shopping groups can be renamed, searched, rearranged and restored without losing items', async ({
+  page,
+}) => {
+  await openShopping(page);
+  await newList(page, 'Weekend errands');
+  await add(page, 'Seeds', '2 packets');
+  await page.getByRole('button', { name: 'New group', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill('Garden');
+  await page.getByRole('dialog').getByLabel('Name', { exact: true }).press('Control+Enter');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByLabel('Group for Seeds', { exact: true }).selectOption({ label: 'Garden' });
+  const group = page.locator('.shopping-group');
+  await expect(group).not.toHaveAttribute('open', '');
+  await page.getByLabel('Search shopping').fill('Seeds');
+  await expect(group).toHaveAttribute('open', '');
+  await group.getByRole('button', { name: 'Edit', exact: true }).first().click();
+  await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill('Planting supplies');
+  await page.getByRole('dialog').getByLabel('Name', { exact: true }).press('Control+Enter');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(group.locator('summary').first()).toContainText('Planting supplies');
+  await page.getByLabel('Group for Seeds', { exact: true }).selectOption('');
+  await expect(group).toHaveCount(0);
+  await page.getByLabel('Search shopping').fill('');
+  await expect(group).toHaveCount(1);
+  await group.locator('summary').first().click();
+  await group.getByRole('button', { name: 'Delete Planting supplies', exact: true }).click();
+  await page.getByRole('button', { name: 'Remove group, keep items', exact: true }).click();
+  await expect(group).toHaveCount(0);
+  await page.getByRole('button', { name: 'Deleted', exact: true }).click();
+  const deleted = page.locator('.shopping-row').filter({ hasText: 'Planting supplies' });
+  await deleted.getByRole('button', { name: 'Restore', exact: true }).click();
+  await expect(deleted).toHaveCount(0);
+  await page.getByRole('button', { name: 'Need to buy', exact: true }).click();
+  await expect(group).toHaveCount(1);
+  await expect(page.locator('.shopping-row')).toContainText('Seeds');
+});
+
 test('shopping purchase undo, restocking, details, privacy and narrow layouts', async ({ page, browser }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));

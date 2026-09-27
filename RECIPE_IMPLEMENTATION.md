@@ -231,3 +231,41 @@ monthly recurrence and compound undo/redo alongside the existing native Food che
 Its APK build and ten unit tests pass. The eight affected Food, Tasks and Home browser
 flows pass; final release checks will cover the complete client again after shopping
 groups are connected. No cooking-task tests use the live household database.
+
+## Ingredient shopping checkpoint (2026-09-27)
+
+Migration 014 adds named shopping groups, entry-owned memberships and immutable
+recipe source snapshots. Recipe and list revisions guard the ingredient checklist;
+one command creates its group, selected entries, sources, changeset and receipt.
+Each selected ingredient explicitly creates a new item. No quantity parsing,
+scaling, pantry assumptions or label-based merging occur. Original ingredient text,
+recipe title/version and shopping quantity survive later recipe edits or deletion.
+Long ingredients require an explicit short shopping label and retain their full text.
+
+Shopping groups start collapsed and show the relevant item count. Search opens
+matching groups; large groups paginate their contents. Groups can be renamed,
+removed while keeping their items, or restored. Removal validates the complete
+current member set and revisions before ungrouping anything. Compound undo/redo
+checks every affected record; a partner purchase or edit prevents an old reversal.
+Membership moves belong to entries and do not revise recipe or group content.
+Typed composite foreign keys enforce matching list and visibility scope.
+
+The Food checklist saves unfinished selections and generated IDs on the device,
+recognizes an acknowledged group after a lost response, and preserves frozen
+requests. Browser and native caches default pre-group shopping snapshots to an
+empty group array. Cached recipe links and groups remain readable offline.
+
+Verification: all 27 browser flows pass, including widths 320/390/820/1440,
+draft/retry recovery, partner purchases and group deletion/undo. Linux Docker
+passes 120 server, five contract and fourteen voice-package tests; Windows skips
+only the Unix socket test. An upgrade from the retained 006 fixture preserves all
+golden rows, identity and requests; backup/restore retains group/source rows and
+receipts and still permits compound undo. The in-place emulator APK update keeps
+its prior session, all cached sections, photo capture and unfinished editor buffer.
+The native workflow also passes checklist draft recovery, group creation and
+compound undo/redo, recipe navigation, shared profile reads and offline Room/photo
+cache checks. All ten Android unit tests pass.
+
+This remains branch development. Migrations 009–014 and this APK have not been
+deployed to the live household. Deeper collection controls and final live backup,
+upgrade rehearsal, release and artifact verification remain separate work.

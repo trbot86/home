@@ -26,7 +26,7 @@ export function ShoppingEditor({
 }: {
   client: ClientPlatform;
   state: ClientState;
-  mode: 'list' | 'entry' | 'restock';
+  mode: 'list' | 'entry' | 'restock' | 'group';
   record?: ShoppingRecord;
   list?: ShoppingList;
   run: ShoppingRun;
@@ -47,7 +47,9 @@ export function ShoppingEditor({
     productUrl: record?.kind === 'restock_item' ? (record.productUrl ?? '') : '',
     purpose: record?.kind === 'shopping_list' ? record.purpose : 'groceries',
   });
-  const key = record?.recordId ?? `shopping:new:${mode}:${mode === 'entry' ? list!.recordId : 'default'}`;
+  const key =
+    record?.recordId ??
+    `shopping:new:${mode}:${mode === 'entry' || mode === 'group' ? list!.recordId : 'default'}`;
   const [form, setForm] = useState(initial),
     [baseRevision, setBaseRevision] = useState(record?.revision ?? 1),
     [baseEpoch, setBaseEpoch] = useState(session.serverEpoch);
@@ -118,7 +120,14 @@ export function ShoppingEditor({
         ...(record ? { expectedRevision: baseRevision } : { scopeId: form.scopeId }),
       };
       let kind: CommandKind, args: unknown;
-      if (mode === 'list') {
+      if (mode === 'group') {
+        kind = record ? 'UpdateShoppingGroup' : 'CreateShoppingGroup';
+        args = {
+          recordId: form.recordId,
+          ...(record ? { expectedRevision: baseRevision } : { listId: list!.recordId }),
+          name: form.name,
+        };
+      } else if (mode === 'list') {
         kind = record ? 'UpdateShoppingList' : 'CreateShoppingList';
         args = { ...target, name: form.name, purpose: form.purpose };
       } else if (mode === 'restock') {
@@ -180,7 +189,7 @@ export function ShoppingEditor({
   return (
     <ShoppingDialog
       client={client}
-      title={`${record ? 'Edit' : 'New'} ${mode === 'restock' ? 'restock product' : mode === 'list' ? 'list' : 'shopping item'}`}
+      title={`${record ? 'Edit' : 'New'} ${mode === 'restock' ? 'restock product' : mode === 'list' ? 'list' : mode === 'group' ? 'group' : 'shopping item'}`}
       close={close}
     >
       <form
@@ -213,7 +222,7 @@ export function ShoppingEditor({
               </select>
             </label>
           ) : (
-            field('quantity', 'Quantity', 120)
+            mode !== 'group' && field('quantity', 'Quantity', 120)
           )}
           {mode === 'restock' && (
             <>
@@ -221,7 +230,7 @@ export function ShoppingEditor({
               {field('productUrl', 'Product link (optional)', 4096)}
             </>
           )}
-          {mode !== 'list' && (
+          {mode !== 'list' && mode !== 'group' && (
             <label className="shopping-field">
               Notes
               <textarea
@@ -233,7 +242,7 @@ export function ShoppingEditor({
               />
             </label>
           )}
-          {!record && mode !== 'entry' && (
+          {!record && mode !== 'entry' && mode !== 'group' && (
             <label className="shopping-field">
               Who can see this
               <select
