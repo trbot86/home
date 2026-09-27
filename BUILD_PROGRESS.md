@@ -14,14 +14,23 @@ Updated 2026-09-27.
 - Private Android distribution with locally compiled server configuration.
 - Reusable photo/receipt editing for Inbox, tasks and completions, with captions,
   ordering, removal, full-size previews and historical images.
+- Home assets, model/serial/location details, archive state, photos and service logs.
+- Tasks linked to assets, atomic completion/service recording, historical service,
+  exact decimal costs with explicit currencies, and revision-guarded compound undo.
 
 ## Current development
 
 Photo editing is deployed on the web and in the private Android download.
 Browser and Room drafts retain originals and immutable requests through an
-interrupted save. Migration006 is published and immutable. Maintenance assets
-and the service log are next.
+interrupted save. Migrations001–008 are published and immutable. Home assets
+and the service log are deployed on the web and in the private Android download.
 See MAINTENANCE_IMPLEMENTATION.md.
+
+The separate Alexa task's capture backend is integrated. Integration actors are
+distinct from people, and the separate listener can only capture shared inbox
+notes and resolve its own receipts. It is disabled in the live deployment; no
+integration identity or credential has been provisioned there. Amazon setup,
+the cloud transport and network restrictions remain with the Alexa task.
 
 The deployed usability update adds a house favicon, clickable web addresses in
 notes and captions, and a Storage shortcut to this household's Android
@@ -65,10 +74,28 @@ The live web bundle and private APK match the tested build. A live shared-note
 deep link opens after profile selection; record hashes and household identity
 were unchanged, and the pre-release backup was verified at the secondary location.
 
+The combined Home/Alexa release passed 61 server tests, six Alexa tests, five
+contract tests, 20 browser flows and ten Android unit tests. Docker built and
+tested the same source. Native UI checks covered Home drafts, Back, linked
+completion, actual-date recurrence, undo/redo, partner receipt downloads,
+historical images and Room cache. Installing over the previous APK preserved
+its session, unfinished photo capture and old task form; both saved afterward.
+Browser checks also cover full-length integration note IDs and Alexa attribution.
+
+Before deployment, the fresh secondary backup was restored into a new isolated
+directory and migrated through 007 and 008. All 20 retained data tables and four
+media files were preserved. The live upgrade used another verified pre-upgrade
+backup, and all 17 existing inbox record hashes plus installation/epoch were
+unchanged afterward. The upgrade backup is verified on the secondary drive.
+Live schema/integrity and read-only desktop/phone Home checks passed; the web
+bundle and published APK match the tested artifacts. No test records were added
+to the live household.
+
 ## Remaining work
 
-Maintenance assets/receipts, recipes, project boards, calendar integration,
-selective notifications, richer gift workflows and Alexa integration remain.
+Recipes, project boards, calendar integration, selective notifications, richer
+gift workflows and Alexa cloud/device integration remain. Suggested maintenance
+templates can follow the deployed asset and service workflow.
 Fixed-calendar recurrence needs an explicit missed-slot policy. OEM voice,
 widget and locked-phone behavior requires physical-device checks. Metadata
 snapshots have explicit limits pending incremental synchronization.
