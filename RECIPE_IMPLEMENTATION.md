@@ -134,9 +134,9 @@ ownership, collection moves, manual cooking and real HTTP/media paths. A backup
 restore fixture recovers source text, adjustments, membership, history and exact
 photo bytes after those bytes have been collected from its isolated original.
 
-Still required before release: Soon pins, task/cooking integration,
-ingredient shopping groups/provenance, Food UI, native cache/forms and device tests.
-There is no new deployed recipe feature yet.
+Task/cooking integration and ingredient shopping groups/provenance remain required
+before release. Later checkpoints below cover the import worker, Food screens,
+Soon pins and native cache/forms. There is no deployed recipe feature yet.
 
 The import worker boundary is specified in
 [Recipe worker design](RECIPE_WORKER_DESIGN.md). Existing application contracts
@@ -162,3 +162,41 @@ HTTP credentials, ordinary household access or Alexa capture authority.
 The main server starts the worker; constructing a test app does not start network
 work. These are source changes only until the complete Food slice is verified and
 deployed using the existing backup-protected upgrade path.
+
+## Food client checkpoint (2026-09-27)
+
+The dark-green Food view now has picture cards, search, shared/private filtering,
+Want to try/Favourites moves, an independent Make soon view, archive/removal and
+guarded history. A pasted link is saved before background retrieval; duplicate links
+offer the existing card. Ambiguous imports offer a candidate and field selection,
+with local source-picture previews. Recipe text, household adjustments, cooking
+notes and photo editing use the existing durable editor and command paths. Parsed
+times are shown in everyday units while their original source text is retained.
+
+Migration 012 stores scoped view pins separately from recipe content. Pin commands
+have their own revision and receipt, and do not change recipe revisions or content
+undo history. Pins survive recipe edits and collection moves. Client snapshots cache
+recipes, import summaries and view pins in the existing IndexedDB/Room JSON values;
+old caches default these additions to empty without replacing saved records or drafts.
+
+The full browser suite passed 23 flows, including three Food flows covering photos,
+adjustments, cooking dates, collection moves, Soon pins, Ctrl+Enter, undo/redo,
+private profiles, lost replies, unfinished forms and offline reading. Screens were
+checked at 320, 390, 820 and 1440 pixels. A real public recipe URL also completed the
+full save/fetch/image/apply/display path in a disposable household, with six
+ingredients, five steps and a source photograph. This checks one site and recipe,
+not universal importer coverage. Retrieved content and screenshots remain local.
+
+Android built with ten passing unit tests. Installing over the previous APK on the
+isolated emulator preserved its session, cached sections, unfinished photo capture
+and editor text. Native Food checks then exercised Back/form recovery, photo upload,
+partner photo download, adjustments, cooking notes, pins, import review, historical
+images and Room/photo reading after the test server stopped. The reusable camera
+and gallery picker was previously verified with the Home photo editor; this pass
+checks recipe attachment transfer and display using a synthetic image.
+
+The current Windows server suite has 112 passes and one Unix-socket test skipped;
+the contract and voice packages add five and fourteen passes. Type checking, package
+boundaries and the web/Android builds pass. These changes remain on the development
+branch. Custom collection management, linked cooking tasks, ingredient shopping
+groups and the final backup/upgrade/deployment checks remain before Food release.

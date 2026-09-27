@@ -38,7 +38,7 @@ class HouseholdPlugin : Plugin() {
             } catch (error: Exception) { call.reject("Invalid web link", error) }
             return
         }
-        val networkMethods = setOf("authenticationOptions", "login", "logout", "refresh", "sync", "command", "submitAttachmentDraft", "history", "shoppingHistory", "recordHistory", "photoPath", "storage", "backups", "createBackup", "recoverDraft", "reconcileEdits")
+        val networkMethods = setOf("authenticationOptions", "login", "logout", "refresh", "sync", "command", "submitAttachmentDraft", "history", "shoppingHistory", "recordHistory", "recipeImport", "photoPath", "storage", "backups", "createBackup", "recoverDraft", "reconcileEdits")
         (if (method in networkMethods) network else core.executor).execute {
             try {
                 val result: Any? = when (method) {
@@ -68,6 +68,7 @@ class HouseholdPlugin : Plugin() {
                     "history" -> core.history(args.requireText("recordId"))
                     "shoppingHistory" -> core.shoppingHistory(args.requireText("recordId"))
                     "recordHistory" -> core.recordHistory(args.requireText("recordId"))
+                    "recipeImport" -> core.recipeImport(args.requireText("importId"))
                     "saveEditor" -> { core.saveEditor(args.requireText("recordId"), args.requireText("text"), args.getInt("baseRevision"), args.requireText("serverEpoch")); null }
                     "readEditor" -> core.readEditor(args.requireText("recordId"))
                     "clearEditor" -> { core.clearEditor(args.requireText("recordId")); null }

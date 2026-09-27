@@ -6,6 +6,8 @@ import { taskCommands } from './tasks.js';
 import { homeCommands } from './home.js';
 import { recipeCommands } from './recipes.js';
 import { recipeImportCommands } from './recipe-import.js';
+import { viewCommands } from './views.js';
+export * from './views.js';
 import { Attachment, SetRecordAttachments } from './attachments.js';
 export * from './attachments.js';
 export { Id, Instant, Revision, Digest } from './primitives.js';
@@ -64,6 +66,7 @@ export const argumentSchemas = {
   ...homeCommands,
   ...recipeCommands,
   ...recipeImportCommands,
+  ...viewCommands,
   SetRecordAttachments,
   CreateInboxEntry,
   SetInboxEntryText,

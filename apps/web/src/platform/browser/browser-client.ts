@@ -14,12 +14,17 @@ import type {
   ShoppingSnapshot,
   TaskSnapshot,
   HomeSnapshot,
+  RecipeSnapshot,
+  RecipeImportSummary,
+  RecipeImportDetails,
+  SavedView,
 } from '@our-place/contracts';
 import {
   categoryOf,
   emptyShopping,
   emptyTasks,
   emptyHome,
+  emptyRecipes,
   isValid,
   OutcomeSchema,
 } from '@our-place/contracts';
@@ -97,6 +102,9 @@ export class BrowserClient implements ClientPlatform {
       shopping: cache?.shopping ?? emptyShopping(),
       tasks: cache?.tasks ?? emptyTasks(),
       home: cache?.home ?? emptyHome(),
+      recipes: cache?.recipes ?? emptyRecipes(),
+      recipeImports: cache?.recipeImports ?? [],
+      views: cache?.views ?? [],
       drafts: session
         ? (await db.getAll('drafts')).filter((d) => d.clientId === session.clientId && !d.settled)
         : [],
@@ -174,6 +182,9 @@ export class BrowserClient implements ClientPlatform {
       shopping?: ShoppingSnapshot;
       tasks?: TaskSnapshot;
       home?: HomeSnapshot;
+      recipes?: RecipeSnapshot;
+      recipeImports?: RecipeImportSummary[];
+      views?: SavedView[];
       sampledAt: number;
       serverEpoch: string;
     }>('/cache/inbox');
@@ -638,6 +649,9 @@ export class BrowserClient implements ClientPlatform {
   }
   async history(id: string): Promise<HistoryEntry[]> {
     return (await this.request<{ entries: HistoryEntry[] }>(`/inbox/${id}/history`)).entries;
+  }
+  recipeImport(id: string): Promise<RecipeImportDetails> {
+    return this.request(`/recipe-imports/${encodeURIComponent(id)}`);
   }
   async shoppingHistory(id: string): Promise<HistoryEntry<ShoppingRecord>[]> {
     return (await this.request<{ entries: HistoryEntry<ShoppingRecord>[] }>(`/shopping/${id}/history`))

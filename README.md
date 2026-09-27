@@ -1,6 +1,6 @@
 # Our place
 
-A self-hosted household app for two people. Working features include a shared/private inbox, separate app suggestions, photos, durable offline capture, shopping and restock lists, tasks and recurring chores, personal overviews, completion/purchase history, guarded undo/redo, storage reporting and online backup/restore. Maintenance assets, projects, recipes, calendars and Alexa remain planned features. The Tailscale household is in real use; follow AGENTS.md to preserve its data during development.
+A self-hosted household app for two people. Deployed features include a shared/private inbox, separate app suggestions, photos, durable offline capture, shopping and restock lists, tasks and recurring chores, maintenance assets and service logs, personal overviews, completion/purchase history, guarded undo/redo, storage reporting and online backup/restore. Food is under development; project boards and calendars remain planned. The Tailscale household is in real use; follow AGENTS.md to preserve its data during development.
 
 The temporary Docker phone trial on this PC is live over private Tailscale HTTPS. It uses the mockup's dark green theme and a password-free profile picker: choose yourself once, then switch from the profile dropdown. Private items are hidden from the other profile; anyone with network access can deliberately select either profile. See [PHONE_TRIAL.md](PHONE_TRIAL.md) for the addresses and controls and [the access decision](decisions/0004-trusted-network-profiles.md) for the model.
 
@@ -38,6 +38,15 @@ who did the work and when, including work done earlier. Recurring tasks schedule
 the next occurrence from actual completion, with calendar-month clamping; fixed
 calendar schedules and notification delivery remain future work. History and
 guarded undo cover the whole completion action. Cached tasks are read-only offline.
+
+The development Food section saves recipe links immediately and collects metadata
+and a source picture in the background. It offers Want to try, Favourites, independent
+Make soon pins, source editing, household adjustments, cooking notes/photos and
+history. Multiple recipes on a page, or an edit during import, require review before
+applying source details. Saved recipes remain readable offline; unfinished forms
+stay on the device until submitted online. Linked cooking tasks and ingredient
+shopping groups are still being built, and this slice is not yet deployed. See
+[recipe implementation](RECIPE_IMPLEMENTATION.md) for verification and limits.
 
 To develop with live reload, bootstrap the default development data first with `pnpm --filter @our-place/server bootstrap` using JSON on stdin (format below), then `pnpm dev`. The web development server proxies `/api` to the local server. The prebuilt demo is the quickest first review.
 

@@ -12,6 +12,10 @@ import type {
   ShoppingSnapshot,
   TaskSnapshot,
   HomeSnapshot,
+  RecipeSnapshot,
+  RecipeImportSummary,
+  RecipeImportDetails,
+  SavedView,
 } from '@our-place/contracts';
 export type Draft = {
   draftId: string;
@@ -34,6 +38,9 @@ export type ClientState = {
   shopping: ShoppingSnapshot;
   tasks: TaskSnapshot;
   home: HomeSnapshot;
+  recipes: RecipeSnapshot;
+  recipeImports: RecipeImportSummary[];
+  views: SavedView[];
   drafts: Draft[];
   online: boolean;
   sampledAt: number | null;
@@ -96,6 +103,7 @@ export interface ClientPlatform {
   history(recordId: string): Promise<HistoryEntry[]>;
   shoppingHistory(recordId: string): Promise<HistoryEntry<ShoppingRecord>[]>;
   recordHistory<Version>(recordId: string): Promise<HistoryEntry<Version>[]>;
+  recipeImport(importId: string): Promise<RecipeImportDetails>;
   saveEditor(recordId: string, text: string, baseRevision: number, serverEpoch: string): Promise<void>;
   readEditor(recordId: string): Promise<EditorBuffer | undefined>;
   clearEditor(recordId: string): Promise<void>;

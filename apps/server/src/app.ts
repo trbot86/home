@@ -27,6 +27,7 @@ import { createRecordFeatures } from './application/record-features.js';
 import { HistoryService } from './features/history/history.js';
 import { WriteCoordinator } from './application/write-coordinator.js';
 import { RecipeImports } from './features/recipes/imports.js';
+import { ViewPreferences } from './features/views/views.js';
 import { Deferral, NotFound, ProtocolConflict, Rejection, Unauthenticated } from './application/errors.js';
 import { FileMediaStore } from './features/media/file-media-store.js';
 import { MediaRetentionGate } from './features/media/retention-gate.js';
@@ -90,12 +91,14 @@ export async function buildApp(options: AppOptions) {
   );
   const history = new HistoryService(db, records, access);
   const recipeImports = new RecipeImports(db, recipes, history, records, now);
+  const views = new ViewPreferences(db, access);
   const writes = new WriteCoordinator(db, inbox, history, now, records, undefined, [
     shopping.commands(),
     tasks.commands(),
     home.commands(),
     recipes.commands(),
     recipeImports.commands(),
+    views.commands(),
   ]);
   const files = new FileMediaStore(join(options.dataRoot, 'media'), options.development === true);
   await files.initialise();
@@ -228,6 +231,7 @@ export async function buildApp(options: AppOptions) {
       home: home.snapshot(context),
       recipes: recipes.snapshot(context),
       recipeImports: recipeImports.snapshot(context),
+      views: views.snapshot(context),
     };
   });
   app.get<{ Params: { id: string } }>('/api/recipe-imports/:id', async (request) =>

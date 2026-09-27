@@ -8,6 +8,9 @@ import type {
   ShoppingSnapshot,
   TaskSnapshot,
   HomeSnapshot,
+  RecipeSnapshot,
+  RecipeImportSummary,
+  SavedView,
 } from '@our-place/contracts';
 export type Attempt = {
   key: string;
@@ -32,6 +35,9 @@ interface LocalSchema extends DBSchema {
       shopping?: ShoppingSnapshot;
       tasks?: TaskSnapshot;
       home?: HomeSnapshot;
+      recipes?: RecipeSnapshot;
+      recipeImports?: RecipeImportSummary[];
+      views?: SavedView[];
       sampledAt: number;
       serverEpoch: string;
     };

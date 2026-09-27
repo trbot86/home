@@ -17,6 +17,7 @@ import type {
   EntryCategory,
   Session,
   ShoppingRecord,
+  RecipeImportDetails,
 } from '@our-place/contracts';
 type NativeMethod =
   | 'state'
@@ -40,6 +41,7 @@ type NativeMethod =
   | 'history'
   | 'shoppingHistory'
   | 'recordHistory'
+  | 'recipeImport'
   | 'saveEditor'
   | 'readEditor'
   | 'clearEditor'
@@ -170,6 +172,9 @@ export class AndroidClient implements ClientPlatform {
   }
   history(recordId: string): Promise<HistoryEntry[]> {
     return this.invoke('history', { recordId });
+  }
+  recipeImport(importId: string): Promise<RecipeImportDetails> {
+    return this.invoke('recipeImport', { importId });
   }
   shoppingHistory(recordId: string): Promise<HistoryEntry<ShoppingRecord>[]> {
     return this.invoke('shoppingHistory', { recordId });

@@ -1,5 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { Digest, Id, Revision, object } from './primitives.js';
+import type { Attachment } from './attachments.js';
 
 const text = (maxLength: number) => Type.String({ maxLength });
 const duration = object({
@@ -68,4 +69,9 @@ export type RecipeImportSummary = {
   errorCode: string | null;
   candidateCount: number;
   appliedChangeSetId: string | null;
+};
+export type RecipeImportDetails = RecipeImportSummary & {
+  retrievedAt: number | null;
+  warnings: string[];
+  candidates: (Omit<RecipeCandidate, 'imageUrls'> & { image: Attachment | null })[];
 };

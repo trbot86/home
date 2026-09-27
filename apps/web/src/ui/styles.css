@@ -1160,7 +1160,11 @@ nav button[aria-current] {
   }
   .sidebar nav {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(62px, 1fr);
+    overflow-x: auto;
+    scrollbar-width: thin;
     gap: 5px;
     margin-top: 17px;
   }

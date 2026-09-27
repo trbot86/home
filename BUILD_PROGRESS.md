@@ -103,3 +103,18 @@ snapshots have explicit limits pending incremental synchronization.
 The active household contains real data. Never replace it with test fixtures.
 Run tests against disposable databases and preserve installation identity,
 media, history and pending phone captures. See AGENTS.md and PHONE_TRIAL.md.
+
+## Food development checkpoint (2026-09-27)
+
+The development branch now includes scoped recipe storage, background metadata and
+photo import, worker attribution/receipts, review after concurrent edits, visual Food
+screens, household adjustments, cooking notes/photos and independent Soon pins.
+Browser and Android clients cache saved Food data and retain unfinished forms.
+Migration 012 adds only view preferences; existing recipe and household revisions
+are unchanged by pins. Migrations 009–012 have not been applied to the live household.
+
+Verification includes 23 browser flows, ten Android unit tests, native Food flows,
+in-place APK preservation and a real public recipe import into a disposable database.
+See RECIPE_IMPLEMENTATION.md for exact coverage and limitations. Linked cooking tasks,
+ingredient shopping groups and release verification remain; the live app and its
+private download still use the previous release.

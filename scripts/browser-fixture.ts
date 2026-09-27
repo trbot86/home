@@ -8,6 +8,9 @@ import { buildApp } from '../apps/server/src/app.js';
 import { buildCaptureApp } from '../apps/server/src/capture-app.js';
 import { IntegrationAccessService } from '../apps/server/src/features/access/integrations.js';
 import { randomUUID } from 'node:crypto';
+import { RecipeImportWorker } from '../apps/server/src/features/recipes/import-worker.js';
+import { extractRecipeMetadata } from '../apps/server/src/features/recipes/extractor.js';
+import { sha256 } from '../apps/server/src/features/media/file-media-store.js';
 
 const dataRoot = await mkdtemp(join(tmpdir(), 'our-place-browser-'));
 const db = openDatabase(join(dataRoot, 'db/household.sqlite'));
@@ -17,7 +20,7 @@ await provisionHousehold(db, [
   { username: 'sam', displayName: 'Sam', password: 'local-demo-sam-2026' },
 ]);
 // UI flows intentionally run much faster than household traffic; rate limits have separate HTTP tests.
-const { app, access } = await buildApp({
+const { app, access, recipeImports, media } = await buildApp({
   db,
   dataRoot,
   development: true,
@@ -27,11 +30,41 @@ const { app, access } = await buildApp({
   requestLimit: 10000,
 });
 const capture = await buildCaptureApp({ db, dataRoot });
+const recipeWorker = new RecipeImportWorker(recipeImports, media, {
+  reader: {
+    read: async (url) => {
+      if (new URL(url).hostname !== 'example.com') throw new Error('Fixture imports only example.com');
+      const names = url.includes('multiple') ? ['Synthetic soup', 'Synthetic stew'] : ['Synthetic soup'];
+      const html = `<script type="application/ld+json">${JSON.stringify(names.map((name) => ({ '@type': 'Recipe', name, recipeIngredient: ['2 carrots', '1 onion'], recipeInstructions: ['Chop the vegetables.', 'Simmer until tender.'], image: 'https://example.com/fixture.png', totalTime: 'PT30M', recipeYield: '2 servings' })))}</script>`;
+      return {
+        extraction: extractRecipeMetadata(html, url),
+        page: {
+          mediaType: 'text/html',
+          encoding: 'UTF-8',
+          byteLength: Buffer.byteLength(html),
+          sha256: sha256(Buffer.from(html)),
+        },
+      };
+    },
+  },
+  web: {
+    get: async () => ({
+      url: 'https://example.com/fixture.png',
+      mediaType: 'image/png',
+      contentType: 'image/png',
+      bytes: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aBZkAAAAASUVORK5CYII=',
+        'base64',
+      ),
+    }),
+  },
+});
 await app.listen({ port: 4173, host: '127.0.0.1' });
 let closing = false;
 async function close() {
   if (closing) return;
   closing = true;
+  await recipeWorker.stop();
   app.server.closeAllConnections();
   await capture.app.close();
   await app.close();
@@ -69,6 +102,13 @@ const control = createServer((request, response) => {
       });
       response.writeHead(result.statusCode, { 'content-type': 'application/json' }).end(result.body);
     })().catch(() => response.writeHead(500).end());
+    return;
+  }
+  if (request.url === '/run-recipe-import') {
+    void recipeWorker
+      .tick()
+      .then(() => response.writeHead(200).end('ok'))
+      .catch(() => response.writeHead(500).end());
     return;
   }
   if (request.url !== '/stop') {
