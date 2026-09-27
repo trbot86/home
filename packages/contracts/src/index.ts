@@ -4,6 +4,7 @@ import { Id, Instant, Revision, Digest, object } from './primitives.js';
 import { shoppingCommands } from './shopping.js';
 import { taskCommands } from './tasks.js';
 import { homeCommands } from './home.js';
+import { recipeCommands } from './recipes.js';
 import { Attachment, SetRecordAttachments } from './attachments.js';
 export * from './attachments.js';
 export { Id, Instant, Revision, Digest } from './primitives.js';
@@ -13,6 +14,7 @@ export * from './home.js';
 export * from './calendar-date.js';
 export * from './capture.js';
 export * from './recipe-import.js';
+export * from './recipes.js';
 
 export const Source = object({
   kind: Type.Union([
@@ -59,6 +61,7 @@ export const argumentSchemas = {
   ...shoppingCommands,
   ...taskCommands,
   ...homeCommands,
+  ...recipeCommands,
   SetRecordAttachments,
   CreateInboxEntry,
   SetInboxEntryText,

@@ -44,7 +44,11 @@ test('verified 006 upgrade preserves golden requests, identity, media, human his
     });
     await backups.initialise();
     const upgraded = await upgradeDatabase(f.db, backups);
-    assert.deepEqual(upgraded?.migrations, ['007_integration_principals.sql', '008_home_maintenance.sql']);
+    assert.deepEqual(upgraded?.migrations, [
+      '007_integration_principals.sql',
+      '008_home_maintenance.sql',
+      '009_recipes.sql',
+    ]);
     assert.deepEqual(f.snapshot(), before);
     assert.deepEqual(installation(f.db), state);
     assert.deepEqual(f.db.pragma('foreign_key_check'), []);

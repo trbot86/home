@@ -2,7 +2,7 @@
 
 Implementation branch after the deployed Home release. Product requirements remain
 in PLANNING.md and the connected schema in DATA_MODEL.md. Migrations 001–008 are
-immutable. No recipe migration or live recipe data exists yet.
+immutable. Recipe migration 009 is under development; no live recipe data exists yet.
 
 ## Intended workflow
 
@@ -109,3 +109,31 @@ headers; a bounded adapter handles XML declarations. Undeclared HTML defaults to
 UTF-8; malformed bytes fail for manual follow-up instead of introducing replacement
 characters into ingredient amounts. The current upstream README describes some
 unreleased behavior, so package-source inspection and fixtures govern this adapter.
+
+## Storage checkpoint (in progress)
+
+Migration 009 adds recipes, stable ingredient/step rows, separate household
+adjustments, collections/memberships and cooking records. Commands use the existing
+transaction/receipt/history coordinator. The shared registry includes recipe
+adapters in both server entry points, while the capture listener retains only its
+plain inbox command. The authorised cache response includes recipe projections.
+
+Want to try/Favourites are created on an explicit household action, not seeded into
+live data by a migration. Moving a recipe changes its memberships in one transaction;
+notes and recipe identity remain. An empty built-in collection can be undone with
+the creating action and subsequently restored by the ensure command. Direct deletion
+of built-ins is unavailable. Custom collections must be empty of live recipes before
+deletion. Recipes with live cooking records can be archived; deleting them first
+requires resolving those records. Removed ingredient/step IDs stay reserved to their
+recipe for provenance and undo.
+
+The focused checks exercise migration preservation, lost replies, rollback after
+injected commit failure, private scopes, partner-edit undo guards, retired child
+ownership, collection moves, manual cooking and real HTTP/media paths. A backup
+restore fixture recovers source text, adjustments, membership, history and exact
+photo bytes after those bytes have been collected from its isolated original.
+
+Still required before release: durable import jobs and worker attribution, reviewed
+import application, source-photo staging, Soon pins, task/cooking integration,
+ingredient shopping groups/provenance, Food UI, native cache/forms and device tests.
+There is no new deployed recipe feature yet.

@@ -82,7 +82,7 @@ export async function buildApp(options: AppOptions) {
     throw error;
   }
   const access = new AccessService(db, now);
-  const { inbox, shopping, home, tasks, records } = createRecordFeatures(
+  const { inbox, shopping, home, tasks, recipes, records } = createRecordFeatures(
     db,
     access,
     options.householdTimeZone,
@@ -92,6 +92,7 @@ export async function buildApp(options: AppOptions) {
     shopping.commands(),
     tasks.commands(),
     home.commands(),
+    recipes.commands(),
   ]);
   const files = new FileMediaStore(join(options.dataRoot, 'media'), options.development === true);
   await files.initialise();
@@ -222,6 +223,7 @@ export async function buildApp(options: AppOptions) {
       shopping: shopping.snapshot(context),
       tasks: tasks.snapshot(context),
       home: home.snapshot(context),
+      recipes: recipes.snapshot(context),
     };
   });
   app.get<{ Params: { id: string } }>('/api/shopping/:id/history', async (request) => {
