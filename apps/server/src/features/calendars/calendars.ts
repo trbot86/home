@@ -6,6 +6,8 @@ import {
   isTimeZone,
   type AgendaEvent as Event,
   type Command,
+  type AgendaCalendarSnapshot,
+  type AgendaSnapshot,
 } from '@our-place/contracts';
 import type { CommandHandler } from '../records/command-handler.js';
 import type { Sqlite } from '../../infrastructure/database.js';
@@ -59,18 +61,8 @@ export type CalendarRefreshLease = ConnectionLease & {
   refreshGeneration: number;
   window: CalendarWindow;
 };
-export type AgendaCalendarSnapshot = {
-  calendarId: string;
-  scopeId: string;
-  context: 'home' | 'work';
-  title: string;
-  timeZone: string;
-  refreshedAt: number | null;
-  lastAttemptAt: number | null;
-  errorCode: CalendarProviderErrorCode | null;
-  window: CalendarWindow | null;
-  events: Event[];
-};
+export type { AgendaCalendarSnapshot } from '@our-place/contracts';
+export type CalendarSyncWork = { kind: 'discover' | 'refresh'; id: string; dueAt: number };
 
 /** Transactional ownership and cache state. Call writes inside the caller's receipt/worker transaction. */
 export class CalendarsRepository {
@@ -107,6 +99,37 @@ export class CalendarsRepository {
   }
   private writing() {
     if (!this.db.inTransaction) throw new Error('Calendar writes require a transaction');
+  }
+  /** Persisted attempt times prevent tight retry loops across process restarts. */
+  nextSyncWork(): CalendarSyncWork | null {
+    const row = this.db
+      .prepare(
+        `
+      SELECT 'discover' kind,connection_id id,
+        COALESCE(last_attempt_at + CASE WHEN error_code IS NULL THEN 86400000 ELSE 1800000 END,0) dueAt
+      FROM calendar_connections WHERE state='active'
+      UNION ALL
+      SELECT 'refresh' kind,c.calendar_id id,
+        COALESCE(c.last_attempt_at + CASE WHEN c.error_code IS NULL THEN 600000 ELSE 1800000 END,0) dueAt
+      FROM calendars c JOIN calendar_connections x USING(connection_id)
+      WHERE c.scope_id IS NOT NULL AND x.state='active'
+      ORDER BY dueAt,id LIMIT 1
+    `,
+      )
+      .get() as CalendarSyncWork | undefined;
+    return row && row.dueAt <= this.now() ? row : null;
+  }
+  agenda(context: HumanRequestContext, configured: boolean): AgendaSnapshot {
+    const calendars = this.snapshot(context);
+    // Fail the projection explicitly instead of breaking every other cached section on the phone.
+    const tooLarge = Buffer.byteLength(JSON.stringify(calendars)) > 8 * 1024 * 1024;
+    return {
+      configured,
+      calendars: tooLarge ? [] : calendars,
+      needsReconnect: this.ownerConnections(context).some((c) => c.state === 'needs_auth'),
+      issue: tooLarge ? 'calendar_limit' : null,
+      sampledAt: this.now(),
+    };
   }
   private connection(id: string) {
     return this.db.prepare('SELECT * FROM calendar_connections WHERE connection_id=?').get(id) as

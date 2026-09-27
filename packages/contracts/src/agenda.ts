@@ -42,3 +42,30 @@ export const AgendaEvent = object({
   timing: AgendaTiming,
 });
 export type AgendaEvent = Static<typeof AgendaEvent>;
+
+export type AgendaCalendarSnapshot = {
+  calendarId: string;
+  scopeId: string;
+  context: 'home' | 'work';
+  title: string;
+  timeZone: string;
+  refreshedAt: number | null;
+  lastAttemptAt: number | null;
+  errorCode: string | null;
+  window: { from: number; until: number } | null;
+  events: AgendaEvent[];
+};
+export type AgendaSnapshot = {
+  configured: boolean;
+  calendars: AgendaCalendarSnapshot[];
+  needsReconnect: boolean;
+  issue: 'calendar_limit' | null;
+  sampledAt: number | null;
+};
+export const emptyAgenda = (): AgendaSnapshot => ({
+  configured: false,
+  calendars: [],
+  needsReconnect: false,
+  issue: null,
+  sampledAt: null,
+});

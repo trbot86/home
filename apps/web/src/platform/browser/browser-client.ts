@@ -21,6 +21,7 @@ import type {
   SavedView,
   CalendarSettings,
   BeginCalendarConnection,
+  AgendaSnapshot,
 } from '@our-place/contracts';
 import {
   categoryOf,
@@ -29,6 +30,7 @@ import {
   emptyHome,
   emptyRecipes,
   emptyProjects,
+  emptyAgenda,
   isValid,
   OutcomeSchema,
 } from '@our-place/contracts';
@@ -110,6 +112,7 @@ export class BrowserClient implements ClientPlatform {
       projects: cache?.projects ?? emptyProjects(),
       recipeImports: cache?.recipeImports ?? [],
       views: cache?.views ?? [],
+      agenda: cache?.agenda ?? emptyAgenda(),
       drafts: session
         ? (await db.getAll('drafts')).filter((d) => d.clientId === session.clientId && !d.settled)
         : [],
@@ -209,6 +212,7 @@ export class BrowserClient implements ClientPlatform {
       projects?: ProjectSnapshot;
       recipeImports?: RecipeImportSummary[];
       views?: SavedView[];
+      agenda?: AgendaSnapshot;
       sampledAt: number;
       serverEpoch: string;
     }>('/cache/inbox');

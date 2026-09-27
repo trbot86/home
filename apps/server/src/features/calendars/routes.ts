@@ -9,6 +9,7 @@ import { CalendarAuthorizationService } from './authorization.js';
 import { CalendarBrowserHandoff } from './browser-handoff.js';
 import { CalendarSynchronizer } from './synchronizer.js';
 import type { CalendarConfiguration } from './configuration.js';
+import { CalendarWorker } from './worker.js';
 
 const cookieName = 'our_place_calendar_browser';
 const finishSchema = Type.Object({ handoffId: Id }, { additionalProperties: false });
@@ -28,6 +29,11 @@ export function registerCalendarRoutes(
     new CalendarAuthorizationService(db, calendars, configuration.secrets, configuration.authorization, now);
   const handoff = auth && configuration && new CalendarBrowserHandoff(db, auth, configuration.secrets, now);
   const sync = auth && configuration && new CalendarSynchronizer(db, calendars, auth, configuration.events);
+  const worker =
+    sync && new CalendarWorker(calendars, sync, now, () => app.log.error('Calendar refresh interrupted'));
+  app.addHook('onListen', async () => {
+    worker?.start();
+  });
   async function track<T>(work: Promise<T>): Promise<T> {
     pending.add(work);
     try {
@@ -44,14 +50,12 @@ export function registerCalendarRoutes(
     const context = authenticate(request);
     return {
       configured: !!configuration,
-      connections: calendars
-        .ownerConnections(context)
-        .map((c) => ({
-          ...c,
-          calendars: calendars
-            .ownerCalendars(context, c.connectionId)
-            .map(({ providerId: _providerId, ...source }) => source),
-        })),
+      connections: calendars.ownerConnections(context).map((c) => ({
+        ...c,
+        calendars: calendars
+          .ownerCalendars(context, c.connectionId)
+          .map(({ providerId: _providerId, ...source }) => source),
+      })),
     };
   });
   app.post(
@@ -122,7 +126,7 @@ export function registerCalendarRoutes(
   return {
     stop: async () => {
       abort.abort();
-      await Promise.allSettled([...pending]);
+      await Promise.allSettled([worker?.stop(), ...pending]);
     },
   };
 }

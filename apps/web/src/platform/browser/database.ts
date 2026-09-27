@@ -12,6 +12,7 @@ import type {
   ProjectSnapshot,
   RecipeImportSummary,
   SavedView,
+  AgendaSnapshot,
 } from '@our-place/contracts';
 export type Attempt = {
   key: string;
@@ -40,6 +41,7 @@ interface LocalSchema extends DBSchema {
       projects?: ProjectSnapshot;
       recipeImports?: RecipeImportSummary[];
       views?: SavedView[];
+      agenda?: AgendaSnapshot;
       sampledAt: number;
       serverEpoch: string;
     };

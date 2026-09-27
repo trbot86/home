@@ -8,6 +8,7 @@ import { openDatabase, migrate, initialiseInstallation, immediate } from '../src
 import { AccessService, type HumanRequestContext } from '../src/features/access/access.js';
 import { CalendarsRepository } from '../src/features/calendars/calendars.js';
 import { CalendarSynchronizer } from '../src/features/calendars/synchronizer.js';
+import { CalendarWorker } from '../src/features/calendars/worker.js';
 import { CalendarProviderError } from '../src/features/calendars/provider.js';
 import { normalizeGoogleEvent } from '../src/features/calendars/google-events.js';
 import type { CalendarEventSnapshot, ProviderCalendar } from '../src/features/calendars/provider.js';
@@ -88,12 +89,122 @@ function fixture(migrationPath?: string) {
     repo,
     write,
     create,
+    now,
+    advance: (milliseconds: number) => {
+      tick += milliseconds;
+    },
     close: () => {
       db.close();
       rmSync(root, { recursive: true, force: true });
     },
   };
 }
+test('scheduled calendar refresh survives restart, backs off errors and skips unselected/disconnected sources', async () => {
+  const f = fixture();
+  try {
+    const { connectionId, calendarId } = f.create();
+    let reads = 0,
+      fail = false;
+    const synchronizer = new CalendarSynchronizer(
+      f.db,
+      f.repo,
+      { accessToken: async () => 'synthetic-token' },
+      {
+        listCalendars: async () => [source],
+        readEvents: async (_token, _id, selectedWindow) => {
+          reads++;
+          assert.equal(f.db.inTransaction, false);
+          assert.equal(selectedWindow.until - selectedWindow.from, 70 * 86400000);
+          if (fail) throw new CalendarProviderError('rate_limited');
+          return { ...snapshot(), window: selectedWindow };
+        },
+      },
+    );
+    const worker = new CalendarWorker(f.repo, synchronizer, f.now);
+    assert.equal(await worker.tick(), false);
+    f.write(() => f.repo.setSelection(f.a.context, calendarId, 1, f.a.scopeId, 'work'));
+    const first = worker.tick();
+    assert.equal(worker.tick(), first);
+    assert.equal(await first, true);
+    assert.equal(reads, 1);
+    await worker.stop();
+    const restarted = new CalendarWorker(f.repo, synchronizer, f.now);
+    assert.equal(await restarted.tick(), false);
+    f.advance(600000);
+    fail = true;
+    assert.equal(await restarted.tick(), true);
+    assert.equal(f.repo.agenda(f.a.context, true).calendars[0]!.events.length, 1);
+    f.advance(600000);
+    assert.equal(await restarted.tick(), false);
+    f.advance(1200000);
+    fail = false;
+    assert.equal(await restarted.tick(), true);
+    assert.equal(reads, 3);
+    f.write(() => f.repo.disconnect(f.a.context, connectionId, 1));
+    f.advance(86400000);
+    assert.equal(await restarted.tick(), false);
+    await restarted.stop();
+  } finally {
+    f.close();
+  }
+});
+
+test('stopping calendar work aborts network work and waits for its guarded completion', async () => {
+  const f = fixture();
+  try {
+    const { calendarId } = f.create();
+    f.write(() => f.repo.setSelection(f.a.context, calendarId, 1, f.shared, 'home'));
+    let started!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const sync = new CalendarSynchronizer(
+      f.db,
+      f.repo,
+      { accessToken: async () => 'fixture' },
+      {
+        listCalendars: async () => [source],
+        readEvents: async (_token, _id, _window, signal) =>
+          new Promise((_resolve, reject) => {
+            signal!.addEventListener('abort', () => reject(new Error('test-only abort')), { once: true });
+            started();
+          }),
+      },
+    );
+    const worker = new CalendarWorker(f.repo, sync, f.now),
+      work = worker.tick();
+    await entered;
+    await worker.stop();
+    assert.equal(await work, true);
+    assert.equal(f.repo.snapshot(f.a.context)[0]!.events.length, 0);
+  } finally {
+    f.close();
+  }
+});
+
+test('oversized agenda projection fails visibly without disclosing private events or modifying stored data', () => {
+  const f = fixture();
+  try {
+    const { calendarId } = f.create();
+    f.write(() => f.repo.setSelection(f.a.context, calendarId, 1, f.shared, 'home'));
+    const lease = f.write(() => f.repo.prepareRefresh(calendarId, window))!;
+    const events = Array.from({ length: 440 }, (_, i) => ({
+      ...event(`private-${i}`, 'private'),
+      description: 'x'.repeat(20000),
+    }));
+    f.write(() => f.repo.publishRefresh(lease, snapshot(events)));
+    const a = f.repo.agenda(f.a.context, true),
+      b = f.repo.agenda(f.b.context, true);
+    assert.equal(a.issue, 'calendar_limit');
+    assert.deepEqual(a.calendars, []);
+    assert.equal(b.issue, null);
+    assert.deepEqual(b.calendars[0]!.events, []);
+    assert.equal(f.repo.snapshot(f.a.context)[0]!.events.length, 440);
+  } finally {
+    f.close();
+  }
+});
+
 test('calendar discovery is owner-only, selection is explicit and shared projections omit private events', () => {
   const f = fixture();
   try {

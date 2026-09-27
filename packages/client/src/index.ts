@@ -19,6 +19,7 @@ import type {
   SavedView,
   CalendarSettings,
   BeginCalendarConnection,
+  AgendaSnapshot,
 } from '@our-place/contracts';
 export type Draft = {
   draftId: string;
@@ -45,6 +46,7 @@ export type ClientState = {
   projects: ProjectSnapshot;
   recipeImports: RecipeImportSummary[];
   views: SavedView[];
+  agenda: AgendaSnapshot;
   drafts: Draft[];
   online: boolean;
   sampledAt: number | null;
@@ -73,6 +75,7 @@ export type AttachmentDraft = {
   outcome?: CommandOutcome;
 };
 export * from './task-views.js';
+export * from './agenda-view.js';
 export type RunRecordCommand = (
   target: { recordId: string },
   kind: CommandKind,

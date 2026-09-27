@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import { addCalendarDate, calendarDateAt } from '../../packages/contracts/src/index.js';
 
 async function consent(page: Page) {
   const appOrigin = new URL(page.url()).origin,
@@ -19,6 +20,97 @@ async function consent(page: Page) {
   expect(new URL(page.url()).searchParams.has('code')).toBe(false);
   expect(new URL(page.url()).searchParams.has('state')).toBe(false);
 }
+
+test('agenda combines personal tasks and real scheduled fixture refresh, isolates private details and preserves offline data', async ({
+  page,
+  context,
+}) => {
+  test.setTimeout(60000);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Alex', exact: true }).click();
+  await page.getByRole('button', { name: 'Tasks', exact: true }).click();
+  await page.getByRole('button', { name: 'New task', exact: true }).click();
+  const title = `Agenda priority ${randomUUID()}`;
+  await page.getByLabel('Task title', { exact: true }).fill(title);
+  await page
+    .getByLabel('Actual deadline (optional)', { exact: true })
+    .fill(addCalendarDate(calendarDateAt(Date.now(), 'America/Toronto'), -1, 'days'));
+  await page.getByLabel('Instructions', { exact: true }).press('Control+Enter');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const label = `Agenda fixture ${randomUUID()}`;
+  await page.getByLabel('Account label', { exact: true }).fill(label);
+  await consent(page);
+  await page.getByRole('button', { name: 'Finish connecting', exact: true }).click();
+  const connection = page.locator('.calendar-connection').filter({ hasText: label });
+  const visibility = connection.getByLabel('Visibility for Personal calendar', { exact: true });
+  await visibility.selectOption('shared_home');
+  await expect(visibility).toHaveValue('shared_home');
+  await page.getByRole('button', { name: 'Agenda', exact: true }).click();
+  await expect
+    .poll(
+      async () => {
+        await page.getByLabel('Refresh and sync', { exact: true }).click();
+        return page.getByRole('heading', { name: 'Household appointment', exact: true }).count();
+      },
+      { timeout: 20000 },
+    )
+    .toBe(1);
+  await expect(page.getByRole('heading', { name: 'Private calendar detail', exact: true })).toBeVisible();
+  const task = page.locator('.agenda-task').filter({ hasText: title });
+  await expect(task).toContainText('Past deadline');
+  await task.click();
+  await expect(page.locator('.task-card').filter({ hasText: title })).toBeVisible();
+  await page.getByRole('button', { name: 'Agenda', exact: true }).click();
+  for (const width of [320, 390, 820, 1440]) {
+    await page.setViewportSize({ width, height: 950 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (width === 390 || width === 1440)
+      await page.screenshot({ path: `.local/calendar-agenda-${width}.png`, fullPage: true });
+  }
+  await page.getByLabel('Current profile').selectOption({ label: 'Sam' });
+  await page.getByRole('button', { name: 'Agenda', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Household appointment', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Private calendar detail', exact: true })).toHaveCount(0);
+  await page.getByLabel('Current profile').selectOption({ label: 'Alex' });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await visibility.selectOption('private_work');
+  await expect(visibility).toHaveValue('private_work');
+  await page.getByRole('button', { name: 'Agenda', exact: true }).click();
+  await expect
+    .poll(
+      async () => {
+        await page.getByLabel('Refresh and sync', { exact: true }).click();
+        return page.getByRole('heading', { name: 'Household appointment', exact: true }).count();
+      },
+      { timeout: 20000 },
+    )
+    .toBe(1);
+  await page.getByRole('combobox', { name: 'Show', exact: true }).selectOption('home');
+  await expect(page.getByRole('heading', { name: 'Household appointment', exact: true })).toHaveCount(0);
+  await page.getByRole('combobox', { name: 'Show', exact: true }).selectOption('work');
+  await expect(page.getByRole('heading', { name: 'Household appointment', exact: true })).toBeVisible();
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
+  await context.setOffline(true);
+  await page.reload();
+  await page.getByRole('button', { name: 'Agenda', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Private calendar detail', exact: true })).toBeVisible();
+  await expect(page.locator('.agenda')).toContainText('Offline · showing the last download');
+  await context.setOffline(false);
+  await page.getByLabel('Current profile').selectOption({ label: 'Sam' });
+  await page.getByRole('button', { name: 'Agenda', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Household appointment', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Private calendar detail', exact: true })).toHaveCount(0);
+  await page.getByLabel('Current profile').selectOption({ label: 'Alex' });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await connection.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await connection.getByRole('button', { name: 'Confirm disconnect', exact: true }).click();
+  await expect(connection).toHaveCount(0);
+  await page.getByRole('button', { name: 'Agenda', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Private calendar detail', exact: true })).toHaveCount(0);
+});
 
 test('calendar consent returns to the initiating profile, exposes explicit selection and preserves inbox work', async ({
   page,

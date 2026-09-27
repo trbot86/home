@@ -2,8 +2,8 @@
 
 Projects and optional maintenance ideas are deployed. Calendar integration follows
 the ownership and privacy boundaries in DATA_MODEL.md, section 12. The user is
-being asked whether the first release should only display an agenda or also
-create/edit events in a separate household calendar. No Google account, OAuth
+building a read-only agenda first; household event editing remains a separate
+decision. No Google account, OAuth
 client, token or live calendar connection has been configured.
 
 ## Implemented foundation (not deployed)
@@ -13,7 +13,8 @@ Google reader, transactional calendar ownership/cache storage and an asynchronou
 synchronizer. Migration 017 adds connection, source and event-cache tables without
 changing household records, receipts or history. The live app still runs migrations
 001–016. Calendar settings and browser consent are now wired in the development
-branch; no live account is connected and no agenda has been released.
+branch, including a cached agenda; no live account is connected and no agenda has
+been released.
 
 `CalendarSynchronizer` resolves an opaque credential reference through the
 `CalendarCredentials` port and performs network work outside SQLite transactions.
@@ -152,13 +153,50 @@ in the Google OAuth client. Never put the real callback, client credentials or k
 in public source, APKs or documentation. No such live file or credentials have been
 created. Google account configuration and actual consent remain interactive steps.
 
-## Remaining connection and UI work
+## Agenda and scheduled refresh (not deployed)
 
-The integration still needs event scheduling, an agenda, client-cache invalidation
-when visibility or connection state changes, and end-to-end account verification.
-The read-only-versus-household-editing question remains open. Complete the agenda
-flow before deploying migrations 017–019 or requesting real account consent.
-Calendar write scopes and event editing are not part of this checkpoint.
+The Agenda screen combines calendar events with today's assigned or unassigned
+tasks that need attention. It has Home/Work/combined filtering, a date picker and
+seven- or thirty-day views. Task cards retain deadline/target/review semantics and
+open the existing task flow for editing, postponement or completion. Calendar events
+remain read-only, retain provider status and link back to Google for editing.
+All-day dates stay civil dates; exclusive ends, midnight boundaries, zero-duration
+events, DST transitions and events spanning several days are handled explicitly.
+Timed events are displayed in the household timezone.
+
+The scheduler runs one bounded fetch at a time. Successful calendars become due
+after ten minutes and discovery after a day; failed operations retry after thirty
+minutes. Persisted attempt times survive process restarts. New selections become
+eligible immediately, and graceful shutdown cancels and awaits in-flight work.
+The rolling download covers eight days before UTC midnight through sixty-two days
+after it; the extra boundary days cover timezone differences. Every publication
+still checks the original selection and connection generation.
+
+The coherent household snapshot includes a profile-scoped agenda. Browser IndexedDB
+and Android's existing Room snapshot retain it for read-only offline use without a
+local schema migration. Older caches default to an empty agenda. Replacement clears
+calendars and events removed by selection, disconnection or access loss. An offline
+device retains its last authorized snapshot until it can reconnect; the UI says so
+and shows each source's refresh time, failures and uncovered dates. Reconnection
+notices belong only to the connection owner. After privacy filtering, an agenda
+larger than 8 MiB returns an explicit limit notice with no partial event list. It
+does not change Google's events or delete the server cache.
+
+Six additional package tests cover scheduling, restart/backoff, cancellation,
+oversized private projections and date grouping. The browser agenda flow exercises
+the actual scheduler against a simulated provider, task navigation, shared/private
+calendar changes, profile switching, responsive layouts and offline reload. The
+dedicated Android emulator verifies scheduled data, profile isolation and exact
+SQLite cache preservation after server shutdown and app reload. In-place APK
+installation separately preserves earlier cached sections, drafts, photos and text.
+
+## Remaining account and release work
+
+The implemented read-only flow still needs a live host configuration, real Google
+account consent and exact callback/device verification. A restore rehearsal and
+normal backed-up upgrade must precede deployment of migrations 017–019. Google
+account setup is optional for household tasks; the unconfigured app shows that
+state explicitly. Calendar write scopes and event editing are not implemented.
 
 ## Common foundation
 

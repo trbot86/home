@@ -254,6 +254,7 @@ export async function buildApp(options: AppOptions) {
       projects: projects.snapshot(context),
       recipeImports: recipeImports.snapshot(context),
       views: views.snapshot(context),
+      agenda: calendars.agenda(context, !!options.calendars),
     };
   });
   app.get<{ Params: { id: string } }>('/api/recipe-imports/:id', async (request) =>

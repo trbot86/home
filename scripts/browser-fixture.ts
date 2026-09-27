@@ -10,6 +10,8 @@ import { IntegrationAccessService } from '../apps/server/src/features/access/int
 import { randomUUID, randomBytes } from 'node:crypto';
 import { CalendarSecretBox } from '../apps/server/src/features/calendars/secret-box.js';
 import { calendarReadScopes } from '../apps/server/src/features/calendars/authorization-provider.js';
+import { normalizeGoogleEvent } from '../apps/server/src/features/calendars/google-events.js';
+import { calendarDateAt, addCalendarDate } from '../packages/contracts/src/index.js';
 import { RecipeImportWorker } from '../apps/server/src/features/recipes/import-worker.js';
 import { extractRecipeMetadata } from '../apps/server/src/features/recipes/extractor.js';
 import { sha256 } from '../apps/server/src/features/media/file-media-store.js';
@@ -26,9 +28,8 @@ const { app, access, recipeImports, media } = await buildApp({
   db,
   dataRoot,
   development: true,
-  publicOrigin: process.env['OUR_PLACE_ANDROID_BROWSER_TEST'] === '1'
-    ? 'http://10.0.2.2:4173'
-    : 'http://127.0.0.1:4173',
+  publicOrigin:
+    process.env['OUR_PLACE_ANDROID_BROWSER_TEST'] === '1' ? 'http://10.0.2.2:4173' : 'http://127.0.0.1:4173',
   webRoot: resolve('apps/web/dist'),
   authenticationMode: 'trusted-network',
   requestLimit: 10000,
@@ -65,7 +66,29 @@ const { app, access, recipeImports, media } = await buildApp({
           accessRole: 'freeBusyReader',
         },
       ],
-      readEvents: async (_token, _id, window) => ({ window, timeZone: 'America/Toronto', events: [] }),
+      readEvents: async (_token, _id, window) => {
+        const today = calendarDateAt(Date.now(), 'America/Toronto');
+        return {
+          window,
+          timeZone: 'America/Toronto',
+          events: ['default', 'private'].map((visibility) =>
+            normalizeGoogleEvent(
+              {
+                id: `fixture-${visibility}`,
+                status: 'confirmed',
+                visibility,
+                summary: visibility === 'private' ? 'Private calendar detail' : 'Household appointment',
+                description: 'Synthetic calendar details for isolated tests.',
+                location: 'Fixture kitchen',
+                start: { date: today },
+                end: { date: addCalendarDate(today, 1, 'days') },
+                htmlLink: 'https://calendar.google.com/calendar/event?eid=fixture',
+              },
+              'America/Toronto',
+            )!,
+          ),
+        };
+      },
     },
   },
 });

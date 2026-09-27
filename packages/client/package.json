@@ -1,1 +1,17 @@
-{ "name": "@our-place/client", "private": true, "version": "0.1.0", "type": "module", "exports": { ".": "./src/index.ts" }, "scripts": { "typecheck": "tsc --noEmit", "build": "tsc --noEmit" }, "dependencies": { "@our-place/contracts": "workspace:*" } }
+{
+  "name": "@our-place/client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@our-place/contracts": "workspace:*"
+  }
+}

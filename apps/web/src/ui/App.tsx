@@ -3,6 +3,7 @@ import { EntryDialog } from './EntryDialog.js';
 import { Storage } from './Storage.js';
 import { AppUpdates } from './AppUpdates.js';
 import { CalendarSettings } from './calendars/CalendarSettings.js';
+import { Agenda } from './calendars/Agenda.js';
 import { LinkedText } from './LinkedText.js';
 import { NoteLinksProvider, noteIdFromUrl } from './NoteLinks.js';
 import { date } from './format.js';
@@ -15,6 +16,7 @@ import {
   emptyHome,
   emptyRecipes,
   emptyProjects,
+  emptyAgenda,
   type CommandKind,
   type CommandOutcome,
   type EntryCategory,
@@ -44,6 +46,7 @@ const emptyState: ClientState = {
   projects: emptyProjects(),
   recipeImports: [],
   views: [],
+  agenda: emptyAgenda(),
   drafts: [],
   online: navigator.onLine,
   sampledAt: null,
@@ -53,7 +56,16 @@ const emptyState: ClientState = {
 const message = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Your saved draft is still here.';
 type View =
-  'inbox' | 'suggestions' | 'shopping' | 'tasks' | 'home' | 'food' | 'projects' | 'trash' | 'storage';
+  | 'inbox'
+  | 'suggestions'
+  | 'shopping'
+  | 'tasks'
+  | 'home'
+  | 'food'
+  | 'projects'
+  | 'trash'
+  | 'storage'
+  | 'agenda';
 function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
   const candidates = drafts.filter((d) => d.state === 'DRAFT' && categoryOf(d) === category);
   return candidates.find((d) => d.text.trim() || d.attachments.length) ?? candidates[0];
@@ -557,6 +569,7 @@ export function App({ client }: { client: ClientPlatform }) {
                   { id: 'inbox', label: 'Inbox', compactLabel: 'Inbox', icon: 'inbox' },
                   { id: 'shopping', label: 'Shopping', compactLabel: 'Shopping', icon: 'shopping' },
                   { id: 'tasks', label: 'Tasks', compactLabel: 'Tasks', icon: 'tasks' },
+                  { id: 'agenda', label: 'Agenda', compactLabel: 'Agenda', icon: 'tasks' },
                   { id: 'home', label: 'Home', compactLabel: 'Home', icon: 'home' },
                   { id: 'food', label: 'Food', compactLabel: 'Food', icon: 'food' },
                   { id: 'projects', label: 'Projects', compactLabel: 'Projects', icon: 'projects' },
@@ -617,42 +630,46 @@ export function App({ client }: { client: ClientPlatform }) {
               <div>
                 <p className="eyebrow">Your household, together</p>
                 <h1>
-                  {view === 'inbox'
-                    ? 'A place for the little things.'
-                    : view === 'suggestions'
-                      ? 'Make our place a little better.'
-                      : view === 'shopping'
-                        ? 'A little less to remember.'
-                        : view === 'tasks'
-                          ? 'Tasks, at your pace.'
-                          : view === 'projects'
-                            ? 'Room for the bigger ideas.'
-                            : view === 'food'
-                              ? 'Good food, good company.'
-                              : view === 'home'
-                                ? 'Care for the place we call home.'
-                                : view === 'trash'
-                                  ? 'Room for second thoughts.'
-                                  : 'Your household settings.'}
+                  {view === 'agenda'
+                    ? 'A little room for today.'
+                    : view === 'inbox'
+                      ? 'A place for the little things.'
+                      : view === 'suggestions'
+                        ? 'Make our place a little better.'
+                        : view === 'shopping'
+                          ? 'A little less to remember.'
+                          : view === 'tasks'
+                            ? 'Tasks, at your pace.'
+                            : view === 'projects'
+                              ? 'Room for the bigger ideas.'
+                              : view === 'food'
+                                ? 'Good food, good company.'
+                                : view === 'home'
+                                  ? 'Care for the place we call home.'
+                                  : view === 'trash'
+                                    ? 'Room for second thoughts.'
+                                    : 'Your household settings.'}
                 </h1>
                 <p>
-                  {view === 'inbox'
-                    ? 'Catch a thought now. Figure out the details later.'
-                    : view === 'suggestions'
-                      ? 'Ideas, rough edges, and things you’d like this app to do.'
-                      : view === 'shopping'
-                        ? 'What we need, what we love, and what’s running low.'
-                        : view === 'tasks'
-                          ? 'A plan for what matters, and a record of what got done.'
-                          : view === 'projects'
-                            ? 'Plans, inspiration and the next small step, all together.'
-                            : view === 'food'
-                              ? 'Recipes to try, favourites to return to, and notes that make them ours.'
-                              : view === 'home'
-                                ? 'The details worth keeping, and the care that keeps things going.'
-                                : view === 'trash'
-                                  ? 'Deleted entries keep their history. Bring one back when you need it.'
-                                  : 'Calendar connections, storage, backups and app updates.'}
+                  {view === 'agenda'
+                    ? 'Your calendar, your priorities, and what needs a little attention.'
+                    : view === 'inbox'
+                      ? 'Catch a thought now. Figure out the details later.'
+                      : view === 'suggestions'
+                        ? 'Ideas, rough edges, and things you’d like this app to do.'
+                        : view === 'shopping'
+                          ? 'What we need, what we love, and what’s running low.'
+                          : view === 'tasks'
+                            ? 'A plan for what matters, and a record of what got done.'
+                            : view === 'projects'
+                              ? 'Plans, inspiration and the next small step, all together.'
+                              : view === 'food'
+                                ? 'Recipes to try, favourites to return to, and notes that make them ours.'
+                                : view === 'home'
+                                  ? 'The details worth keeping, and the care that keeps things going.'
+                                  : view === 'trash'
+                                    ? 'Deleted entries keep their history. Bring one back when you need it.'
+                                    : 'Calendar connections, storage, backups and app updates.'}
                 </p>
               </div>
               <div className="connection">
@@ -686,7 +703,17 @@ export function App({ client }: { client: ClientPlatform }) {
                 )}
               </div>
             )}
-            {view === 'tasks' ? (
+            {view === 'agenda' ? (
+              <Agenda
+                client={client}
+                state={state}
+                onSettings={() => setView('storage')}
+                onTask={(id) => {
+                  setLinkedTarget(id);
+                  setView('tasks');
+                }}
+              />
+            ) : view === 'tasks' ? (
               <Tasks
                 key={linkedTarget ?? 'tasks'}
                 initialRecordId={linkedTarget}

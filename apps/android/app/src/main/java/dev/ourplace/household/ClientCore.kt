@@ -76,6 +76,7 @@ class ClientCore private constructor(val context: Context) {
             .put("projects", cache?.optJSONObject("projects") ?: JSONObject().put("projects", JSONArray()).put("pages", JSONArray()))
             .put("recipeImports", cache?.optJSONArray("recipeImports") ?: JSONArray())
             .put("views", cache?.optJSONArray("views") ?: JSONArray())
+            .put("agenda", cache?.optJSONObject("agenda") ?: JSONObject().put("configured", false).put("calendars", JSONArray()).put("needsReconnect", false).put("issue", JSONObject.NULL).put("sampledAt", JSONObject.NULL))
             .put("online", online).put("sampledAt", cache?.getLong("sampledAt") ?: JSONObject.NULL).put("pendingEdits", pending)
             .put("recoveryRequired", clientId != null && dao.value("$clientId:recovery") == "true")
     }

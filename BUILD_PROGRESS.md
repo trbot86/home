@@ -231,3 +231,20 @@ with typechecking, package boundaries and production builds. The full 35-flow
 browser suite and all 192 Linux package tests pass in the Docker candidate.
 Calendar scheduling, agenda rendering and physical-device Google consent remain.
 The live app, database and published APK are unchanged.
+
+## Calendar agenda checkpoint (2026-09-27; not deployed)
+
+The read-only Agenda now combines private/shared Google snapshots with personal
+task priorities, Home/Work filters, explicit date ranges and offline status.
+Background synchronization respects persistent retry timing and checks connection
+and selection authority before publication. Browser and Android store the scoped
+agenda with their existing snapshot; old caches, photos and unfinished forms remain
+intact. No native database migration is required.
+
+The package suite passes 197 tests plus one Windows-specific skip; the Docker image
+passes all 198. All 36 browser flows passed across the regression run and the
+focused calendar rerun. Android's ten unit tests pass, and the dedicated emulator
+passed actual offline agenda rendering, profile isolation, Home/Work filtering and
+in-place APK preservation. No test used a real Google account or the live household.
+The implementation still needs account configuration, real consent and release
+verification. The running app and published APK remain unchanged.
