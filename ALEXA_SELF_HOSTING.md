@@ -1,9 +1,11 @@
 # Self-hosted Alexa receiver
 
-2026-09-27. The receiver, Docker image and isolated network rehearsal are implemented.
-No public endpoint, live integration credential, capture listener or household
-connection has been enabled by this work. The existing development skill can use
-an HTTPS endpoint; an AWS account is not needed.
+2026-09-27. The receiver, Docker images, isolated network rehearsal and staged
+Tailscale ingress configuration are implemented. Deployment begins with an
+unbound account-setup receiver, then a synthetic inbox trial, before any explicit
+connection to the live household. Keep actual deployment status and credentials
+in ignored local storage. The existing development skill can use an HTTPS
+endpoint; an AWS account is not needed.
 
 ## Container arrangement
 
@@ -202,7 +204,7 @@ The production Linux image build also passed all 74 tests (55 server, 14 Alexa,
 Tailscale overlay policy, public Funnel ingress, genuine Amazon-signed skill
 traffic, or device/account phrase recognition.
 
-## Deployment work still required
+## Deployment sequence
 
 1. Review the tailnet policy and prepare a dedicated restricted ingress identity.
    Amazon requires a

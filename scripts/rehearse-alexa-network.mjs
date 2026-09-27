@@ -108,7 +108,7 @@ const fingerprint = (state) => ({
   id: state.Id,
   image: state.Image,
   started: state.State.StartedAt,
-  mounts: state.Mounts,
+  mounts: [...state.Mounts].sort((a, b) => a.Destination.localeCompare(b.Destination)),
 });
 let householdBefore;
 const household = option('--household-container');

@@ -59,6 +59,42 @@ ingress together through Compose. Never join the host or household network.
 Stopping these services is reversible; deleting the state volume loses the
 identity. Do not run volume-removal commands as part of routine updates.
 
+## Account setup receiver
+
+After the enrolled identity and its effective policy have been checked, add
+`ops/alexa-receiver.compose.yaml` as a second Compose file. It adds only the
+production receiver on loopback port 3000 in the guarded namespace. Its private
+configuration directory is mounted read-only; no capture socket is mounted yet.
+
+Create `.local/alexa/receiver-config/receiver.json` using the strict format in
+`ALEXA_SELF_HOSTING.md`. For initial account setup, use the actual skill ID, a
+random non-Amazon placeholder account ID, an unlinked epoch, an unprovisioned
+random token, and the future socket path `/sockets/capture.sock`. This gives the
+receiver no capture authority. Do not add an allow-all account mode or log request
+bodies. The first genuine Amazon request should receive the account-not-connected
+response. The user can obtain their account ID from the simulator's JSON Input
+and explicitly bind that account for the next synthetic-inbox test.
+
+```powershell
+docker compose -f ops/alexa-ingress.compose.yaml -f ops/alexa-receiver.compose.yaml build receiver
+docker compose -f ops/alexa-ingress.compose.yaml -f ops/alexa-receiver.compose.yaml up -d --wait receiver
+```
+
+Before publishing, verify the receiver's UID, zero capabilities, loopback binding,
+read-only config mount and rejection of unsigned requests. Check that the ingress
+has no existing Serve/Funnel configuration. Then publish only this receiver:
+
+```powershell
+docker compose -f ops/alexa-ingress.compose.yaml exec -T ingress tailscale --socket=/run/tailscale/tailscaled.sock funnel --bg --https=443 http://127.0.0.1:3000
+```
+
+Verify the resulting URL using a client outside the tailnet with normal TLS
+certificate validation. `POST /alexa` without an Amazon signature must fail;
+household/profile/data routes must not be present. Set the skill's HTTPS endpoint
+to the resulting URL plus `/alexa`, selecting the trusted-CA certificate option.
+This publishes only the account setup receiver; enabling actual capture remains
+a separate step with a synthetic inbox first.
+
 References:
 
 - https://tailscale.com/docs/features/containers/docker/docker-params
