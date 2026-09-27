@@ -31,6 +31,12 @@ Updated 2026-09-27.
 
 ## Current development
 
+Fixed-calendar recurrence has a concrete design checkpoint in
+FIXED_RECURRENCE_PLAN.md. One late-reporting policy question is pending; no
+recurrence code or schema has changed. The plan separates a fixed occurrence's
+scheduled slot from its movable target and guards against older phone editors
+silently replacing a fixed rule when saving other task details.
+
 Desktop screenshot paste and image-file drop are deployed for
 Inbox, suggestions and the shared photo editor. Twelve affected browser flows,
 fourteen Android unit tests, the native photo-editor regression and all 225
