@@ -1,6 +1,6 @@
 # Screenshot paste and image drop
 
-Status: implemented and verified; publication in progress.
+Status: deployed on the private web host and Android download.
 
 On desktop, paste a screenshot into the Inbox or App suggestions capture box, or
 drop image files there. The shared Photos & receipts editor accepts the same
@@ -53,4 +53,12 @@ tests; fourteen Android unit tests pass. The emulator update preserves its profi
 cached records, photo captures and editor buffers. The native photo-editor regression
 checks Back/reload, partner media downloads, receipt history and cached images
 with its fixture server offline. All test content is synthetic and isolated from
-the household. Release verification follows publication.
+the household.
+
+Source revision `67f5285` is deployed without a migration. Both profiles' nineteen
+existing records and installation/recovery identity are preserved. SQLite
+integrity and foreign-key checks pass. The online pre-release backup is verified
+at the secondary location. Served web assets and APK bytes match the tested
+artifacts. Read-only live checks confirm the capture hint and ordinary shopping
+navigation without creating test content. Updating physical Android phones
+remains a user step.

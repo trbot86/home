@@ -23,6 +23,11 @@ project it moves up through the page hierarchy. From another app section it retu
 to Inbox; at the root it retains normal Android behavior.
 The software keyboard may consume the first Back to dismiss itself.
 
+On desktop, paste a screenshot into the capture box or drop image files there.
+The same gestures work in **Photos & receipts**, including with a caption focused.
+Photos stay in the local draft until you save; ordinary text paste keeps working.
+See [screenshot paste and image drop](PHOTO_TRANSFER_IMPLEMENTATION.md).
+
 Use **File** on an inbox note to create a task, shopping item or project page,
 or link to something already saved. Unfiled, Filed and All notes keep the original
 capture searchable, with its photos and destination links. New items retain the

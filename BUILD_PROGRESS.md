@@ -31,10 +31,10 @@ Updated 2026-09-27.
 
 ## Current development
 
-Desktop screenshot paste and image-file drop are implemented and verified for
+Desktop screenshot paste and image-file drop are deployed for
 Inbox, suggestions and the shared photo editor. Twelve affected browser flows,
 fourteen Android unit tests, the native photo-editor regression and all 225
-Linux package tests pass. Publication is pending; see PHOTO_TRANSFER_IMPLEMENTATION.md.
+Linux package tests pass. See PHOTO_TRANSFER_IMPLEMENTATION.md.
 
 Shopping product photos and purchase receipt photos are deployed on the private
 web host and Android download. They reuse the attachment editor and existing placement
@@ -392,3 +392,13 @@ checks pass. The fresh pre-deployment online backup is verified at the secondary
 destination. The served web assets and APK match the tested artifacts. Live
 checks opened Shopping and the product editor without saving synthetic content.
 See SHOPPING_PHOTOS_IMPLEMENTATION.md for compatibility and test evidence.
+
+## Screenshot paste and image drop release (2026-09-27)
+
+Source revision `67f5285` is live. Inbox, suggestions and the shared photo editor
+accept pasted screenshots and dropped image files, with ordinary text handling,
+batch validation and durable local saving. The release needed no migration and
+preserved both profiles' nineteen records and installation/recovery identity.
+Database integrity/foreign-key checks, exact web/APK bytes and the independent
+secondary copy of the pre-release backup are verified. Live checks did not save
+test content. See PHOTO_TRANSFER_IMPLEMENTATION.md.
