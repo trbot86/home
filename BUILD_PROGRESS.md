@@ -227,7 +227,7 @@ source privacy, retry, selection, disconnection and responsive layouts. The dedi
 Android emulator passed actual browser launch and Back with its draft preserved;
 in-place installation separately preserved its existing cached data, photos and
 editors. The package suite passes 191 tests with one Windows-specific skip, along
-with typechecking, package boundaries and production builds. Calendar scheduling,
-the full 35-flow browser suite, and 192 passing Linux package tests in the Docker
-candidate. Calendar scheduling, agenda rendering and physical-device Google consent remain. The live app, database
-and published APK are unchanged.
+with typechecking, package boundaries and production builds. The full 35-flow
+browser suite and all 192 Linux package tests pass in the Docker candidate.
+Calendar scheduling, agenda rendering and physical-device Google consent remain.
+The live app, database and published APK are unchanged.
