@@ -1,6 +1,6 @@
 # Shopping photos and receipts
 
-Status: implemented and verified; publication in progress.
+Status: deployed on the private web host and Android download.
 
 Restock products keep photos of the package, product label or compatible part.
 They are visible on the shelf and in a product-photo disclosure on shopping items
@@ -58,5 +58,12 @@ drafts, and 320/390/820/1440-pixel layouts. An in-place emulator APK replacement
 preserves its existing profile, all caches, pending photo capture and editor text.
 The native workflow then verifies photo drafts through Back/reload, partner photo
 downloads, purchase history, and cached product/receipt images after shutting down
-the synthetic server. No tests use live household records. Final release evidence
-follows publication.
+the synthetic server. No tests use live household records.
+
+Source revision `1033175` is deployed without a migration. Both profiles' nineteen
+existing records, installation identity and recovery epoch are preserved. SQLite
+integrity and foreign-key checks pass. A fresh online backup created before
+deployment is independently verified at the secondary destination. The served
+web assets and APK match the tested bytes. Read-only live checks opened Shopping
+and the product editor without creating records. Physical phone installation of
+the new APK remains a user step.

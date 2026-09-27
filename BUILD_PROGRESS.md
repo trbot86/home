@@ -31,8 +31,8 @@ Updated 2026-09-27.
 
 ## Current development
 
-Shopping product photos and purchase receipt photos are implemented and verified;
-publication is pending. They reuse the attachment editor and existing placement
+Shopping product photos and purchase receipt photos are deployed on the private
+web host and Android download. They reuse the attachment editor and existing placement
 tables, retaining immutable purchase facts, private gift scopes and old history.
 The Linux image passes 225 tests; ten affected browser flows, fourteen Android
 unit tests and the dedicated emulator photo/offline workflow pass. See
@@ -377,3 +377,13 @@ foreign-key checks pass. The release backup was created online before deployment
 and independently verified at the secondary destination. Served web assets and
 APK bytes match the tested artifacts. Read-only live checks confirm the shared
 feed, responsive layout and backup status without adding household test content.
+
+## Shopping photos release (2026-09-27)
+
+Source revision `1033175` adds product reference photos and purchase receipts.
+No migration was required. Both profiles' nineteen existing record hashes and
+installation/recovery identity are preserved; database integrity and foreign-key
+checks pass. The fresh pre-deployment online backup is verified at the secondary
+destination. The served web assets and APK match the tested artifacts. Live
+checks opened Shopping and the product editor without saving synthetic content.
+See SHOPPING_PHOTOS_IMPLEMENTATION.md for compatibility and test evidence.

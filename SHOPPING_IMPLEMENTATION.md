@@ -49,8 +49,8 @@ to the live household. Updated web assets and the published APK match local byte
    private lists and cache isolation, and phone layout. Upgrade with a verified
    backup, preserve real data, publish the Android update and verify the second copy.
 
-Receipt-photo editing and product reference photos are implemented and verified;
-see [shopping photos](SHOPPING_PHOTOS_IMPLEMENTATION.md) for publication status.
+Receipt-photo editing and product reference photos are deployed;
+see [shopping photos](SHOPPING_PHOTOS_IMPLEMENTATION.md) for verification and limits.
 Recipe ingredient import and named groups are deployed; see RECIPE_IMPLEMENTATION.md.
 Advanced gift suggestions, inventory quantities and automatic reminders remain later scope.
 No provider credentials or new household decisions are needed for this slice.

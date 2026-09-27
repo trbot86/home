@@ -40,6 +40,13 @@ share the inbox's existing durable request machinery. Cached lists are read-only
 offline; use Inbox for disconnected capture. Lists start empty, with no demo items
 inserted into the real household.
 
+Use **Product photos** on the Restock shelf for packaging or compatible-part
+labels. Items added with **Need this** show those reference photos. Purchased
+items have separate **Receipt photos** and **Purchase history** actions; receipts
+also appear in Recently done. Captions, ordering, undo and private gift visibility
+use the existing photo editor. A new restock keeps product photos without copying
+an earlier receipt. See [shopping photos](SHOPPING_PHOTOS_IMPLEMENTATION.md).
+
 Tasks support shared/private Home and Work views, assignees, priorities and
 separate deadline, flexible target and review dates. **Move a date** offers a
 picker and +1 day/week/2 weeks/month without changing a real deadline. Record
