@@ -3,12 +3,14 @@
 Research checked: 2026-09-27. The local handler, proposed English (US/Canada) models,
 explicit integration principal and separate capture listener are implemented.
 The user has created a development skill shell with English (US) selected.
-Interaction-model import/build is awaiting confirmation, and its backend endpoint
-is not connected. No cloud bridge, active capture listener, integration credential
-or device connection has been configured. The production `CaptureSink` transport
-is still unimplemented;
-local tests connect synthetic Alexa events to the capture listener using HTTP
-injection and an isolated SQLite database. See
+The user believes the model build succeeded; its backend endpoint is not connected.
+The user has no AWS account and selected the self-hosted direction. A separate
+HTTPS receiver, bounded socket transport and Docker image are now implemented for
+local review. No public ingress, active capture listener, integration credential
+or device connection has been configured by this task. Local tests connect
+synthetically signed requests through a real socket to isolated SQLite storage.
+See [the self-hosting checkpoint](ALEXA_SELF_HOSTING.md) for the current container
+arrangement, verification and remaining deployment work. See
 [the backend checkpoint](ALEXA_BACKEND_CHECKPOINT.md) for verification and limits.
 See [the imported checkpoint](ALEXA_HANDOFF.md) for its original scope.
 
@@ -96,9 +98,11 @@ Long-term access for the second account remains a separate setup decision.
 
 ## Capture bridge proposal
 
-Proposed route: Alexa -> skill-restricted Lambda handler -> restricted tailnet
-identity -> dedicated capture-only listener -> existing write coordinator.
-No part of this network route is activated by the local handler.
+The current direction is Alexa -> dedicated public HTTPS receiver -> private
+capture socket -> existing write coordinator. See [ALEXA_SELF_HOSTING.md](ALEXA_SELF_HOSTING.md).
+The earlier Lambda/tailnet proposal below records the motivation for separating
+capture access from the trusted-network app; it is no longer the selected hosting
+path. No part of either network route is active.
 
 The current application can list profiles and issue sessions without a password
 in trusted-network mode (`apps/server/src/app.ts`). A limited token is insufficient
@@ -123,9 +127,9 @@ The dedicated listener must:
 - Return success only after a matching validated home-server receipt. Bound
   transport waiting and distinguish known rejection from an uncertain save.
 
-The current function is a Lambda-event adapter, not an HTTP signature verifier.
-If a public HTTPS handler is selected instead, it needs Alexa signature and
-timestamp validation before accepting events.
+The pure event handler still requires a verified transport. The self-hosted
+receiver now verifies Amazon HTTPS signatures and timestamps before invoking it.
+If Lambda is used in a future deployment, restrict its ASK trigger to the skill.
 [Lambda hosting](https://developer.amazon.com/en-US/docs/alexa/custom-skills/host-a-custom-skill-as-an-aws-lambda-function.html),
 [HTTPS validation](https://developer.amazon.com/en-US/docs/alexa/custom-skills/host-a-custom-skill-as-a-web-service.html).
 
@@ -178,7 +182,7 @@ assuming that an Appstore business must be created first.
 2. Review the implemented listener, authorization and reserved migration 007
    with the main task. Isolated compatibility tests pass; preserve deployed
    migrations 001–006. No live database is a test fixture.
-3. Prepare a concrete cloud/tailnet configuration and deployment artifact for
+3. Prepare a concrete self-hosted ingress/egress configuration and deployment artifact for
    review, including service/cost choices, allowed listener and denied main-app
    destinations. Account changes, cloud resources and live security configuration
    require the user's authorization before activation.

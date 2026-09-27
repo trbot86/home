@@ -48,8 +48,8 @@ export function captureOperationId(skillId: string, userId: string, requestId: s
 }
 
 /**
- * Lambda event handler only. Do not expose this as an unsigned public HTTP webhook.
- * The Lambda ASK trigger must independently restrict invocation to this skill ID.
+ * Event handler only. HTTP callers must pass through the receiver's signature verifier.
+ * Lambda callers instead require an ASK trigger restricted to this skill ID.
  */
 export function createAlexaHandler(options: SkillOptions) {
   if (!boundedString(options.skillId) || options.users.size === 0)

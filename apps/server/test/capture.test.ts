@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
 import type { CommandKind, CommandOutcome, Envelope } from '@our-place/contracts';
 import { integrationFixture } from './integration-fixture.js';
 import { migrate } from '../src/infrastructure/database.js';
@@ -17,6 +18,10 @@ import { inboxRecordAdapter } from '../src/features/inbox/inbox-record.js';
 import { contentOf } from '../src/features/inbox/inbox.js';
 import { WriteCoordinator } from '../src/application/write-coordinator.js';
 import { createAlexaHandler } from '../../../packages/alexa/src/skill.js';
+import { buildAlexaReceiver } from '../../../packages/alexa/src/receiver.js';
+import { createRequestVerifier } from '../../../packages/alexa/src/verify-request.js';
+import { createSocketCaptureSink } from '../../../packages/alexa/src/capture-socket.js';
+import { signedFixture } from '../../../packages/alexa/test/signed-fixture.js';
 
 async function fixture() {
   const f = await integrationFixture();
@@ -502,6 +507,69 @@ test('Alexa returns readback after the household commits, with no confirmation o
       1,
     );
   } finally {
+    await f.close();
+  }
+});
+
+test('signed HTTP receiver commits through a real socket and durable receipts survive a dropped acknowledgement', async () => {
+  const f = await fixture();
+  const signed = signedFixture(f.now());
+  const socketPath =
+    process.platform === 'win32'
+      ? `\\\\.\\pipe\\capture-receiver-test-${randomUUID()}`
+      : join(f.root, 'capture.sock');
+  let loseResponse = true;
+  let captureResponse: unknown;
+  f.capture.app.addHook('onSend', async (_request, reply, payload) => {
+    captureResponse = { status: reply.statusCode, payload };
+    if (loseResponse) {
+      loseResponse = false;
+      reply.raw.destroy();
+    }
+    return payload;
+  });
+  await f.capture.app.listen({ path: socketPath });
+  const receiver = await buildAlexaReceiver({
+    skillId: 'test-skill',
+    now: f.now,
+    users: new Map([['test-user', { bindingId: 'test-binding', expectedServerEpoch: 'fixture-epoch' }]]),
+    verifyRequest: createRequestVerifier({
+      now: f.now,
+      trustRoots: signed.trustRoots,
+      fetch: async () => new Response(signed.pem),
+    }),
+    capture: createSocketCaptureSink({ socketPath, token: f.issued.secret, bindingId: 'test-binding' }),
+  });
+  try {
+    const request = signed.signed();
+    const invoke = (event = request) => receiver.inject({ method: 'POST', url: '/alexa', ...event });
+    const count = () =>
+      f.db.prepare('SELECT * FROM change_sets WHERE actor_integration_id=?').all(f.issued.integrationId)
+        .length;
+    const lost = await invoke();
+    assert.match(lost.json().response.outputSpeech.text, /couldn't confirm/);
+    assert.equal(count(), 1, JSON.stringify(captureResponse));
+    assert.ok(
+      f.inbox
+        .list(f.alice, f.now())
+        .entries.some((entry) => entry.text === signed.event.request.intent.slots.Text.value),
+    );
+    const retry = await invoke();
+    assert.match(retry.json().response.outputSpeech.text, /^Saved to your shared inbox:/);
+    assert.equal(retry.json().response.shouldEndSession, true);
+    assert.equal(count(), 1);
+    const changed = structuredClone(signed.event);
+    changed.request.intent.slots.Text.value = 'Different text under the same operation';
+    assert.match(
+      (await invoke(signed.signed(changed))).json().response.outputSpeech.text,
+      /couldn't confirm/,
+    );
+    assert.equal(count(), 1);
+    const forged = { ...request, payload: Buffer.from(request.payload.toString().replace('blue', 'pink')) };
+    assert.equal((await invoke(forged)).statusCode, 400);
+    assert.equal(count(), 1);
+  } finally {
+    await receiver.close();
     await f.close();
   }
 });
