@@ -66,11 +66,14 @@ const native = registerPlugin<{
 }>('Household');
 /** A typed bridge only; Android persistence and networking are owned by Kotlin. */
 export class AndroidClient implements ClientPlatform {
-  private readonly backListeners = new Set<{ listener: () => boolean; priority: 'dialog' | undefined }>();
+  private readonly backListeners = new Set<{
+    listener: () => boolean;
+    priority: 'dialog' | 'detail' | undefined;
+  }>();
   private readonly handleBack = (event: Event) => {
     if (event.defaultPrevented) return;
     // Window-target events do not reliably run capture listeners before ordinary listeners in WebView.
-    for (const priority of ['dialog', undefined] as const) {
+    for (const priority of ['dialog', 'detail', undefined] as const) {
       for (const registration of [...this.backListeners].reverse()) {
         if (registration.priority === priority && registration.listener()) {
           event.preventDefault();
@@ -80,7 +83,7 @@ export class AndroidClient implements ClientPlatform {
       }
     }
   };
-  onBack(listener: () => boolean, priority?: 'dialog'): () => void {
+  onBack(listener: () => boolean, priority?: 'dialog' | 'detail'): () => void {
     const registration = { listener, priority };
     if (!this.backListeners.size) window.addEventListener('ourplace:back', this.handleBack);
     this.backListeners.add(registration);

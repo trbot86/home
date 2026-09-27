@@ -71,8 +71,11 @@ after its table rebuild. Isolated tests cover stale ordering, failed receipts,
 target deletion/restoration, private-view isolation, old frozen commands, backup
 restoration and rollback after SQL or foreign-key failure during the rebuild.
 
-Remaining release work: native runtime verification on the test emulator, including
-in-place update preservation, cached pages/photos, nested Back navigation and
-unfinished page forms. Then build/test the release container, rehearse a fresh
-secondary-backup restore and perform the protected live upgrade. Projects has not
-yet been deployed to the household or published as a phone update.
+Native verification now passes on the isolated test emulator: in-place update
+preservation, cached pages/photos, nested Back navigation, unfinished page forms,
+block order, pins, history and offline inbox capture. Back handlers explicitly
+prioritize dialogs, then nested details, then the app fallback; subscription
+timing cannot send a nested page straight to the inbox. The release image passes
+all 155 Linux package tests. A fresh secondary backup was restored and migrated
+through 016 in a disposable production container, preserving all 41 retained
+tables and its media. The protected live upgrade and phone publication remain.

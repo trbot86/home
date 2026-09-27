@@ -102,7 +102,7 @@ export function Projects({
           return true;
         }
         return false;
-      }),
+      }, 'detail'),
     [client, selected, page, project, editor, photosId, historyId, moveId, removal, pinning],
   );
   async function action(target: { recordId: string }, kind: CommandKind, args: unknown, label: string) {

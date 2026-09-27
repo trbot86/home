@@ -79,8 +79,8 @@ export type RunRecordCommand = (
   epoch?: string,
 ) => Promise<CommandOutcome | null>;
 export interface ClientPlatform {
-  /** Return true when the visible app surface consumed system Back. */
-  onBack?(listener: () => boolean, priority?: 'dialog'): () => void;
+  /** Dialogs dismiss first, then nested detail navigation, then the app-level fallback. */
+  onBack?(listener: () => boolean, priority?: 'dialog' | 'detail'): () => void;
   subscribe(listener: () => void): () => void;
   state(): Promise<ClientState>;
   authenticationOptions(): Promise<AuthenticationOptions>;
