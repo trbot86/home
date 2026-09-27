@@ -195,3 +195,20 @@ wired. The live maintenance-ideas release and private APK remain unchanged, with
 schema 001–016. The first-release choice between a read-only agenda and household
 event editing is still awaiting user input. See CALENDAR_IMPLEMENTATION.md for
 the implemented boundaries and remaining integration work.
+
+## Calendar authorization checkpoint (2026-09-27; not deployed)
+
+The server now has an isolated consent/credential service using Google's official
+OAuth library. Consent is expiring and tied to the initiating live client; account
+reconnection preserves selections only for the same Google subject. Credentials
+are encrypted transactionally and refresh/rotation cannot revive a disconnected
+connection. Restores discard grants and pending consent while preserving household
+data and calendar selection metadata.
+
+Fourteen additional tests pass, including simulated HTTP through the actual Google
+SDK, concurrent refresh, rollback, ownership, migration preservation and encrypted
+backup/restore. Runtime key/OAuth configuration, callback handoff, routes, scheduler
+and UI still need wiring. No live Google account, key or token has been provisioned;
+the running app and published Android download remain on the maintenance release.
+Typechecking, package boundaries and builds pass. The package suite passes 186
+tests with one platform-specific skip on Windows.

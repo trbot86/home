@@ -16,8 +16,8 @@ changing household records, receipts or history. The live app still runs migrati
 
 `CalendarSynchronizer` resolves an opaque credential reference through the
 `CalendarCredentials` port and performs network work outside SQLite transactions.
-The credential resolver is an interface only: token storage, OAuth routes and
-refresh-token handling still need implementation. Each result rechecks the
+The authorization service described below implements that credential resolver;
+runtime configuration and OAuth routes still need wiring. Each result rechecks the
 connection generation, source selection revision and operation generation before
 publication. A disconnect, reselection, newer refresh or discovery therefore
 invalidates older in-flight work. Source deletion cascades to its cached events.
@@ -51,19 +51,66 @@ privacy, ownership and asynchronous disconnect races. An isolated upgrade test
 preserves every pre-calendar table and installation identity. No test accesses a
 real Google account or writes to the live household.
 
+## Authorization service (not deployed)
+
+Migration 018 adds encrypted credential storage, expiring authorization attempts
+and stable Google account bindings. `CalendarAuthorizationService` begins a
+ten-minute, single-use PKCE exchange tied to the initiating person, client,
+session credential and recovery epoch. It rechecks that live authority after the
+network response and commits the connection, encrypted grant and completion result
+together. Retrying a completed request returns its existing connection; an uncertain
+or interrupted exchange requires a fresh consent attempt. Starting a replacement
+attempt invalidates the old one, including an exchange still in flight.
+
+`GoogleCalendarAuthorization` uses pinned `google-auth-library` 11.1.0 for code
+exchange and refresh. It requests the two calendar read scopes plus `openid`,
+checks the returned token's audience and grants, and obtains the stable subject
+from Google's authenticated user-info endpoint. Email addresses and unverified ID
+tokens are not account identifiers. SDK diagnostics are replaced with bounded
+application error codes. Automatic exchange retries and HTTP redirects are disabled.
+See [Google's OAuth library](https://github.com/googleapis/google-auth-library-nodejs)
+and [Google's OpenID Connect account guidance](https://developers.google.com/identity/openid-connect/openid-connect).
+
+Reconnect preserves calendar selections only for that same subject and connection
+generation; it clears old snapshots and invalidates in-flight refreshes. Account
+switches require a separate connection with fresh selection. Concurrent refreshes
+in the server process share one request, preserve an omitted refresh token, and
+save provider-issued rotation before returning the new access token. Disconnect
+removes the stored credential transactionally. A late refresh cannot recreate it.
+This is local disconnection; Google-side grant revocation is not wired yet.
+
+`CalendarSecretBox` uses AES-256-GCM with a fresh nonce and authenticates each value's
+purpose, reference, installation and recovery epoch. A host-supplied key ring allows
+new writes to use a new key while retaining old keys for existing ciphertext.
+Missing keys and authentication failures never generate replacement keys. Keys and
+OAuth client configuration remain outside the database, public source and client
+payloads; their runtime configuration loader is still to be connected.
+
+The database backup includes token ciphertext, but excludes encryption keys and
+plaintext external credentials. Restoring a backup discards pending consent and
+stored grants, marks connections as needing reconnection, and keeps selections and
+household records. This prevents a restored database from silently resuming old
+Google authorization. An ordinary process restart retains working grants.
+
+Fourteen additional isolated tests cover the real SDK with simulated HTTP responses,
+exact callback/PKCE parameters, minimal consent, audience/grant checks, account
+matching, token rotation, retry behavior, expired/replaced/revoked sessions, guarded
+commit and disconnect races, key rotation/tampering, populated-schema migration and
+backup/restore. No real account has been connected.
+
 ## Remaining connection and UI work
 
-The common foundation is not an end-to-end integration. It still needs protected
-credential storage and rotation, single-use OAuth state, account binding, returned
-scope verification, a scheduler, receipt-backed selection/disconnect routes,
+The common foundation is not an end-to-end integration. It still needs host
+configuration, a scheduler, receipt-backed selection/disconnect routes,
 browser/Android settings and agenda views, and client-cache invalidation when
-visibility or connection state changes. Reconnecting must verify the Google account
-identity before preserving calendar sharing; switching accounts must not reuse the
-previous account's selections. Do not silently register a replacement connection
-and strand the original selection/cache state.
+visibility or connection state changes. The OAuth callback and browser/Android
+handoff must establish the original authenticated client before calling `finish`;
+constructing a trusted context from a callback's state alone is forbidden. A callback
+must not log its code/state or expose them to page assets. Test both browser session
+binding and Android's system-browser return before enabling account connection.
 
 The read-only-versus-household-editing question remains open. Build and verify the
-chosen user flow before publishing migration 017 or requesting real account consent.
+chosen user flow before deploying migrations 017–018 or requesting real account consent.
 Calendar write scopes and event editing are not part of this checkpoint.
 
 ## Common foundation
@@ -93,7 +140,8 @@ and [OAuth policies](https://developers.google.com/identity/protocols/oauth2/pol
 are the implementation references. The actual private-host callback needs an
 end-to-end check before claiming account integration works.
 
-For reading, request only calendar-list and event read scopes. Verify the grants
+For reading, request calendar-list and event read scopes plus `openid` for stable
+account binding. Verify the grants
 actually returned before enabling discovery or synchronization; partial consent
 must not look like an empty calendar. See [Google Calendar scopes](https://developers.google.com/workspace/calendar/api/auth).
 Do not add calendar-write permission until the household editing contract is

@@ -190,7 +190,7 @@ export class BackupCoordinator {
             'Partial uploads',
             'Rebuildable thumbnails',
             'Backup scratch files',
-            'Host configuration and external credentials',
+            'Host configuration, calendar encryption keys and plaintext external credentials',
           ],
         };
       } finally {

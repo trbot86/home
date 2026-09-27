@@ -102,6 +102,11 @@ export async function restoreBackup(
       db.prepare(
         "UPDATE background_jobs SET state='paused',error_code='restored_review_required' WHERE state NOT IN ('complete','abandoned')",
       ).run();
+      db.prepare('DELETE FROM calendar_authorizations').run();
+      db.prepare('DELETE FROM calendar_credentials').run();
+      db.prepare(
+        "UPDATE calendar_connections SET state='needs_auth',generation=generation+1,error_code='authentication_required' WHERE state<>'disconnected'",
+      ).run();
       db.prepare(
         "UPDATE media_objects SET state='collected',unreferenced_at=COALESCE(unreferenced_at,?) WHERE state IN ('staging','deleting')",
       ).run(Date.now());
