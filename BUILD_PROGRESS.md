@@ -314,3 +314,17 @@ A fresh secondary-backup restore into a disposable Docker volume preserves fifty
 retained tables and two media files while applying migration021. The live household
 has not yet been upgraded at this checkpoint. See INBOX_FILING_IMPLEMENTATION.md
 for transaction, compatibility and retention details.
+
+## Inbox filing release (2026-09-27)
+
+Source revision `0456982` is deployed on the private web host and Android download.
+The guarded live upgrade applied migration021 after a verified fresh backup, now
+also verified at the secondary destination. Both profiles' nineteen existing
+records, installation identity and recovery epoch remain unchanged. SQLite
+integrity and foreign-key checks pass.
+
+Read-only live checks opened the filing dialog at desktop and phone widths and
+verified the empty Filed view and backup status. Served JavaScript, CSS and APK
+bytes match the tested artifacts. No test notes or preferences were saved to the
+real household. Physical phone installation remains a user step; the dedicated
+emulator passed in-place update preservation and the filing/offline workflow.

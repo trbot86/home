@@ -23,6 +23,14 @@ project it moves up through the page hierarchy. From another app section it retu
 to Inbox; at the root it retains normal Android behavior.
 The software keyboard may consume the first Back to dismiss itself.
 
+Use **File** on an inbox note to create a task, shopping item or project page,
+or link to something already saved. Unfiled, Filed and All notes keep the original
+capture searchable, with its photos and destination links. New items retain the
+note's visibility. **Back to inbox** retains its links; **Unlink** keeps the
+destination itself. Filing supports guarded undo, durable unfinished forms and
+Ctrl+Enter. Offline drafts are editable; filing waits for connection. See
+[inbox filing](INBOX_FILING_IMPLEMENTATION.md) for transaction and retention details.
+
 Shopping supports named shared/private lists for groceries, household purchases,
 wants and gifts. Add quantities and notes, move items between lists of the same
 visibility, and check off purchases with who bought them and when. Save reusable
