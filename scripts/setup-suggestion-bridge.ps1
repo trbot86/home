@@ -6,6 +6,8 @@ $localRoot = [IO.Path]::GetFullPath((Join-Path $projectRoot '.local')) + [IO.Pat
 if (!$configurationPath.StartsWith($localRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Bridge configuration must remain in ignored local storage.' }
 $bridgeConfig = Get-Content -LiteralPath $configurationPath -Raw | ConvertFrom-Json
 if ([IO.Path]::GetFullPath($bridgeConfig.repository) -ne [IO.Path]::GetFullPath($projectRoot)) { throw 'Bridge configuration belongs to another repository.' }
+$bridgeConfig | Add-Member -NotePropertyName nodeExecutable -NotePropertyValue (Get-Command node -ErrorAction Stop).Source -Force
+[IO.File]::WriteAllText($configurationPath, ($bridgeConfig | ConvertTo-Json -Depth 12), [Text.UTF8Encoding]::new($false))
 $shellExecutable = (Get-Command powershell.exe -ErrorAction Stop).Source
 $bridgeScript = Join-Path $projectRoot 'scripts/run-suggestion-bridge.ps1'
 $taskName = 'OurPlaceSuggestionBridge'

@@ -431,3 +431,27 @@ preserved both profiles' nineteen records and installation/recovery identity.
 Database integrity/foreign-key checks, exact web/APK bytes and the independent
 secondary copy of the pre-release backup are verified. Live checks did not save
 test content. See PHOTO_TRANSFER_IMPLEMENTATION.md.
+
+## Suggestion discussions and background work release (2026-09-27)
+
+Source revision `b19075b` is live on the private web host and Android download.
+Suggestions now carry a discussion, progress summaries, questions and durable
+follow-ups with photos. Notes and requests for another round of work are distinct
+actions. The host bridge runs requested work in isolated Git worktrees and reports
+results in the app; completed code awaits integration and deployment.
+
+The guarded upgrade applied migration022 after a verified backup, preserving all
+24 existing records, both profiles and installation/recovery identity. Database
+integrity and foreign-key checks pass. A fresh post-release online backup is
+independently verified at the secondary destination. Live checks opened existing
+discussions at 360, 820 and 1440 pixels without saving synthetic content, and
+confirmed exact published APK bytes. The bridge is registered at sign-in and
+healthy; existing suggestions are not automatically queued.
+
+Validation passes all 236 package tests in Linux, 54 browser tests, 15 Android
+unit tests and five bridge recovery tests. A real isolated Codex run completed a
+question-and-answer round after bridge restart. The dedicated Android emulator
+preserved data through an in-place update and verified an offline photo reply
+across process restart, synchronization and viewing from the other profile.
+Physical phone installation remains a user step. See SUGGESTION_BRIDGE.md and
+SUGGESTION_WORKFLOW_PLAN.md for the execution and recovery boundaries.
