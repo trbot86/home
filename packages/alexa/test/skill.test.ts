@@ -28,12 +28,13 @@ function saved(capture: CaptureRequest): CommandOutcome {
     result: { records: [{ recordId: 'test-record', revision: 1 }] },
   };
 }
-function handler(capture: CaptureSink) {
+function handler(capture: CaptureSink, shoppingEnabled = false) {
   return createAlexaHandler({
     skillId,
     users: new Map([[userId, { bindingId: 'test-binding', expectedServerEpoch: epoch }]]),
     capture,
     now: () => now,
+    shoppingEnabled,
   });
 }
 test('capture routes only recognized text and a stable operation ID; readback follows acknowledgement', async () => {
@@ -47,7 +48,7 @@ test('capture routes only recognized text and a stable operation ID; readback fo
     calls.push(capture);
     await gate;
     return saved(capture);
-  });
+  }, true);
   let finished = false;
   const pending = run(event()).then((response) => {
     finished = true;
@@ -115,12 +116,31 @@ test('unapproved identity, stale timestamps, unknown locales and non-capture int
   for (const malformed of [null, {}, [], { version: '1.0' }]) await run(malformed);
   assert.equal(calls, 0);
 });
-test('missing and overlong capture are not truncated; readback remains plain text', async () => {
+
+test('the first trial offers inbox notes and blocks shopping even if an event names that intent', async () => {
   let calls = 0;
   const run = handler(async (_binding, capture) => {
     calls++;
     return saved(capture);
   });
+  const launch = { ...event(), request: { ...event().request, type: 'LaunchRequest' } };
+  for (const request of [launch, event('AMAZON.HelpIntent'), event('AddShoppingIntent', 'milk')]) {
+    const response = await run(request);
+    assert.match(response.response.outputSpeech!.text, /Say remember/);
+    assert.doesNotMatch(response.response.outputSpeech!.text, /shopping/i);
+    assert.doesNotMatch(response.response.reprompt!.outputSpeech.text, /shopping/i);
+    assert.equal(response.response.shouldEndSession, false);
+  }
+  assert.equal(calls, 0);
+  await run(event());
+  assert.equal(calls, 1);
+});
+test('missing and overlong capture are not truncated; readback remains plain text', async () => {
+  let calls = 0;
+  const run = handler(async (_binding, capture) => {
+    calls++;
+    return saved(capture);
+  }, true);
   await run(event('RememberIntent', '   '));
   await run(event('RememberIntent', 'x'.repeat(1001)));
   await run(event('AddShoppingIntent', 'x'.repeat(301)));
@@ -165,7 +185,8 @@ test('interaction model uses one phrase slot per capture intent with nonempty ca
     slots?: { name: string; type: string }[];
     samples: string[];
   }[];
-  for (const name of ['RememberIntent', 'AddShoppingIntent']) {
+  assert.equal(intents.some((intent) => intent.name === 'AddShoppingIntent'), false);
+  for (const name of ['RememberIntent']) {
     const intent = intents.find((item) => item.name === name)!;
     assert.deepEqual(intent.slots, [{ name: 'Text', type: 'AMAZON.SearchQuery' }]);
     for (const sample of intent.samples) {

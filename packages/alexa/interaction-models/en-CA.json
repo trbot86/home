@@ -8,11 +8,6 @@
           "slots": [{ "name": "Text", "type": "AMAZON.SearchQuery" }],
           "samples": ["remember {Text}", "save a note {Text}", "note that {Text}"]
         },
-        {
-          "name": "AddShoppingIntent",
-          "slots": [{ "name": "Text", "type": "AMAZON.SearchQuery" }],
-          "samples": ["add to shopping {Text}", "we need {Text}", "buy {Text}"]
-        },
         { "name": "AMAZON.HelpIntent", "samples": [] },
         { "name": "AMAZON.StopIntent", "samples": [] },
         { "name": "AMAZON.CancelIntent", "samples": [] },

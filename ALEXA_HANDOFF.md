@@ -2,6 +2,10 @@
 
 2026-09-27. This is a disabled, schema-free foundation for a separate Alexa development task. No Alexa skill, AWS resource, credential, public endpoint or live household record has been created. Skill/account/device recognition and phrase routing remain untested. Transport, capture-only authentication, provisioning, a server command adapter and deployment are **not implemented**.
 
+This document records the imported checkpoint. Subsequent inbox-only defaults,
+primary-documentation findings and the proposed isolated setup sequence are in
+[ALEXA_NOTE_TRIAL.md](ALEXA_NOTE_TRIAL.md).
+
 ## Existing code
 
 - `packages/alexa/src/skill.ts`: pure Lambda-style event handler behind a `CaptureSink` port. Explicit skill ID and Alexa account allowlist, account-to-binding mapping, timestamp/locale checks, short inbox and shopping phrases, plain-text readback only after a matching validated Applied receipt. It does not infer speaker identity from the account, split shopping phrases, or silently truncate text.

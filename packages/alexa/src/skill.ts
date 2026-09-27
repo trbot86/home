@@ -11,13 +11,15 @@ export type SkillOptions = {
   capture: CaptureSink;
   now?: () => number;
   locales?: readonly string[];
+  /** The first trial captures inbox notes only; shopping needs an explicit opt-in. */
+  shoppingEnabled?: boolean;
 };
 type JsonObject = Record<string, unknown>;
 const object = (value: unknown): JsonObject | undefined =>
   value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as JsonObject) : undefined;
 const boundedString = (value: unknown, max = 1000): value is string =>
   typeof value === 'string' && value.length > 0 && value.length <= max;
-const instructions = 'Say remember, followed by a short note. Or say add to shopping, followed by an item.';
+const noteInstructions = 'Say remember, followed by a short note.';
 const uncertain = "I couldn't confirm whether that was saved. Please check Our Place before repeating it.";
 export type AlexaResponse = {
   version: '1.0';
@@ -27,13 +29,13 @@ export type AlexaResponse = {
     shouldEndSession: boolean;
   };
 };
-function say(text: string, keepOpen = false): AlexaResponse {
+function say(text: string, reprompt?: string): AlexaResponse {
   return {
     version: '1.0',
     response: {
       outputSpeech: { type: 'PlainText', text },
-      shouldEndSession: !keepOpen,
-      ...(keepOpen ? { reprompt: { outputSpeech: { type: 'PlainText' as const, text: instructions } } } : {}),
+      shouldEndSession: reprompt === undefined,
+      ...(reprompt ? { reprompt: { outputSpeech: { type: 'PlainText' as const, text: reprompt } } } : {}),
     },
   };
 }
@@ -54,6 +56,10 @@ export function createAlexaHandler(options: SkillOptions) {
     throw new Error('Alexa requires an explicit skill ID and authorized account map');
   const users = new Map(options.users);
   const locales = new Set(options.locales ?? ['en-CA', 'en-US']);
+  const shoppingEnabled = options.shoppingEnabled === true;
+  const instructions = shoppingEnabled
+    ? `${noteInstructions} Or say add to shopping, followed by an item.`
+    : noteInstructions;
   for (const binding of users.values()) {
     if (
       !boundedString(binding.bindingId) ||
@@ -100,24 +106,25 @@ export function createAlexaHandler(options: SkillOptions) {
       return { version: '1.0', response: { shouldEndSession: true } };
     if (typeof request.locale !== 'string' || !locales.has(request.locale))
       return say('This language is not configured for Our Place yet.');
-    if (request.type === 'LaunchRequest') return say(`Welcome to Our Place. ${instructions}`, true);
+    if (request.type === 'LaunchRequest') return say(`Welcome to Our Place. ${instructions}`, instructions);
     const intent = object(request.intent);
-    if (request.type !== 'IntentRequest' || !intent) return say(instructions, true);
+    if (request.type !== 'IntentRequest' || !intent) return say(instructions, instructions);
     if (intent.name === 'AMAZON.StopIntent' || intent.name === 'AMAZON.CancelIntent') return say('Okay.');
     if (intent.name === 'AMAZON.HelpIntent' || intent.name === 'AMAZON.FallbackIntent')
-      return say(instructions, true);
+      return say(instructions, instructions);
     const destination =
-      intent.name === 'RememberIntent' ? 'inbox' : intent.name === 'AddShoppingIntent' ? 'shopping' : null;
-    if (!destination) return say(instructions, true);
+      intent.name === 'RememberIntent' ? 'inbox'
+        : shoppingEnabled && intent.name === 'AddShoppingIntent' ? 'shopping' : null;
+    if (!destination) return say(instructions, instructions);
     const slot = object(object(intent.slots)?.Text);
     const text = typeof slot?.value === 'string' ? slot.value.trim() : '';
     // Never silently truncate, infer quantities, split a list, or execute text as markup.
-    if (!text) return say(instructions, true);
+    if (!text) return say(instructions, instructions);
     const limit = destination === 'shopping' ? 300 : 1000;
     if (text.length > limit)
-      return say('That is too long for this capture. Please use a shorter phrase or the app.', true);
+      return say('That is too long for this capture. Please use a shorter phrase or the app.', instructions);
     if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u.test(text))
-      return say('I could not read that phrase. Please try again.', true);
+      return say('I could not read that phrase. Please try again.', instructions);
     const binding = users.get(userId)!;
     const capture: CaptureRequest = {
       operationId: captureOperationId(options.skillId, userId, request.requestId),
