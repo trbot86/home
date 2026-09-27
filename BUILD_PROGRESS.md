@@ -294,3 +294,23 @@ The served web assets and private Android download match the tested artifacts.
 Live checks opened the editor at desktop/phone widths without saving household
 preferences or creating test content. Actual phone installation remains a user
 step; the emulator update preserved its cached sections, photo draft and editors.
+
+## Inbox filing checkpoint (2026-09-27; release verification pending)
+
+Notes can be filed into tasks, shopping items, project pages or existing records,
+with Unfiled/Filed/All filters and source backlinks. One command transaction
+preserves the original capture and photos while creating the destination, linking
+it and recording compound undo history. New items retain the source's audience;
+linking a private note to a shared item exposes no backlink to the other profile.
+
+Ten server tests and thirteen affected browser flows pass, along with typechecking,
+package boundaries and production builds. The package suite passes 212 tests plus
+one Windows-specific skip; the Docker candidate passes all 213. Android's ten unit
+tests pass. The dedicated emulator preserves its previous cache, photo draft and
+editors through an in-place update, then passes native filing, browser sync,
+source-photo navigation, Android Back and offline draft/cache checks.
+
+A fresh secondary-backup restore into a disposable Docker volume preserves fifty
+retained tables and two media files while applying migration021. The live household
+has not yet been upgraded at this checkpoint. See INBOX_FILING_IMPLEMENTATION.md
+for transaction, compatibility and retention details.

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { CaptureSources } from '../inbox/FilingLinks.js';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { ShoppingEntry, ShoppingGroup, ShoppingRecord } from '@our-place/contracts';
 import { Icon } from '../Icon.js';
@@ -119,6 +120,7 @@ function Entry({ item, props }: { item: ShoppingEntry; props: Props }) {
         </span>
       )}
       <div className="shopping-row-body">
+        <CaptureSources recordId={item.recordId} state={state} />
         <div className="shopping-item-title">
           <h3>{item.label}</h3>
           {item.quantity && <span>{item.quantity}</span>}

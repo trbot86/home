@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { CaptureSources } from '../inbox/FilingLinks.js';
 import {
   openTasks,
   taskAttention,
@@ -251,6 +252,7 @@ export function Tasks({
               Waiting for confirmation…
             </p>
           )}
+          <CaptureSources recordId={task.recordId} state={state} />
           <div className="task-actions">
             <button
               disabled={blocked}

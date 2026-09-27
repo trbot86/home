@@ -6,6 +6,8 @@ import {
   Instant,
   Source,
   isValid,
+  inboxFilingFields,
+  filingOf,
   type InboxEntry,
 } from '@our-place/contracts';
 import { contentOf, InboxRepository, type InboxContent } from './inbox.js';
@@ -21,6 +23,7 @@ const contentSchema = Type.Object(
     deletedAt: Type.Union([Instant, Type.Null()]),
     // Retained version-1 deltas predate capture categories.
     category: Type.Optional(EntryCategory),
+    ...inboxFilingFields,
   },
   { additionalProperties: false },
 );
@@ -36,7 +39,7 @@ export function trackInbox(entry: InboxEntry): TrackedRecord {
 }
 function decode(content: unknown): InboxContent {
   if (!isValid(contentSchema, content)) throw new Error('Invalid inbox history content');
-  return { ...content, category: content.category ?? 'inbox' };
+  return { ...content, category: content.category ?? 'inbox', ...filingOf(content) };
 }
 function project(record: TrackedRecord): InboxEntry {
   return {

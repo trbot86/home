@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { CaptureSources } from '../inbox/FilingLinks.js';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
 import type { CommandKind, ProjectRecord } from '@our-place/contracts';
 import { AttachmentDialog, type AttachmentSaved } from '../AttachmentDialog.js';
@@ -282,6 +283,7 @@ export function Projects({
                 </span>
               ))}
           </nav>
+          <CaptureSources recordId={current!.recordId} state={state} />
           <div className="project-board-heading">
             <div>
               <p className="eyebrow">

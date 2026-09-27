@@ -1,5 +1,6 @@
 import {
   categoryOf,
+  filingOf,
   type Attachment,
   type Command,
   type EntryCategory,
@@ -17,10 +18,19 @@ import {
 import { requireIntegration } from '../access/integrations.js';
 import { NotFound, Rejection } from '../../application/errors.js';
 import { AttachmentRepository } from '../media/attachments.js';
+import { InboxDestinations } from './inbox-destinations.js';
 
 export type InboxContent = Pick<
   InboxEntry,
-  'scopeId' | 'text' | 'capturedAt' | 'source' | 'attachments' | 'deletedAt' | 'category'
+  | 'scopeId'
+  | 'text'
+  | 'capturedAt'
+  | 'source'
+  | 'attachments'
+  | 'deletedAt'
+  | 'category'
+  | 'filedAt'
+  | 'destinations'
 >;
 type InboxRow = {
   record_id: string;
@@ -33,18 +43,30 @@ type InboxRow = {
   category: EntryCategory;
   captured_at: number;
   source_json: string;
+  filed_at?: number | null;
 };
 export function contentOf(entry: InboxEntry): InboxContent {
   const { scopeId, text, capturedAt, source, attachments, deletedAt } = entry;
-  return { scopeId, text, capturedAt, source, attachments, deletedAt, category: categoryOf(entry) };
+  return {
+    scopeId,
+    text,
+    capturedAt,
+    source,
+    attachments,
+    deletedAt,
+    category: categoryOf(entry),
+    ...filingOf(entry),
+  };
 }
 export class InboxRepository {
   private readonly attachments: AttachmentRepository;
+  private readonly destinations: InboxDestinations;
   constructor(
     private readonly db: Sqlite,
     private readonly access: AccessService,
   ) {
     this.attachments = new AttachmentRepository(db, access);
+    this.destinations = new InboxDestinations(db, access);
   }
   snapshot(context: HumanRequestContext, now: number) {
     requireHuman(context);
@@ -65,7 +87,7 @@ export class InboxRepository {
     requireHuman(context);
     const row = this.db
       .prepare(
-        'SELECT r.*, i.text,i.captured_at,i.source_json,i.category FROM records r JOIN inbox_entries i ON i.inbox_id=r.record_id WHERE r.record_id=?',
+        'SELECT r.*, i.* FROM records r JOIN inbox_entries i ON i.inbox_id=r.record_id WHERE r.record_id=?',
       )
       .get(id) as InboxRow | undefined;
     if (!row || !this.access.canAccess(context, row.scope_id)) throw new NotFound();
@@ -81,6 +103,8 @@ export class InboxRepository {
       deletedAt: row.deleted_at,
       source: JSON.parse(row.source_json),
       attachments: this.attachments.list(id),
+      filedAt: row.filed_at ?? null,
+      destinations: row.filed_at === undefined ? [] : this.destinations.list(id),
     };
   }
   list(
@@ -199,6 +223,14 @@ export class InboxRepository {
     this.attachments.replace(context, before.inboxId, next.scopeId, next.attachments, now, {
       live: next.deletedAt === null,
     });
+    const filing = filingOf(next);
+    if (this.destinations.enabled()) {
+      this.destinations.replace(context, before.inboxId, next.scopeId, filing.destinations);
+      this.db
+        .prepare('UPDATE inbox_entries SET filed_at=? WHERE inbox_id=?')
+        .run(filing.filedAt, before.inboxId);
+    } else if (filing.filedAt !== null || filing.destinations.length)
+      throw new Error('Inbox filing requires schema 021');
     return this.get(context, before.inboxId);
   }
 }

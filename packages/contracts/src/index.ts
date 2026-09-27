@@ -9,6 +9,8 @@ import { recipeImportCommands } from './recipe-import.js';
 import { viewCommands } from './views.js';
 import { projectCommands } from './projects.js';
 import { calendarCommands } from './calendars.js';
+import { inboxFilingCommands, type InboxFiling } from './inbox-filing.js';
+export * from './inbox-filing.js';
 export * from './calendars.js';
 export * from './projects.js';
 export * from './views.js';
@@ -67,6 +69,7 @@ export const AbandonRestoredOperation = object({
   originalCommand: Type.Unknown(),
 });
 export const argumentSchemas = {
+  ...inboxFilingCommands,
   ...shoppingCommands,
   ...shoppingGroupCommands,
   ...taskCommands,
@@ -162,7 +165,7 @@ export type BackupStatus = {
   secondaryCopy?: { checkedAt: number; snapshotAt: number | null };
   running: boolean;
 };
-export type InboxEntry = {
+export type InboxEntry = InboxFiling & {
   inboxId: string;
   scopeId: string;
   revision: number;

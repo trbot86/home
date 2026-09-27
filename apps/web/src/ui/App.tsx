@@ -35,6 +35,9 @@ import { BackupPanel } from './BackupPanel.js';
 import { SignIn } from './SignIn.js';
 import { CaptureMedia } from './CaptureMedia.js';
 import { ProfileControl } from './ProfileControl.js';
+import { FilingDialog } from './inbox/FilingDialog.js';
+import { FilingLinks, CaptureSources } from './inbox/FilingLinks.js';
+import { filingOf } from '@our-place/contracts';
 
 const emptyState: ClientState = {
   session: null,
@@ -94,6 +97,8 @@ export function App({ client }: { client: ClientPlatform }) {
   const [search, setSearch] = useState('');
   const [limit, setLimit] = useState(24);
   const [sort, setSort] = useState('newest');
+  const [inboxFilter, setInboxFilter] = useState('unfiled');
+  const [filingId, setFilingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<{
     label: string;
@@ -295,6 +300,8 @@ export function App({ client }: { client: ClientPlatform }) {
         setDraft(null);
         setText('');
         setSelected(null);
+        setFilingId(null);
+        setInboxFilter('unfiled');
         setRecipeTarget(null);
         setLinkedTarget(null);
         setToast(null);
@@ -354,6 +361,7 @@ export function App({ client }: { client: ClientPlatform }) {
     try {
       await saveDraft(text);
       await client.submitDraft(draft.draftId);
+      setInboxFilter('unfiled');
       const next = await client.createDraft(captureScope, categoryOf(draft));
       setDraft(next);
       setText('');
@@ -437,6 +445,9 @@ export function App({ client }: { client: ClientPlatform }) {
       (entry) =>
         (view === 'trash' ? entry.deletedAt !== null : entry.deletedAt === null) &&
         (view === 'trash' || categoryOf(entry) === category) &&
+        (view !== 'inbox' ||
+          inboxFilter === 'all' ||
+          (filingOf(entry).filedAt !== null) === (inboxFilter === 'filed')) &&
         (scope === 'all' || entry.scopeId === scope) &&
         entry.text.toLowerCase().includes(search.toLowerCase()),
     )
@@ -446,6 +457,7 @@ export function App({ client }: { client: ClientPlatform }) {
       categoryOf(d) === category && d.draftId !== draft?.draftId && (d.text.trim() || d.attachments.length),
   );
   const selectedEntry = state.entries.find((e) => e.inboxId === selected?.id);
+  const filingEntry = state.entries.find((e) => e.inboxId === filingId);
   const sharedScope = state.session?.scopes.find((s) => s.kind === 'shared')?.scopeId;
   useEffect(
     () =>
@@ -595,7 +607,11 @@ export function App({ client }: { client: ClientPlatform }) {
                   </span>
                   {item.id === 'inbox' && (
                     <span className="nav-count">
-                      {state.entries.filter((e) => !e.deletedAt && categoryOf(e) === 'inbox').length}
+                      {
+                        state.entries.filter(
+                          (e) => !e.deletedAt && categoryOf(e) === 'inbox' && filingOf(e).filedAt === null,
+                        ).length
+                      }
                     </span>
                   )}
                 </button>
@@ -1024,6 +1040,23 @@ export function App({ client }: { client: ClientPlatform }) {
                       />
                     </label>
                   </div>
+                  {view === 'inbox' && (
+                    <div className="tabs" aria-label="Inbox filing filter">
+                      {[
+                        ['unfiled', 'Unfiled'],
+                        ['filed', 'Filed'],
+                        ['all', 'All notes'],
+                      ].map(([value, label]) => (
+                        <button
+                          key={value}
+                          className={inboxFilter === value ? 'active' : ''}
+                          onClick={() => setInboxFilter(value!)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="list-controls">
                     <div className="tabs" aria-label="Visibility filter">
                       <button className={scope === 'all' ? 'active' : ''} onClick={() => setScope('all')}>
@@ -1075,7 +1108,9 @@ export function App({ client }: { client: ClientPlatform }) {
                             ? 'Nothing in the bin.'
                             : view === 'suggestions'
                               ? 'Room for your next idea.'
-                              : 'A little space for whatever comes next.'}
+                              : inboxFilter === 'filed'
+                                ? 'No filed notes here yet.'
+                                : 'A little space for whatever comes next.'}
                       </h3>
                       <p>
                         {search
@@ -1084,7 +1119,9 @@ export function App({ client }: { client: ClientPlatform }) {
                             ? 'Entries you delete will appear here.'
                             : view === 'suggestions'
                               ? 'Save an improvement above. It stays separate from your household inbox.'
-                              : 'Save your first thought above. There’s no need to make it tidy.'}
+                              : inboxFilter === 'filed'
+                                ? 'File a note into a task, shopping item or project. Its original capture stays here.'
+                                : 'Capture anything above, then file it when you’re ready.'}
                       </p>
                     </div>
                   ) : (
@@ -1129,7 +1166,46 @@ export function App({ client }: { client: ClientPlatform }) {
                                 <LinkedText client={client} text={entry.text || 'A picture to remember'} />
                               </p>
                             </div>
+                            <FilingLinks
+                              entry={entry}
+                              state={state}
+                              open={openLinkedRecord}
+                              remove={(recordId) =>
+                                void runCommand(
+                                  entry,
+                                  'RemoveInboxDestination',
+                                  { inboxId: entry.inboxId, expectedRevision: entry.revision, recordId },
+                                  'Destination unlinked',
+                                )
+                              }
+                            />
+                            <CaptureSources recordId={entry.inboxId} state={state} />
                             <div className="entry-actions">
+                              {view !== 'trash' && categoryOf(entry) === 'inbox' && (
+                                <button
+                                  disabled={state.pendingEdits.includes(entry.inboxId)}
+                                  onClick={() => setFilingId(entry.inboxId)}
+                                >
+                                  File
+                                </button>
+                              )}
+                              {view !== 'trash' &&
+                                categoryOf(entry) === 'inbox' &&
+                                filingOf(entry).filedAt !== null && (
+                                  <button
+                                    disabled={!state.online || state.pendingEdits.includes(entry.inboxId)}
+                                    onClick={() =>
+                                      void runCommand(
+                                        entry,
+                                        'ReturnInboxEntry',
+                                        { inboxId: entry.inboxId, expectedRevision: entry.revision },
+                                        'Returned to inbox',
+                                      )
+                                    }
+                                  >
+                                    Back to inbox
+                                  </button>
+                                )}
                               <button
                                 disabled={
                                   view === 'trash' &&
@@ -1241,6 +1317,17 @@ export function App({ client }: { client: ClientPlatform }) {
               run={runCommand}
               onPhotosSaved={acceptOutcome}
               onError={showError}
+            />
+          )}
+          {filingEntry && (
+            <FilingDialog
+              key={`${state.session.clientId}:${filingEntry.inboxId}`}
+              client={client}
+              state={state}
+              entry={filingEntry}
+              run={runCommand}
+              onError={showError}
+              close={() => setFilingId(null)}
             />
           )}
           {toast && (

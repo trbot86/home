@@ -89,11 +89,8 @@ export async function buildApp(options: AppOptions) {
     throw error;
   }
   const access = new AccessService(db, now);
-  const { inbox, shopping, shoppingGroups, home, tasks, recipes, projects, records } = createRecordFeatures(
-    db,
-    access,
-    options.householdTimeZone,
-  );
+  const { inbox, shopping, shoppingGroups, home, tasks, recipes, projects, records, filing } =
+    createRecordFeatures(db, access, options.householdTimeZone);
   const history = new HistoryService(db, records, access);
   const recipeImports = new RecipeImports(db, recipes, history, records, now);
   const views = new ViewPreferences(db, access);
@@ -108,6 +105,7 @@ export async function buildApp(options: AppOptions) {
     recipeImports.commands(),
     views.commands(),
     calendars.commands(),
+    filing.commands(),
   ]);
   const files = new FileMediaStore(join(options.dataRoot, 'media'), options.development === true);
   await files.initialise();

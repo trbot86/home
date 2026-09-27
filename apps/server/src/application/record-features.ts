@@ -10,6 +10,7 @@ import { HomeRepository } from '../features/home/home.js';
 import { RecipesRepository } from '../features/recipes/recipes.js';
 import { RecordRegistry } from '../features/records/record-registry.js';
 import { ProjectsRepository } from '../features/projects/projects.js';
+import { InboxFiling } from './inbox-filing.js';
 
 /** One complete adapter set for every writer; constructing features grants no HTTP routes or commands. */
 export function createRecordFeatures(db: Sqlite, access: AccessService, householdTimeZone?: string) {
@@ -29,5 +30,10 @@ export function createRecordFeatures(db: Sqlite, access: AccessService, househol
     shoppingGroups.adapter(),
     ...projects.adapters(),
   ]);
-  return { inbox, shopping, shoppingGroups, tasks, home, recipes, projects, records };
+  const filing = new InboxFiling(db, access, inbox, records, {
+    CreateTask: tasks.commands(),
+    AddShoppingEntry: shopping.commands(),
+    CreateProjectPage: projects.commands(),
+  });
+  return { inbox, shopping, shoppingGroups, tasks, home, recipes, projects, records, filing };
 }
