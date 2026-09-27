@@ -29,6 +29,13 @@ installation page. Android opens links in the external browser and preserves
 unfinished edits when returning. The installation shortcut downloads through
 the browser; Android still asks before installing. It is not an automatic updater.
 
+Internal note links add Copy link to the note editor, resolve readable titles
+from the current profile's cache, and open notes inside the app. Pasted links
+also open the corresponding web note after profile selection. Existing cached
+notes remain readable offline; a link never grants access to a private note.
+Android links opened outside Our place use the browser; Android App Links are
+not configured.
+
 ## Verification
 
 The deployed Tasks release passed 40 server tests, five contract tests, nine
@@ -49,6 +56,11 @@ again. An isolated Android emulator verified actual browser handoff, returning
 to an unfinished editor, and the installation shortcut's configured endpoint.
 Live checks verified the matching icon, web bundle, Android download, installation
 page and a fresh secondary backup. Existing household records and identity were preserved.
+
+Note linking passes nine affected browser flows, including private-title
+isolation, late responses during profile switches, offline links, deletion/undo,
+and unfinished editor preservation. The isolated Android emulator also passed
+actual clipboard copy/paste, internal navigation, Back and profile isolation.
 
 ## Remaining work
 

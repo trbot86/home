@@ -27,9 +27,10 @@ future household-specific review metadata local as well.
 New review results are kept under ignored `.local/suggestion-review/`.
 
 The deployed usability update addresses the browser favicon, clickable web
-addresses, and an Android installation-page shortcut. Internal links between
-notes remain a separate request; automatic updating is not implemented. See
-BUILD_PROGRESS.md for validation and the local review records for release status.
+addresses, and an Android installation-page shortcut. The follow-up adds links
+between notes, with a Copy link button and titles visible only to an authorized
+profile. Automatic updating is not implemented. See BUILD_PROGRESS.md for
+validation and the local review records for release status.
 
 - `<local-run-id>` — completed 2026-09-26. Android system
   Back now closes the current entry/history dialog and preserves unfinished editor

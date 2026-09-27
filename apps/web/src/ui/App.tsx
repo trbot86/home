@@ -3,6 +3,7 @@ import { EntryDialog } from './EntryDialog.js';
 import { Storage } from './Storage.js';
 import { AppUpdates } from './AppUpdates.js';
 import { LinkedText } from './LinkedText.js';
+import { NoteLinksProvider, noteIdFromUrl } from './NoteLinks.js';
 import { date } from './format.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState, Draft } from '@our-place/client';
@@ -74,8 +75,63 @@ export function App({ client }: { client: ClientPlatform }) {
   const submitLock = useRef(false);
   const initialiseLock = useRef(false);
   const loadGeneration = useRef(0);
+  const noteLoadGeneration = useRef(0);
+  const currentOwner = useRef('');
+  currentOwner.current = switching
+    ? ''
+    : `${state.session?.clientId ?? ''}:${state.session?.serverEpoch ?? ''}`;
   const textRef = useRef<HTMLTextAreaElement>(null);
   const showError = (value: unknown) => setError(message(value));
+  async function openNote(id: string) {
+    if (!state.session || switching) return;
+    const owner = currentOwner.current;
+    const generation = ++noteLoadGeneration.current;
+    try {
+      let latest = await client.state();
+      if (latest.online) {
+        try {
+          await client.refresh();
+        } catch (error) {
+          latest = await client.state();
+          if (latest.online) throw error;
+        }
+        latest = await client.state();
+      }
+      if (
+        generation !== noteLoadGeneration.current ||
+        owner !== currentOwner.current ||
+        owner !== `${latest.session?.clientId ?? ''}:${latest.session?.serverEpoch ?? ''}`
+      )
+        return;
+      const entry = latest.entries.find((item) => item.inboxId === id);
+      if (!entry)
+        throw new Error(
+          latest.online
+            ? 'This note is unavailable for your profile. It may have been removed.'
+            : 'This note is not saved on this device. Reconnect to the household server and try again.',
+        );
+      setState(latest);
+      setSelected({ id, history: false });
+      setError('');
+    } catch (error) {
+      if (generation === noteLoadGeneration.current && owner === currentOwner.current) {
+        showError(error);
+        throw error;
+      }
+    }
+  }
+  const openNoteRef = useRef(openNote);
+  openNoteRef.current = openNote;
+  useEffect(() => {
+    if (!state.session || switching) return;
+    const followLocation = () => {
+      const id = noteIdFromUrl(window.location.href, window.location.origin);
+      if (id) void openNoteRef.current(id).catch(() => {});
+    };
+    followLocation();
+    window.addEventListener('popstate', followLocation);
+    return () => window.removeEventListener('popstate', followLocation);
+  }, [state.session?.clientId, switching]);
   useEffect(() => {
     let alive = true;
     const load = () => {
@@ -403,7 +459,12 @@ export function App({ client }: { client: ClientPlatform }) {
       </div>
     );
   return (
-    <>
+    <NoteLinksProvider
+      client={client}
+      entries={state.entries}
+      open={openNote}
+      key={`${state.session?.clientId ?? ''}:${state.session?.serverEpoch ?? ''}`}
+    >
       {error && (
         <div className="error-banner" role="alert">
           <span>{error}</span>
@@ -999,6 +1060,7 @@ export function App({ client }: { client: ClientPlatform }) {
           </main>
           {selectedEntry && selected && (
             <EntryDialog
+              key={`${state.session.clientId}:${state.session.serverEpoch}:${selected.id}`}
               client={client}
               serverEpoch={state.session.serverEpoch}
               entry={selectedEntry}
@@ -1031,6 +1093,6 @@ export function App({ client }: { client: ClientPlatform }) {
           )}
         </div>
       )}
-    </>
+    </NoteLinksProvider>
   );
 }

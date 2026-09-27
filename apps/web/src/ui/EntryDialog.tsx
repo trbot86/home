@@ -7,6 +7,7 @@ import { AttachmentDialog, type AttachmentSaved } from './AttachmentDialog.js';
 import { date } from './format.js';
 import { LinkedText } from './LinkedText.js';
 import { textLinks } from './text-links.js';
+import { CopyNoteLink } from './NoteLinks.js';
 
 export function EntryDialog({
   client,
@@ -110,6 +111,7 @@ export function EntryDialog({
           <Icon name="close" />
         </button>
       </div>
+      <CopyNoteLink id={entry.inboxId} />
       <div className="tabs dialog-tabs">
         <button className={tab === 'edit' ? 'active' : ''} onClick={() => setTab('edit')}>
           Entry
