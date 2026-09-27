@@ -1,7 +1,7 @@
 # Projects and mixed-media pages
 
-This feature follows the deployed Food release. Live migrations 001–014 and the
-existing household volume remain unchanged during development.
+This feature follows the Food release. Migrations 015–016 extend the existing
+household volume through the protected upgrade procedure.
 
 Projects have a visual overview, an optional cover/gallery and nested pages.
 Pages contain ordered text, web links, cards referencing existing app records,
@@ -78,4 +78,13 @@ prioritize dialogs, then nested details, then the app fallback; subscription
 timing cannot send a nested page straight to the inbox. The release image passes
 all 155 Linux package tests. A fresh secondary backup was restored and migrated
 through 016 in a disposable production container, preserving all 41 retained
-tables and its media. The protected live upgrade and phone publication remain.
+tables and its media.
+
+Projects is deployed on the web and in the private Android download. The protected
+upgrade took another verified backup before applying 015–016 to the existing
+volume. Both profiles' 19 distinct existing record hashes, installation identity
+and recovery epoch were preserved. Live foreign-key/integrity checks and read-only
+desktop/phone rendering pass; served web/APK bytes match the tested artifacts.
+The upgrade backup is verified at the independent secondary location. No synthetic
+records were added to the live household. Installation on physical phones remains
+a user action; in-place installation and preservation were verified on the emulator.

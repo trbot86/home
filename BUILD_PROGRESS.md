@@ -97,7 +97,7 @@ to the live household.
 
 ## Remaining work
 
-Project boards, calendar integration, selective notifications, richer
+Calendar integration, selective notifications, richer
 gift workflows and Alexa cloud/device integration remain. Suggested maintenance
 templates can follow the deployed asset and service workflow.
 Fixed-calendar recurrence needs an explicit missed-slot policy. OEM voice,
@@ -146,3 +146,20 @@ and the secondary upgrade-backup status passed. No test records were created in
 the live household. The named shopping-group suggestion is recorded as completed
 in the ignored local review metadata. Installing the published APK over the
 existing phone app is still a user action; emulator installation was verified.
+
+## Projects release (2026-09-27)
+
+Projects now has visual boards, nested pages, ordered text/web/reference/photo
+blocks, independent priority pins, subtree moves, archive, explicit restoration
+and guarded history. Shared boards cannot disclose private references. Both
+clients cache pages and retain unfinished editors, including incomplete links.
+Android Back walks up nested pages before leaving Projects.
+
+Verification passed 155 Linux package tests, 31 browser flows, ten Android unit
+tests and isolated native runtime flows. In-place APK installation preserved the
+previous session, cached records, photo captures and editor buffers. A fresh
+secondary backup restored into a disposable Linux container preserved all 41
+retained tables and media while applying migrations 015–016. The live upgrade
+preserved both profiles' 19 existing record hashes and installation/recovery
+identity; foreign-key/integrity checks passed. Published web/APK bytes match the
+tested builds, and the upgrade backup is verified on the secondary drive.

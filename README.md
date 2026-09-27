@@ -1,6 +1,6 @@
 # Our place
 
-A self-hosted household app for two people. Deployed features include a shared/private inbox, separate app suggestions, photos, durable offline capture, shopping and restock lists, tasks and recurring chores, maintenance assets and service logs, visual recipe collections, personal overviews, completion/purchase history, guarded undo/redo, storage reporting and online backup/restore. Project boards and calendars remain planned. The Tailscale household is in real use; follow AGENTS.md to preserve its data during development.
+A self-hosted household app for two people. Deployed features include a shared/private inbox, separate app suggestions, photos, durable offline capture, shopping and restock lists, tasks and recurring chores, maintenance assets and service logs, visual recipe collections, nested project boards, personal overviews, completion/purchase history, guarded undo/redo, storage reporting and online backup/restore. Calendar integration remains planned. The Tailscale household is in real use; follow AGENTS.md to preserve its data during development.
 
 The temporary Docker phone trial on this PC is live over private Tailscale HTTPS. It uses the mockup's dark green theme and a password-free profile picker: choose yourself once, then switch from the profile dropdown. Private items are hidden from the other profile; anyone with network access can deliberately select either profile. See [PHONE_TRIAL.md](PHONE_TRIAL.md) for the addresses and controls and [the access decision](decisions/0004-trusted-network-profiles.md) for the model.
 
@@ -18,8 +18,9 @@ Open http://127.0.0.1:3173 and choose **t** or **b**. The demo remembers the sel
 
 Capture text, attach a photo, choose shared or private, and submit with the button or Ctrl+Enter. Existing entries can be edited, deleted, restored and inspected through History. Ctrl+Z undoes the latest reversible action in the current app session, including deletion; Ctrl+Shift+Z redoes it. Dismissing the confirmation does not lose this action. Text fields keep native text undo. Recently deleted remains available after a reload. App suggestions has its own count and drafts; move entries with Suggest / To inbox, without adding a text prefix. When disconnected, cached entries are read-only; a new capture stays editable until submitted, then remains unchanged while awaiting its receipt. Photos are limited to JPEG, PNG or WebP, 25 MB each, 20 per capture.
 
-On Android, Back closes an open card and keeps unfinished editor text. From another
-app section it returns to Inbox; at the root it retains normal Android behavior.
+On Android, Back closes an open card and keeps unfinished editor text. Within a
+project it moves up through the page hierarchy. From another app section it returns
+to Inbox; at the root it retains normal Android behavior.
 The software keyboard may consume the first Back to dismiss itself.
 
 Shopping supports named shared/private lists for groceries, household purchases,
@@ -51,6 +52,14 @@ text. Groups start collapsed; renaming, moving items and removing a group while
 keeping its items support guarded undo. Quantities are never guessed or combined.
 Food and shopping groups are deployed on the web and in the private Android download. See
 [recipe implementation](RECIPE_IMPLEMENTATION.md) for verification and limits.
+
+Projects offer shared/private boards, nested pages, photos, ordered text and web
+links, and reference cards that open existing household records. Keep next-action
+pins separate from reference material and reorder them without editing their
+targets. Move pages, archive boards, inspect history, or restore selected deleted
+pages with revision-checked undo. Unfinished editors survive closing and reopening;
+cached pages and previously viewed images remain readable offline. See
+[Projects implementation](PROJECTS_IMPLEMENTATION.md) for verification and limits.
 
 To develop with live reload, bootstrap the default development data first with `pnpm --filter @our-place/server bootstrap` using JSON on stdin (format below), then `pnpm dev`. The web development server proxies `/api` to the local server. The prebuilt demo is the quickest first review.
 
