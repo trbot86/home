@@ -40,10 +40,10 @@ Personal agenda customisation is deployed: section order, counts and visibility,
 Home/Work defaults, recipe and project panels, durable editor drafts and private
 preference sync. See AGENDA_LAYOUT_IMPLEMENTATION.md.
 
-The Android task widget is under final launcher verification. It reuses the
+The Android task widget is deployed in the private download. It reuses the
 server's authorised task projection, supports per-widget views and opens the
 existing completion/date controls. It requires no database migration. See
-TASK_WIDGET_IMPLEMENTATION.md for the contract and verification status.
+TASK_WIDGET_IMPLEMENTATION.md for the contract and completed verification.
 
 The separate Alexa task's capture backend is integrated. Integration actors are
 distinct from people, and the separate listener can only capture shared inbox
@@ -325,3 +325,18 @@ verified the empty Filed view and backup status. Served JavaScript, CSS and APK
 bytes match the tested artifacts. No test notes or preferences were saved to the
 real household. Physical phone installation remains a user step; the dedicated
 emulator passed in-place update preservation and the filing/offline workflow.
+
+## Android task widget release
+
+The native widget provides Home/Work and attention filters, a row limit, private
+task opt-in, offline cached reading, manual/background refresh and existing
+completion/date controls. Scoped navigation rejects stale, deleted, wrong-profile
+or restored-server actions. Actual launcher configuration, profile changes,
+offline behavior, buttons and resizing passed on the dedicated emulator.
+
+The production Linux image passes 216 package tests; ten affected browser flows
+and 14 Android tests pass. In-place APK replacement preserved photo captures,
+unfinished text, profile and cached sections. Deployment required no migration,
+preserved all 19 existing records and installation identity, and passed database
+integrity and foreign-key checks. A fresh release backup was verified at the
+secondary location. See TASK_WIDGET_IMPLEMENTATION.md.

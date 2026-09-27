@@ -48,10 +48,11 @@ the next occurrence from actual completion, with calendar-month clamping; fixed
 calendar schedules and notification delivery remain future work. History and
 guarded undo cover the whole completion action. Cached tasks are read-only offline.
 
-An Android task widget is implemented and undergoing final launcher verification.
-It supports Home/Work filtering, row limits and optional private tasks, with cached
-reading and shortcuts to completion/date controls. See
-[task widget implementation](TASK_WIDGET_IMPLEMENTATION.md) for its current status.
+Add **Our place tasks** from the Android launcher�s widget picker. It supports
+Home/Work filtering, row limits and optional private tasks, with cached reading
+and shortcuts to completion/date controls. Resize it to fit your home screen.
+It hides task content when you switch profiles. The widget is available in the
+private Android download; see [task widget implementation](TASK_WIDGET_IMPLEMENTATION.md).
 
 From an asset in Home, **Browse maintenance ideas** offers optional starting points
 with source guidance. Customize a task before saving; its dates and recurrence

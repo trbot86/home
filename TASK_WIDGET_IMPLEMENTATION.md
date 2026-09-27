@@ -1,6 +1,6 @@
 # Android task widget
 
-Status: implementation and emulator verification complete; publication pending.
+Status: deployed on the private server and Android download, 2026-09-27.
 
 Add **Our place tasks** from the Android launcher’s widget picker while the
 desired profile is selected in the app. Each instance has Home/Work filtering,
@@ -77,3 +77,14 @@ physical phone’s launcher or speech recognizer.
 
 No live household records are used for test mutations. No APK, cached household
 content, private server address or test-device report belongs in the source repo.
+
+## Release preservation
+
+The deployed server uses the reviewed production Linux image. The private APK
+matches the local tested artifact byte for byte. No schema migration was needed;
+migrations001�021 remain unchanged. Both profiles, all 19 pre-existing records,
+installation identity and recovery epoch were preserved. SQLite integrity and
+foreign-key checks passed. A fresh online release backup was copied and verified
+at the configured secondary location. The preceding deployment image is retained
+locally for rollback. Machine identifiers, paths, digests and evidence stay in
+ignored local reports.
