@@ -5,6 +5,7 @@ export function Icon({
   name:
     | 'home'
     | 'food'
+    | 'projects'
     | 'inbox'
     | 'shopping'
     | 'tasks'
@@ -24,6 +25,7 @@ export function Icon({
   const paths = {
     home: 'M3 10 12 3l9 7v11h-6v-7H9v7H3Z',
     food: 'M4 3v5a3 3 0 0 0 6 0V3M7 3v18M17 3c-4 3-4 9 1 9V3m0 9v9',
+    projects: 'M3 4h7v7H3ZM14 4h7v11h-7ZM3 15h7v6H3Zm11 4h7v2h-7Z',
     inbox: 'M3 4h18v16H3ZM3 13h5l2 3h4l2-3h5',
     shopping: 'M3 8h18l-2 13H5ZM7 8l3-6m7 6-3-6M9 12v5m6-5v5',
     tasks: 'M9 3h6v4H9ZM9 5H5v16h14V5h-4M8 13l3 3 5-6',

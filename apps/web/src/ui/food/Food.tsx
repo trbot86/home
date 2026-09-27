@@ -33,6 +33,7 @@ export function Food({
   onError,
   onPhotosSaved,
   initialRecipeId,
+  initialRecordId,
   onOpenShopping,
 }: {
   client: ClientPlatform;
@@ -41,18 +42,26 @@ export function Food({
   onError: (error: unknown) => void;
   onPhotosSaved: AttachmentSaved;
   initialRecipeId?: string | null;
+  initialRecordId?: string | null;
   onOpenShopping: () => void;
 }) {
-  const [view, setView] = useState('want_to_try'),
+  const initialCollection = state.recipes.collections.find((c) => c.recordId === initialRecordId);
+  const initialCooking = state.recipes.cookingRecords.find((c) => c.recordId === initialRecordId);
+  const initialRecipe = state.recipes.recipes.find(
+    (r) => r.recordId === (initialRecipeId ?? initialCooking?.recipeId ?? initialRecordId),
+  );
+  const [view, setView] = useState(
+      initialCollection ? `collection:${initialCollection.recordId}` : initialRecipe ? 'all' : 'want_to_try',
+    ),
     [scope, setScope] = useState('all'),
     [search, setSearch] = useState(''),
     [limit, setLimit] = useState(24),
     [cookingLimit, setCookingLimit] = useState(20),
-    [selected, setSelected] = useState<string | null>(initialRecipeId ?? null);
+    [selected, setSelected] = useState<string | null>(initialRecipe?.recordId ?? null);
   const [editor, setEditor] = useState<'new' | 'edit' | null>(null),
     [journal, setJournal] = useState<{ mode: 'adjustment' | 'cooking'; id?: string } | null>(null),
     [photosId, setPhotosId] = useState<string | null>(null),
-    [historyId, setHistoryId] = useState<string | null>(null),
+    [historyId, setHistoryId] = useState<string | null>(initialCooking?.recordId ?? null),
     [review, setReview] = useState<string | null>(null),
     [shopping, setShopping] = useState(false),
     [removing, setRemoving] = useState<string | null>(null);

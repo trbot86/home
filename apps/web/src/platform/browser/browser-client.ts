@@ -15,6 +15,7 @@ import type {
   TaskSnapshot,
   HomeSnapshot,
   RecipeSnapshot,
+  ProjectSnapshot,
   RecipeImportSummary,
   RecipeImportDetails,
   SavedView,
@@ -25,6 +26,7 @@ import {
   emptyTasks,
   emptyHome,
   emptyRecipes,
+  emptyProjects,
   isValid,
   OutcomeSchema,
 } from '@our-place/contracts';
@@ -103,6 +105,7 @@ export class BrowserClient implements ClientPlatform {
       tasks: cache?.tasks ?? emptyTasks(),
       home: cache?.home ?? emptyHome(),
       recipes: cache?.recipes ?? emptyRecipes(),
+      projects: cache?.projects ?? emptyProjects(),
       recipeImports: cache?.recipeImports ?? [],
       views: cache?.views ?? [],
       drafts: session
@@ -183,6 +186,7 @@ export class BrowserClient implements ClientPlatform {
       tasks?: TaskSnapshot;
       home?: HomeSnapshot;
       recipes?: RecipeSnapshot;
+      projects?: ProjectSnapshot;
       recipeImports?: RecipeImportSummary[];
       views?: SavedView[];
       sampledAt: number;

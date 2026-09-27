@@ -73,6 +73,7 @@ class ClientCore private constructor(val context: Context) {
             .put("tasks", cache?.optJSONObject("tasks") ?: JSONObject().put("definitions", JSONArray()).put("occurrences", JSONArray()).put("completions", JSONArray()).put("people", JSONArray()).put("timeZone", "America/Toronto"))
             .put("home", cache?.optJSONObject("home") ?: JSONObject().put("assets", JSONArray()).put("serviceRecords", JSONArray()))
             .put("recipes", cache?.optJSONObject("recipes") ?: JSONObject().put("recipes", JSONArray()).put("collections", JSONArray()).put("cookingRecords", JSONArray()))
+            .put("projects", cache?.optJSONObject("projects") ?: JSONObject().put("projects", JSONArray()).put("pages", JSONArray()))
             .put("recipeImports", cache?.optJSONArray("recipeImports") ?: JSONArray())
             .put("views", cache?.optJSONArray("views") ?: JSONArray())
             .put("online", online).put("sampledAt", cache?.getLong("sampledAt") ?: JSONObject.NULL).put("pendingEdits", pending)
@@ -165,7 +166,8 @@ class ClientCore private constructor(val context: Context) {
         val tasks = cache.optJSONObject("tasks")
         val home = cache.optJSONObject("home")
         val recipes = cache.optJSONObject("recipes")
-        val records = listOfNotNull(cache.optJSONArray("entries"), tasks?.optJSONArray("definitions"), tasks?.optJSONArray("completions"), home?.optJSONArray("assets"), home?.optJSONArray("serviceRecords"), recipes?.optJSONArray("recipes"), recipes?.optJSONArray("cookingRecords"))
+        val projects = cache.optJSONObject("projects")
+        val records = listOfNotNull(cache.optJSONArray("entries"), tasks?.optJSONArray("definitions"), tasks?.optJSONArray("completions"), home?.optJSONArray("assets"), home?.optJSONArray("serviceRecords"), recipes?.optJSONArray("recipes"), recipes?.optJSONArray("cookingRecords"), projects?.optJSONArray("projects"), projects?.optJSONArray("pages"))
         var attachment: JSONObject? = descriptor?.takeIf { it.optString("mediaId") == id }
         for (entries in records) for (i in 0 until entries.length()) {
             val photos = entries.getJSONObject(i).optJSONArray("attachments") ?: continue

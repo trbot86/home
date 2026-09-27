@@ -12,6 +12,7 @@ type Props = {
   entries: ShoppingEntry[];
   groups: ShoppingGroup[];
   searching: boolean;
+  initialGroupId?: string | null;
   disabled: (id: string) => boolean;
   action: (
     record: ShoppingRecord,
@@ -23,7 +24,7 @@ type Props = {
   onOpenRecipe: (id: string) => void;
 };
 function Group({ group, items, props }: { group: ShoppingGroup; items: ShoppingEntry[]; props: Props }) {
-  const [open, setOpen] = useState(props.searching),
+  const [open, setOpen] = useState(props.searching || props.initialGroupId === group.recordId),
     [limit, setLimit] = useState(20);
   const source = group.sourceRecipe,
     recipe = props.state.recipes.recipes.find((r) => r.recordId === source?.recipeId && r.deletedAt === null);

@@ -13,6 +13,7 @@ import type {
   TaskSnapshot,
   HomeSnapshot,
   RecipeSnapshot,
+  ProjectSnapshot,
   RecipeImportSummary,
   RecipeImportDetails,
   SavedView,
@@ -39,6 +40,7 @@ export type ClientState = {
   tasks: TaskSnapshot;
   home: HomeSnapshot;
   recipes: RecipeSnapshot;
+  projects: ProjectSnapshot;
   recipeImports: RecipeImportSummary[];
   views: SavedView[];
   drafts: Draft[];

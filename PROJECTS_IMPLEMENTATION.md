@@ -47,12 +47,21 @@ Implementation sequence:
 No external account or new provider is required for this slice. Calendar delivery,
 notifications, LLM filing and arbitrary document ingestion remain separate features.
 
-Progress: the storage/API foundation is implemented on the Projects branch.
+Progress: the Projects branch has storage/API support and responsive boards with
+nested pages, mixed-media editors, photo placements, priority pins, archive,
+removal/restoration and history. Editors retain unfinished blocks, including partial
+URLs, across closing and reopening. Reference cards open the existing records;
+page and project links navigate within the board. Both client caches include the
+project snapshot, with empty defaults for older caches. Android photo resolution
+includes project and page attachments without changing its database schema.
+
 Ten isolated project tests cover hierarchy, mixed-media history, weak-link privacy,
 compound moves/deletions, receipt replay, failed commits, the 014 upgrade and a
-backup restoration with actual image bytes. Existing automated tests, typechecking,
-package boundaries and production builds pass. The user-facing boards and native
-cache integration are still pending; this foundation has not been deployed live.
+backup restoration with actual image bytes. The full server suite has 135 passing
+tests and one platform-specific skip on Windows. Contracts and voice-package tests,
+typechecking, package boundaries and production builds pass. All 31 browser flows
+pass, including four Projects flows and layouts at 320, 390, 820 and 1440 pixels.
+The Android APK builds and its ten native unit tests pass.
 
 Project next-action views now extend the same preference service as Food pins.
 Their context, scope and order are separate from record revisions/history. Private
@@ -61,3 +70,9 @@ projects may pin shared records; shared projects cannot pin private records. The
 after its table rebuild. Isolated tests cover stale ordering, failed receipts,
 target deletion/restoration, private-view isolation, old frozen commands, backup
 restoration and rollback after SQL or foreign-key failure during the rebuild.
+
+Remaining release work: native runtime verification on the test emulator, including
+in-place update preservation, cached pages/photos, nested Back navigation and
+unfinished page forms. Then build/test the release container, rehearse a fresh
+secondary-backup restore and perform the protected live upgrade. Projects has not
+yet been deployed to the household or published as a phone update.

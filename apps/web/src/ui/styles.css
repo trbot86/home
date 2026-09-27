@@ -181,11 +181,11 @@ a {
   font-size: 11px;
   color: var(--muted);
 }
-nav {
+.sidebar nav {
   display: grid;
   gap: 7px;
 }
-nav button {
+.sidebar nav button {
   width: 100%;
   text-align: left;
   justify-content: flex-start;
@@ -194,7 +194,7 @@ nav button {
   min-height: 45px;
   color: var(--muted);
 }
-nav button[aria-current] {
+.sidebar nav button[aria-current] {
   background: var(--wash);
   color: var(--green);
   font-weight: 600;

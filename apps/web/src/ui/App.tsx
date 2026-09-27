@@ -13,6 +13,7 @@ import {
   emptyTasks,
   emptyHome,
   emptyRecipes,
+  emptyProjects,
   type CommandKind,
   type CommandOutcome,
   type EntryCategory,
@@ -23,6 +24,8 @@ import { shoppingRecords } from './shopping/shared.js';
 import { Tasks } from './tasks/Tasks.js';
 import { Home } from './home/Home.js';
 import { Food } from './food/Food.js';
+import { Projects } from './projects/Projects.js';
+import type { RecordReference } from './RecordReferences.js';
 import { taskRecords } from './tasks/shared.js';
 import { Icon } from './Icon.js';
 import { BackupPanel } from './BackupPanel.js';
@@ -37,6 +40,7 @@ const emptyState: ClientState = {
   tasks: emptyTasks(),
   home: emptyHome(),
   recipes: emptyRecipes(),
+  projects: emptyProjects(),
   recipeImports: [],
   views: [],
   drafts: [],
@@ -47,7 +51,8 @@ const emptyState: ClientState = {
 };
 const message = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Your saved draft is still here.';
-type View = 'inbox' | 'suggestions' | 'shopping' | 'tasks' | 'home' | 'food' | 'trash' | 'storage';
+type View =
+  'inbox' | 'suggestions' | 'shopping' | 'tasks' | 'home' | 'food' | 'projects' | 'trash' | 'storage';
 function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
   const candidates = drafts.filter((d) => d.state === 'DRAFT' && categoryOf(d) === category);
   return candidates.find((d) => d.text.trim() || d.attachments.length) ?? candidates[0];
@@ -57,6 +62,17 @@ export function App({ client }: { client: ClientPlatform }) {
   const [state, setState] = useState<ClientState>(emptyState);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>('inbox');
+  const navigationRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const reveal = () => {
+      const nav = navigationRef.current;
+      if (nav && nav.scrollWidth > nav.clientWidth)
+        nav.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    };
+    reveal();
+    window.addEventListener('resize', reveal);
+    return () => window.removeEventListener('resize', reveal);
+  }, [view]);
   const category: EntryCategory = view === 'suggestions' ? 'app_suggestion' : 'inbox';
   const navigationLock = useRef(false);
   const [scope, setScope] = useState('all');
@@ -74,6 +90,24 @@ export function App({ client }: { client: ClientPlatform }) {
   const reversalLock = useRef(false);
   const [selected, setSelected] = useState<{ id: string; history: boolean } | null>(null);
   const [recipeTarget, setRecipeTarget] = useState<string | null>(null);
+  const [linkedTarget, setLinkedTarget] = useState<string | null>(null);
+  function openLinkedRecord(reference: RecordReference) {
+    if (reference.kind === 'inbox') {
+      void openNote(reference.recordId).catch(() => {});
+      return;
+    }
+    setRecipeTarget(null);
+    setLinkedTarget(reference.recordId);
+    setView(
+      reference.kind.startsWith('task')
+        ? 'tasks'
+        : reference.kind.startsWith('recipe')
+          ? 'food'
+          : ['home_asset', 'maintenance_record'].includes(reference.kind)
+            ? 'home'
+            : 'shopping',
+    );
+  }
   const [draft, setDraft] = useState<Draft | null>(null);
   const [text, setText] = useState('');
   const [captureScope, setCaptureScope] = useState('');
@@ -245,6 +279,7 @@ export function App({ client }: { client: ClientPlatform }) {
         setText('');
         setSelected(null);
         setRecipeTarget(null);
+        setLinkedTarget(null);
         setToast(null);
         reversal.current = null;
         setScope('all');
@@ -286,6 +321,7 @@ export function App({ client }: { client: ClientPlatform }) {
       setSearch('');
       setView(nextView);
       setRecipeTarget(null);
+      setLinkedTarget(null);
     } catch (error) {
       showError(error);
     } finally {
@@ -422,6 +458,9 @@ export function App({ client }: { client: ClientPlatform }) {
       ) ??
       [...state.recipes.recipes, ...state.recipes.collections, ...state.recipes.cookingRecords].find(
         (record) => record.recordId === action.recordId,
+      ) ??
+      [...state.projects.projects, ...state.projects.pages].find(
+        (record) => record.recordId === action.recordId,
       );
     if (!entry || state.pendingEdits.includes(action.recordId)) return;
     reversalLock.current = true;
@@ -509,7 +548,7 @@ export function App({ client }: { client: ClientPlatform }) {
               Our place<span className="brand-dot">.</span>
             </a>
             <p className="sidebar-caption">Room for everyday life</p>
-            <nav aria-label="Main navigation">
+            <nav ref={navigationRef} aria-label="Main navigation">
               {(
                 [
                   { id: 'inbox', label: 'Inbox', compactLabel: 'Inbox', icon: 'inbox' },
@@ -517,6 +556,7 @@ export function App({ client }: { client: ClientPlatform }) {
                   { id: 'tasks', label: 'Tasks', compactLabel: 'Tasks', icon: 'tasks' },
                   { id: 'home', label: 'Home', compactLabel: 'Home', icon: 'home' },
                   { id: 'food', label: 'Food', compactLabel: 'Food', icon: 'food' },
+                  { id: 'projects', label: 'Projects', compactLabel: 'Projects', icon: 'projects' },
                   { id: 'trash', label: 'Recently deleted', compactLabel: 'Deleted', icon: 'trash' },
                   { id: 'storage', label: 'Storage & backups', compactLabel: 'Storage', icon: 'settings' },
                 ] as const
@@ -582,13 +622,15 @@ export function App({ client }: { client: ClientPlatform }) {
                         ? 'A little less to remember.'
                         : view === 'tasks'
                           ? 'Tasks, at your pace.'
-                          : view === 'food'
-                            ? 'Good food, good company.'
-                            : view === 'home'
-                              ? 'Care for the place we call home.'
-                              : view === 'trash'
-                                ? 'Room for second thoughts.'
-                                : 'Everything accounted for.'}
+                          : view === 'projects'
+                            ? 'Room for the bigger ideas.'
+                            : view === 'food'
+                              ? 'Good food, good company.'
+                              : view === 'home'
+                                ? 'Care for the place we call home.'
+                                : view === 'trash'
+                                  ? 'Room for second thoughts.'
+                                  : 'Everything accounted for.'}
                 </h1>
                 <p>
                   {view === 'inbox'
@@ -599,13 +641,15 @@ export function App({ client }: { client: ClientPlatform }) {
                         ? 'What we need, what we love, and what’s running low.'
                         : view === 'tasks'
                           ? 'A plan for what matters, and a record of what got done.'
-                          : view === 'food'
-                            ? 'Recipes to try, favourites to return to, and notes that make them ours.'
-                            : view === 'home'
-                              ? 'The details worth keeping, and the care that keeps things going.'
-                              : view === 'trash'
-                                ? 'Deleted entries keep their history. Bring one back when you need it.'
-                                : 'A clear view of what’s saved, and where.'}
+                          : view === 'projects'
+                            ? 'Plans, inspiration and the next small step, all together.'
+                            : view === 'food'
+                              ? 'Recipes to try, favourites to return to, and notes that make them ours.'
+                              : view === 'home'
+                                ? 'The details worth keeping, and the care that keeps things going.'
+                                : view === 'trash'
+                                  ? 'Deleted entries keep their history. Bring one back when you need it.'
+                                  : 'A clear view of what’s saved, and where.'}
                 </p>
               </div>
               <div className="connection">
@@ -641,6 +685,8 @@ export function App({ client }: { client: ClientPlatform }) {
             )}
             {view === 'tasks' ? (
               <Tasks
+                key={linkedTarget ?? 'tasks'}
+                initialRecordId={linkedTarget}
                 client={client}
                 state={state}
                 run={runCommand}
@@ -653,6 +699,8 @@ export function App({ client }: { client: ClientPlatform }) {
               />
             ) : view === 'shopping' ? (
               <Shopping
+                key={linkedTarget ?? 'shopping'}
+                initialRecordId={linkedTarget}
                 client={client}
                 state={state}
                 run={runCommand}
@@ -664,6 +712,8 @@ export function App({ client }: { client: ClientPlatform }) {
               />
             ) : view === 'home' ? (
               <Home
+                key={linkedTarget ?? 'home'}
+                initialRecordId={linkedTarget}
                 client={client}
                 state={state}
                 run={runCommand}
@@ -672,6 +722,8 @@ export function App({ client }: { client: ClientPlatform }) {
               />
             ) : view === 'food' ? (
               <Food
+                key={recipeTarget ?? linkedTarget ?? 'food'}
+                initialRecordId={linkedTarget}
                 client={client}
                 state={state}
                 run={runCommand}
@@ -679,6 +731,15 @@ export function App({ client }: { client: ClientPlatform }) {
                 onPhotosSaved={acceptOutcome}
                 initialRecipeId={recipeTarget}
                 onOpenShopping={() => setView('shopping')}
+              />
+            ) : view === 'projects' ? (
+              <Projects
+                client={client}
+                state={state}
+                run={runCommand}
+                onError={showError}
+                onPhotosSaved={acceptOutcome}
+                onOpenRecord={openLinkedRecord}
               />
             ) : view === 'storage' ? (
               <>

@@ -9,6 +9,7 @@ import type {
   TaskSnapshot,
   HomeSnapshot,
   RecipeSnapshot,
+  ProjectSnapshot,
   RecipeImportSummary,
   SavedView,
 } from '@our-place/contracts';
@@ -36,6 +37,7 @@ interface LocalSchema extends DBSchema {
       tasks?: TaskSnapshot;
       home?: HomeSnapshot;
       recipes?: RecipeSnapshot;
+      projects?: ProjectSnapshot;
       recipeImports?: RecipeImportSummary[];
       views?: SavedView[];
       sampledAt: number;

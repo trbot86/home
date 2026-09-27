@@ -52,6 +52,7 @@ export function Tasks({
   onError,
   onPhotosSaved,
   onOpenRecipe,
+  initialRecordId,
 }: {
   client: ClientPlatform;
   state: ClientState;
@@ -59,16 +60,41 @@ export function Tasks({
   onError: (error: unknown) => void;
   onPhotosSaved: AttachmentSaved;
   onOpenRecipe: (id: string) => void;
+  initialRecordId?: string | null;
 }) {
-  const [view, setView] = useState<View>('focus'),
-    [person, setPerson] = useState('mine'),
+  const initial = taskRecords(state.tasks).find((r) => r.recordId === initialRecordId);
+  const initialOccurrence =
+    initial?.kind === 'task_occurrence'
+      ? initial
+      : initial?.kind === 'task_completion'
+        ? state.tasks.occurrences.find((o) => o.recordId === initial.occurrenceId)
+        : undefined;
+  const initialTask =
+    initial?.kind === 'task'
+      ? initial
+      : state.tasks.definitions.find((t) => t.recordId === initialOccurrence?.taskId);
+  const [focusId, setFocusId] = useState(initialTask?.recordId ?? null);
+  const [view, setView] = useState<View>(
+      initialTask?.deletedAt != null
+        ? 'deleted'
+        : initial?.kind === 'task_completion'
+          ? 'completed'
+          : initial
+            ? 'all'
+            : 'focus',
+    ),
+    [person, setPerson] = useState(initial ? 'everyone' : 'mine'),
     [context, setContext] = useState('both'),
     [search, setSearch] = useState(''),
     [limit, setLimit] = useState(30);
   const [editor, setEditor] = useState<Editor | null>(null),
     [photosId, setPhotosId] = useState<string | null>(null),
     [completionId, setCompletionId] = useState<string | null>(null),
-    [historyId, setHistoryId] = useState<string | null>(null),
+    [historyId, setHistoryId] = useState<string | null>(
+      initial && (initial.kind === 'task_completion' || initialOccurrence?.state === 'completed')
+        ? initial.recordId
+        : null,
+    ),
     [working, setWorking] = useState<string[]>([]),
     locks = useRef(new Set<string>());
   const snapshot = state.tasks,
@@ -87,6 +113,7 @@ export function Tasks({
     (person === 'unassigned' && id === null) ||
     id === person;
   const matches = (task: TaskDefinition) =>
+    (!focusId || task.recordId === focusId) &&
     (context === 'both' || task.context === context) &&
     `${task.title} ${task.instructions}`.toLowerCase().includes(search.toLowerCase());
   const open = openTasks(snapshot)
@@ -308,6 +335,11 @@ export function Tasks({
     view === 'completed' ? completed.length : view === 'deleted' ? deleted.length : visible.length;
   return (
     <section className="tasks" aria-label="Tasks and personal overview">
+      {focusId && (
+        <p className="notice">
+          Showing the linked task. <button onClick={() => setFocusId(null)}>Show all tasks</button>
+        </p>
+      )}
       <div className="task-toolbar">
         <div>
           <p className="eyebrow">{displayDate(today)}</p>

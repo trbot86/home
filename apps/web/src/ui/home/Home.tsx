@@ -23,22 +23,28 @@ export function Home({
   run,
   onError,
   onPhotosSaved,
+  initialRecordId,
 }: {
   client: ClientPlatform;
   state: ClientState;
   run: RunRecordCommand;
   onError: (error: unknown) => void;
   onPhotosSaved: AttachmentSaved;
+  initialRecordId?: string | null;
 }) {
+  const initialService = state.home.serviceRecords.find((r) => r.recordId === initialRecordId);
+  const initialAsset = state.home.assets.find(
+    (r) => r.recordId === (initialService?.assetId ?? initialRecordId),
+  );
   const [view, setView] = useState('active'),
     [search, setSearch] = useState(''),
     [scope, setScope] = useState('all');
-  const [selected, setSelected] = useState<string | null>(null),
+  const [selected, setSelected] = useState<string | null>(initialAsset?.recordId ?? null),
     [limit, setLimit] = useState(20),
     [serviceLimit, setServiceLimit] = useState(20);
   const [showRemoved, setShowRemoved] = useState(false),
     [editor, setEditor] = useState<Editor | null>(null);
-  const [historyId, setHistoryId] = useState<string | null>(null),
+  const [historyId, setHistoryId] = useState<string | null>(initialService?.recordId ?? null),
     [photosId, setPhotosId] = useState<string | null>(null);
   const [taskEditor, setTaskEditor] = useState<TaskEditing | null>(null),
     [completionId, setCompletionId] = useState<string | null>(null),

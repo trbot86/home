@@ -17,19 +17,41 @@ export function Shopping({
   run,
   onError,
   onOpenRecipe,
+  initialRecordId,
 }: {
   client: ClientPlatform;
   state: ClientState;
   run: ShoppingRun;
   onError: (error: unknown) => void;
   onOpenRecipe: (id: string) => void;
+  initialRecordId?: string | null;
 }) {
-  const [selectedList, setSelectedList] = useState(''),
-    [tab, setTab] = useState<Tab>('needed'),
-    [search, setSearch] = useState(''),
+  const initial = shoppingRecords(state.shopping).find((r) => r.recordId === initialRecordId);
+  const [selectedList, setSelectedList] = useState(
+      initial?.kind === 'shopping_list'
+        ? initial.recordId
+        : initial && 'listId' in initial
+          ? initial.listId
+          : '',
+    ),
+    [tab, setTab] = useState<Tab>(
+      initial?.deletedAt != null
+        ? 'deleted'
+        : initial?.kind === 'restock_item'
+          ? 'restock'
+          : initial?.kind === 'purchase' ||
+              (initial?.kind === 'shopping_entry' && initial.state === 'purchased')
+            ? 'purchased'
+            : 'needed',
+    ),
+    [search, setSearch] = useState(
+      initial?.kind === 'shopping_entry' || initial?.kind === 'restock_item' ? shoppingLabel(initial) : '',
+    ),
     [limit, setLimit] = useState(40);
   const [editor, setEditor] = useState<Editor | null>(null),
-    [historyId, setHistoryId] = useState<string | null>(null),
+    [historyId, setHistoryId] = useState<string | null>(
+      initial?.kind === 'purchase' ? initial.recordId : null,
+    ),
     [working, setWorking] = useState<string | null>(null);
   const [removingGroup, setRemovingGroup] = useState<string | null>(null);
   const snapshot = state.shopping,
@@ -265,6 +287,7 @@ export function Shopping({
           entries={entries}
           groups={groups}
           searching={!!search}
+          initialGroupId={initial?.kind === 'shopping_group' ? initial.recordId : null}
           disabled={disabled}
           action={action}
           tools={tools}
