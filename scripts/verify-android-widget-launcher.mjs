@@ -13,6 +13,15 @@ const adb = (...args) =>
   );
 assert.equal((await adb('shell', 'getprop', 'ro.boot.qemu.avd_name')).stdout.trim(), 'OurPlaceTest');
 assert.equal((await (await fetch('http://127.0.0.1:4173/health')).json()).development, true);
+await adb('shell', 'am', 'start', '-n', 'dev.ourplace.household/.MainActivity');
+let pid = '';
+await expect
+  .poll(async () => {
+    pid = (await adb('shell', 'pidof', 'dev.ourplace.household')).stdout.trim();
+    return pid;
+  })
+  .not.toBe('');
+await adb('forward', 'tcp:9223', `localabstract:webview_devtools_remote_${pid}`);
 const browser = await chromium.connectOverCDP('http://127.0.0.1:9223', { noDefaults: true });
 const ui = async () => {
   await adb('shell', 'uiautomator', 'dump', '/sdcard/our-place-widget-test.xml');
@@ -36,7 +45,16 @@ const tap = async (text) => {
     String(Math.round((bounds[1] + bounds[3]) / 2)),
   );
 };
-const home = () => adb('shell', 'input', 'keyevent', 'KEYCODE_HOME');
+const home = async () => {
+  await adb('shell', 'input', 'keyevent', 'KEYCODE_HOME');
+  // The dedicated emulator's widget is on the page after its search/gallery page.
+  if (!(await ui()).includes('content-desc="Our place tasks"'))
+    await adb('shell', 'input', 'swipe', '950', '1200', '150', '1200', '400');
+  assert.ok(
+    (await ui()).includes('content-desc="Our place tasks"'),
+    'Add the task widget to the next launcher page first.',
+  );
+};
 const app = () => adb('shell', 'am', 'start', '-n', 'dev.ourplace.household/.MainActivity');
 let radiosDisabled = false;
 try {
@@ -58,6 +76,7 @@ try {
   await tap('Home');
   await tap('Include my private tasks');
   await tap('SAVE WIDGET');
+  await home();
   await expect.poll(ui).toContain('Private widget gift');
   let xml = await ui();
   assert.ok(xml.includes('Another widget household priority'));
@@ -114,6 +133,7 @@ try {
   await tap('Settings');
   await tap('Include my private tasks');
   await tap('SAVE WIDGET');
+  await home();
   await expect.poll(ui).not.toContain('Private widget gift');
   assert.ok((await ui()).includes('Another widget household priority'));
   await tap('Open completion form');

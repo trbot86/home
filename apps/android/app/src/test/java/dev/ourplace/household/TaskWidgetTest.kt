@@ -48,6 +48,8 @@ class TaskWidgetTest {
         assertEquals(listOf("Priority", "Secret gift"), private.items.map { it.title })
         assertEquals(4, private.total)
         assertFalse(private.items.any { it.title == "Partner private" })
+        val compact = TaskWidgetModel.render(state, options, 0)
+        assertTrue(compact.ready); assertTrue(compact.items.isEmpty()); assertEquals(2, compact.total)
     }
     @Test fun profileRecoveryAndCacheMismatchHideAllTaskContent() {
         for (change in listOf<(JSONObject) -> Unit>(

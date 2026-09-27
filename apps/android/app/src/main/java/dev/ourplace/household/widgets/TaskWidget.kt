@@ -92,10 +92,10 @@ class TaskWidget : AppWidgetProvider() {
                 fun forRows(count: Int) = views(context, id, TaskWidgetModel.render(state, options, count), options)
                 val responsive = if (Build.VERSION.SDK_INT >= 31) {
                     // Let the launcher select a layout for its actual bounds, including rotations and foldables.
-                    RemoteViews((1..5).associate { count -> SizeF(220f, 136f + 110f * count) to forRows(count) })
+                    RemoteViews((0..5).associate { count -> SizeF(220f, 136f + 110f * count) to forRows(count) })
                 } else {
                     val bounds = manager.getAppWidgetOptions(id)
-                    fun forHeight(key: String) = forRows(((bounds.getInt(key, 320) - 136) / 110).coerceIn(1, 5))
+                    fun forHeight(key: String) = forRows(((bounds.getInt(key, 320) - 136) / 110).coerceIn(0, 5))
                     RemoteViews(forHeight(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT), forHeight(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT))
                 }
                 manager.updateAppWidget(id, responsive)

@@ -66,7 +66,7 @@ object TaskWidgetModel {
             val sampledAt = data.getLong("sampledAt")
             require(sampledAt > 0 && sampledAt == state.getLong("sampledAt"))
             TaskWidgetView(heading, if (items.isEmpty()) "Nothing in this view. Open Tasks for everything." else "",
-                sampledAt, items.take(minOf(options.limit, capacity.coerceIn(1, 5))), items.size, true)
+                sampledAt, items.take(minOf(options.limit, capacity.coerceIn(0, 5))), items.size, true)
         } catch (_: Exception) { TaskWidgetView(heading, "Open the app and refresh to load tasks.") }
     }
 }

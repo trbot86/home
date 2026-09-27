@@ -1,6 +1,6 @@
 # Android task widget
 
-Status: implemented; final launcher verification and publication pending.
+Status: implementation and emulator verification complete; publication pending.
 
 Add **Our place tasks** from the Android launcher’s widget picker while the
 desired profile is selected in the app. Each instance has Home/Work filtering,
@@ -47,7 +47,8 @@ In-app changes rerender the widget. This is not notification delivery or an
 exact alarm. [Android background-update guidance](https://developer.android.com/develop/ui/views/appwidgets/advanced)
 describes the scheduling constraints.
 
-Android 12+ selects among five responsive RemoteViews layouts by actual bounds.
+Android 12+ selects among responsive RemoteViews layouts by actual bounds.
+A compact summary fits short layouts; larger layouts show one to five rows.
 Older versions receive portrait/landscape alternatives. See
 [Android widget layout guidance](https://developer.android.com/develop/ui/views/appwidgets/layouts).
 The task controls have 48dp height. Home-screen rotation, launcher layout and
@@ -57,7 +58,8 @@ physical phone’s launcher or speech recognizer.
 ## Verification
 
 - `pnpm check`: 215 package tests passed, one platform-specific Windows skip;
-  type checking, package boundaries and builds passed.
+  type checking, package boundaries and builds passed. The production Linux
+  image passes all 216 package tests, including the Windows-only skip�s test.
 - Ten affected browser flows passed: tasks, calendars and agenda layouts.
 - Four widget Android tests plus ten existing tests passed, including native
   RemoteViews inflation/intents, filtering, cached identity and recovery checks.
@@ -68,9 +70,10 @@ physical phone’s launcher or speech recognizer.
   capture/completion text, stale occurrence, epoch and wrong-profile rejection.
   Android may consume the first Back to dismiss its keyboard.
 - `scripts/verify-android-widget-launcher.mjs` requires the synthetic fixture and
-  a widget added through the launcher. Its final run is pending. It checks actual
-  configuration, private opt-in, profile hiding, offline reading and launcher
-  actions. UI evidence remains in ignored local storage.
+  a widget added through the launcher. Its launcher checks passed: configuration, private opt-in, profile hiding,
+  offline reading and actual completion/date buttons. Actual launcher resizing
+  from three rows to two preserved visible controls and showed the remaining
+  count. UI evidence remains in ignored local storage.
 
 No live household records are used for test mutations. No APK, cached household
 content, private server address or test-device report belongs in the source repo.
