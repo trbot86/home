@@ -356,3 +356,13 @@ update preserves the previous profile, caches, photo captures and unfinished
 text. Second-profile downloaded photos remain visible with the test server off.
 No server schema or native database migration is required. See
 ACTIVITY_IMPLEMENTATION.md for privacy and offline-media boundaries.
+
+## Recently done release (2026-09-27)
+
+Source revision `a40dfe9` is live on the private web host and Android download.
+No migration was required. Both profiles' nineteen existing records and the
+installation identity/recovery epoch are preserved; database integrity and
+foreign-key checks pass. The release backup was created online before deployment
+and independently verified at the secondary destination. Served web assets and
+APK bytes match the tested artifacts. Read-only live checks confirm the shared
+feed, responsive layout and backup status without adding household test content.

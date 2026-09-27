@@ -1,6 +1,6 @@
 # Recently done
 
-Status: implemented and verified; publication in progress.
+Status: deployed on the private web host and Android download.
 
 The **Recently done** section brings together tasks, shopping purchases, cooking
 and maintenance. It defaults to shared work, with filters for person, Home/Work,
@@ -73,4 +73,12 @@ then verifies filters, actual performers, private gifts disappearing on profile
 switch, Android Back, and cached notes/photos with the fixture server shut down.
 The second profile downloads the test photo, proving this does not rely on the
 first profile's captured original. All fixtures are synthetic and isolated from
-the live household. Final deployment evidence follows publication.
+the live household.
+
+Source revision `a40dfe9` is deployed without a migration. Both profiles' nineteen
+existing records, installation identity and recovery epoch are preserved; SQLite
+integrity and foreign-key checks pass. A fresh online release backup is verified
+at the secondary destination. Served JavaScript, CSS and APK bytes match the tested
+artifacts. Read-only live checks confirm the feed matches the shared snapshot and
+fits phone/desktop widths. No synthetic content was saved to the live household.
+Installing the updated APK on physical phones remains a user step.
