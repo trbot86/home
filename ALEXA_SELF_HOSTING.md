@@ -106,6 +106,48 @@ tokens in a command line, Docker image, Git or a transcript. The Alexa account I
 is not the speaker's name or email; obtain it during a controlled console trial
 and review the exact allowlist before enabling household writes.
 
+## Network isolation candidate
+
+This section is a design for an isolated rehearsal, not an implemented firewall
+or a deployment instruction. Docker explicitly permits access to the bridge
+gateway and appropriately configured host services even on an internal network.
+Consequently, `internal: true` alone cannot establish the required boundary.
+[Docker internal-network behavior](https://docs.docker.com/reference/cli/docker/network/create/#network-internal-mode---internal).
+
+The candidate arrangement uses a dedicated network namespace for the receiver
+and its userspace Tailscale ingress. A setup process installs a deny-by-default
+firewall **inside that new namespace**, then drops its privileges and network
+administration capability. The receiver and Tailscale containers join the
+namespace only after setup succeeds; neither receives `NET_ADMIN`. Failure to
+install or verify the rules must prevent both services from starting. This must
+not alter the host firewall or any existing container's namespace.
+
+The namespace permits local receiver traffic, replies to allowed connections,
+DNS through the runtime's resolver, and the public transport required by Amazon
+and Tailscale. It denies host gateways, LAN, carrier-grade NAT/tailnet addresses,
+link-local destinations and other Docker networks. Equivalent IPv6 restrictions
+or complete IPv6 disablement are required; DNS results must not bypass the
+destination rules. The exact rule set and DNS behavior still need a local
+rehearsal before this can become a deployable configuration.
+
+The Tailscale container has its own persistent identity/state, no SOCKS/HTTP
+outbound proxy, and no control socket mounted into the receiver. Its tailnet
+policy must also grant no main-app destinations: userspace overlay traffic is a
+separate path from ordinary kernel routing. Funnel terminates only into the
+receiver's loopback port. The capture helper needs `network_mode: none`, because
+its application traffic uses the dedicated Unix socket. Docker supports shared
+container network namespaces and disabled networking; Tailscale supports
+userspace networking without a TUN device.
+[Docker network modes](https://docs.docker.com/reference/compose-file/services/#network_mode),
+[Tailscale container settings](https://tailscale.com/docs/features/containers/docker/docker-params#ts_userspace).
+
+Rehearsal acceptance requires positive certificate-fetch and signed-capture
+tests alongside negative connection tests for gateway aliases, direct main-app
+container addresses, LAN and tailnet addresses. Include restart ordering,
+missing/broken firewall setup, IPv6 and DNS answers resolving to denied ranges.
+The rehearsal uses disposable services and synthetic data; actual host addresses
+and results belong only in ignored local reports.
+
 ## Deployment work still required
 
 1. Prepare the specific ingress and egress configuration. Amazon requires a
