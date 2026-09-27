@@ -409,20 +409,26 @@ test('task migration preserves existing shopping purchases, receipts and history
       boughtAt: f.now(),
     });
     const bought = applied(f.writes.execute(f.a, 'PurchaseShoppingEntry', command));
+    // Read the old schema directly: current history queries require migration 007.
+    const historySelects = ['change_sets', 'record_changes'].map((table) => {
+      const columns = f.db.pragma(`table_info(${table})`) as { name: string }[];
+      return `SELECT ${columns.map((column) => column.name).join(',')} FROM ${table} ORDER BY rowid`;
+    });
     const before = {
       identity: installation(f.db),
       shopping: f.shopping.snapshot(f.a),
-      history: f.history.list(f.a, entryId, 'shopping_entry'),
+      history: historySelects.map((sql) => f.db.prepare(sql).all()),
     };
     migrate(f.db);
     assert.deepEqual(
       {
         identity: installation(f.db),
         shopping: f.shopping.snapshot(f.a),
-        history: f.history.list(f.a, entryId, 'shopping_entry'),
+        history: historySelects.map((sql) => f.db.prepare(sql).all()),
       },
       before,
     );
+    assert.equal(f.history.list(f.a, entryId, 'shopping_entry')[0]?.actor.personId, f.a.personId);
     assert.deepEqual(applied(f.writes.execute(f.a, 'PurchaseShoppingEntry', command)), {
       ...bought,
       replayed: true,

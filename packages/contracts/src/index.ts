@@ -11,6 +11,7 @@ export * from './shopping.js';
 export * from './tasks.js';
 export * from './home.js';
 export * from './calendar-date.js';
+export * from './capture.js';
 
 export const Source = object({
   kind: Type.Union([
@@ -156,9 +157,17 @@ export type InboxEntry = {
   source: Static<typeof Source>;
   attachments: Attachment[];
 };
+export type HistoryActor =
+  | Person
+  | {
+      kind: 'integration';
+      integrationId: string;
+      displayName: string;
+      personId?: never;
+    };
 export type HistoryEntry<Version = InboxEntry> = {
   changeSetId: string;
-  actor: Person;
+  actor: HistoryActor;
   kind: CommandKind;
   recordedAt: number;
   beforeRevision: number;

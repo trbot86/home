@@ -1,8 +1,8 @@
 # Maintenance records and reusable photo attachments
 
-Next slice after the deployed Tasks release. Follow DATA_MODEL.md and retain the
-existing live household. Migrations001–006 are published and immutable. No
-additional household input is needed to implement the bounded work below.
+Implemented after the Tasks and reusable-attachment releases. Follow DATA_MODEL.md
+and retain the existing live household. Migration008 adds Home; migration007 is
+reserved for the integration actor model. Deployment status is in BUILD_PROGRESS.md.
 
 ## Usable result
 
@@ -32,9 +32,8 @@ support is a separate addition, with its own validation and preview policy.
   have multiple placements. No file is deleted merely because one placement is
   removed. Existing media retention and backup protection remain authoritative.
 
-Extract the repeated placement validation/read/write/retention bookkeeping from
-Inbox into a concrete shared attachment repository before using it in another
-feature. Keep record lifecycle rules in feature adapters. Expose attachment
+The shared attachment repository owns placement validation, reads, writes and
+retention bookkeeping. Keep record lifecycle rules in feature adapters. Expose attachment
 support explicitly; do not make every registered kind silently editable through
 a universal unvalidated patch API. Legacy history lacking attachment fields must
 normalize safely, and retained command receipts must remain replayable unchanged.
@@ -47,8 +46,8 @@ slice can reuse them without another attachment-table migration.
 ## Client durability
 
 Use the same acquisition/storage service for Inbox and record attachments. The
-current Android acquisition table points at an Inbox draft, so generalization
-must be explicit and migration-tested. Do not repurpose an ordinary Inbox draft
+Android acquisition table already distinguishes Inbox and record drafts through
+the tested attachment migration. Do not repurpose an ordinary Inbox draft
 and accidentally display, upload or clean it as an Inbox capture.
 
 Persist owner, target record, base revision, scope, epoch, captions/order and
@@ -87,7 +86,19 @@ retention, photo replacement/order, lost replies, private scope, migration from
 the published schema, Android pending-media migration and camera cancellation.
 Verify responsive UI, draft recovery and offline read access. Run only isolated
 tests. Deploy through the backup-first upgrade, compare live records/identity,
-publish the batched APK, and verify the independent the secondary disk copy and isolated restore.
+publish the batched APK, and verify the independent secondary disk copy and isolated restore.
+
+Both application listeners construct the same record-adapter registry through
+`createRecordFeatures`, so an inbox capture still checks the integrity of Home
+records. The capture listener registers no Home routes or commands. Home access
+requires a human context at both the type and runtime boundaries.
+
+Client caches treat Home as an additive section. Existing task command payloads
+may omit the maintenance relation; their frozen digests do not change. Old task
+editor buffers acquire only the new optional fields when loaded. Completing a
+linked task creates its service row within the same receipt transaction. A linked
+service cannot be independently deleted or have its completion instant changed;
+undo the completion as one action. Later relevant edits reject that undo.
 
 Suggested maintenance templates follow once the storage workflow is usable.
 Keep suggestions optional, state their basis, and research any proposed service

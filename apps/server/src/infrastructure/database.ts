@@ -71,10 +71,29 @@ export function migrate(db: Sqlite, migrationsPath = migrationsRoot): void {
   for (const file of files) {
     const sql = readFileSync(join(migrationsPath, file), 'utf8');
     const checksum = createHash('sha256').update(sql).digest('hex');
-    immediate(db, () => {
-      db.exec(sql);
-      db.prepare('INSERT INTO schema_migrations VALUES (?,?)').run(file, checksum);
-    });
+    // Only this reviewed migration rebuilds tables referenced by other tables.
+    // PRAGMA foreign_keys has no effect inside a transaction, so bracket it here.
+    const rebuild = file === '007_integration_principals.sql';
+    if (db.inTransaction) throw new Error('Migrations require an independent transaction');
+    if (rebuild) db.pragma('foreign_keys = OFF');
+    try {
+      immediate(db, () => {
+        db.exec(sql);
+        if (rebuild) {
+          if ((db.pragma('foreign_key_check') as unknown[]).length)
+            throw new Error('Migration foreign key check failed');
+          if (db.pragma('integrity_check', { simple: true }) !== 'ok')
+            throw new Error('Migration integrity check failed');
+        }
+        db.prepare('INSERT INTO schema_migrations VALUES (?,?)').run(file, checksum);
+      });
+    } finally {
+      if (rebuild) {
+        db.pragma('foreign_keys = ON');
+        if (db.pragma('foreign_keys', { simple: true }) !== 1)
+          throw new Error('Foreign key enforcement could not be restored');
+      }
+    }
   }
 }
 export function installation(db: Sqlite): Installation {

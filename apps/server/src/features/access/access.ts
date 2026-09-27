@@ -8,12 +8,23 @@ import {
 } from '../../infrastructure/database.js';
 import { NotFound, Rejection, Unauthenticated } from '../../application/errors.js';
 
-export type RequestContext = {
+export type HumanRequestContext = {
   clientId: string;
   personId: string;
   credentialId: string;
   kind: 'browser' | 'android';
 };
+export type IntegrationRequestContext = {
+  clientId: string;
+  integrationId: string;
+  credentialId: string;
+  kind: 'integration';
+};
+export type RequestContext = HumanRequestContext | IntegrationRequestContext;
+export function requireHuman(context: RequestContext): asserts context is HumanRequestContext {
+  if ((context.kind !== 'browser' && context.kind !== 'android') || !context.personId)
+    throw new Unauthenticated();
+}
 const passwordOptions = { N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
 async function passwordKey(password: string, salt: Buffer): Promise<Buffer> {
   return await new Promise<Buffer>((resolve, reject) =>
@@ -91,7 +102,7 @@ export class AccessService {
   async login(
     username: string,
     password: string,
-    kind: RequestContext['kind'],
+    kind: HumanRequestContext['kind'],
     clientId?: string,
   ): Promise<{ secret: string; session: Session }> {
     const person = this.db
@@ -113,7 +124,7 @@ export class AccessService {
   // Called only by the explicitly enabled trusted-network authentication mode.
   selectProfile(
     username: string,
-    kind: RequestContext['kind'],
+    kind: HumanRequestContext['kind'],
     clientId?: string,
   ): { secret: string; session: Session } {
     const person = this.db
@@ -124,9 +135,10 @@ export class AccessService {
   }
   private issueSession(
     personId: string,
-    kind: RequestContext['kind'],
+    kind: HumanRequestContext['kind'],
     clientId?: string,
   ): { secret: string; session: Session } {
+    if (kind !== 'browser' && kind !== 'android') throw new Unauthenticated();
     const secret = randomBytes(32).toString('base64url');
     const credentialId = randomUUID();
     const stableClientId = immediate(this.db, () => {
@@ -161,15 +173,16 @@ export class AccessService {
       session: this.session({ personId, clientId: stableClientId, credentialId, kind }),
     };
   }
-  authenticate(secret: string): RequestContext {
+  authenticate(secret: string): HumanRequestContext {
     const row = this.db
       .prepare(
         `SELECT c.client_id, c.person_id, c.kind, cc.credential_id FROM client_credentials cc
       JOIN clients c USING(client_id) JOIN people p USING(person_id)
-      WHERE cc.verifier=? AND cc.revoked_at IS NULL AND cc.expires_at>? AND c.enabled=1 AND p.active=1`,
+      WHERE cc.verifier=? AND cc.revoked_at IS NULL AND cc.expires_at>? AND c.enabled=1 AND p.active=1
+      AND c.kind IN ('browser','android')`,
       )
       .get(tokenDigest(secret), this.now()) as
-      | { client_id: string; person_id: string; kind: RequestContext['kind']; credential_id: string }
+      | { client_id: string; person_id: string; kind: HumanRequestContext['kind']; credential_id: string }
       | undefined;
     if (!row) throw new Unauthenticated();
     return {
@@ -179,35 +192,40 @@ export class AccessService {
       kind: row.kind,
     };
   }
-  logout(context: RequestContext): void {
+  logout(context: HumanRequestContext): void {
+    requireHuman(context);
     this.db
       .prepare('UPDATE client_credentials SET revoked_at=? WHERE credential_id=?')
       .run(this.now(), context.credentialId);
   }
-  scopes(context: RequestContext): Scope[] {
+  scopes(context: HumanRequestContext): Scope[] {
+    requireHuman(context);
     return this.db
       .prepare(
         "SELECT scope_id AS scopeId,kind FROM visibility_scopes WHERE kind='shared' OR owner_person_id=? ORDER BY kind DESC",
       )
       .all(context.personId) as Scope[];
   }
-  canAccess(context: RequestContext, scopeId: string): boolean {
+  canAccess(context: HumanRequestContext, scopeId: string): boolean {
+    requireHuman(context);
     return !!this.db
       .prepare("SELECT 1 FROM visibility_scopes WHERE scope_id=? AND (kind='shared' OR owner_person_id=?)")
       .get(scopeId, context.personId);
   }
-  requireScope(context: RequestContext, scopeId: string): void {
+  requireScope(context: HumanRequestContext, scopeId: string): void {
     if (!this.canAccess(context, scopeId)) throw new Rejection('unavailable');
   }
-  isAdministrator(context: RequestContext): boolean {
+  isAdministrator(context: HumanRequestContext): boolean {
+    requireHuman(context);
     return !!this.db
       .prepare('SELECT 1 FROM people WHERE person_id=? AND is_administrator=1 AND active=1')
       .get(context.personId);
   }
-  requireAdministrator(context: RequestContext): void {
+  requireAdministrator(context: HumanRequestContext): void {
     if (!this.isAdministrator(context)) throw new NotFound();
   }
-  session(context: RequestContext): Session {
+  session(context: HumanRequestContext): Session {
+    requireHuman(context);
     const state = installation(this.db);
     const person = this.db
       .prepare('SELECT person_id AS personId,display_name AS displayName FROM people WHERE person_id=?')

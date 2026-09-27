@@ -37,10 +37,14 @@ test('attachment upgrade preserves existing placements and media while freeing o
       'record_changes',
       'operation_receipts',
     ];
-    const before = tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all());
+    const selects = tables.map((table) => {
+      const columns = db.pragma(`table_info(${table})`) as { name: string }[];
+      return `SELECT ${columns.map((column) => column.name).join(',')} FROM ${table} ORDER BY rowid`;
+    });
+    const before = selects.map((sql) => db.prepare(sql).all());
     migrate(db);
     assert.deepEqual(
-      tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all()),
+      selects.map((sql) => db.prepare(sql).all()),
       before,
     );
     assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);

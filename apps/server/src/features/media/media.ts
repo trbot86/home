@@ -3,7 +3,7 @@ import { Type, type Static } from '@sinclair/typebox';
 import { Digest, Id, isValid } from '@our-place/contracts';
 import { immediate, installation, type Sqlite } from '../../infrastructure/database.js';
 import { Deferral, NotFound, Rejection } from '../../application/errors.js';
-import { AccessService, type RequestContext } from '../access/access.js';
+import { AccessService, requireHuman, type HumanRequestContext as RequestContext } from '../access/access.js';
 import { FileMediaStore, sha256 } from './file-media-store.js';
 import { MediaRetentionGate } from './retention-gate.js';
 
@@ -48,6 +48,7 @@ export class MediaService {
     private readonly now: () => number,
   ) {}
   private getOwned(context: RequestContext, id: string): MediaRow {
+    requireHuman(context);
     const media = this.db.prepare('SELECT * FROM media_objects WHERE media_id=?').get(id) as
       MediaRow | undefined;
     if (
@@ -158,6 +159,7 @@ export class MediaService {
     }
   }
   async read(context: RequestContext, id: string): Promise<{ bytes: Buffer; mimeType: string }> {
+    requireHuman(context);
     const media = this.db.prepare('SELECT * FROM media_objects WHERE media_id=?').get(id) as
       MediaRow | undefined;
     if (!media || !this.access.canAccess(context, media.scope_id) || media.state !== 'ready')

@@ -1,5 +1,5 @@
 import type { Sqlite } from '../../infrastructure/database.js';
-import type { RequestContext } from '../access/access.js';
+import { requireHuman, type HumanRequestContext as RequestContext } from '../access/access.js';
 import { NotFound, Rejection } from '../../application/errors.js';
 
 export type RecordContent = Record<string, unknown> & { scopeId: string; deletedAt: number | null };
@@ -50,6 +50,7 @@ export class RecordRegistry {
     return adapter;
   }
   get(context: RequestContext, id: string): TrackedRecord {
+    requireHuman(context);
     const row = this.db.prepare('SELECT kind FROM records WHERE record_id=?').get(id) as
       { kind: string } | undefined;
     if (!row) throw new NotFound();
@@ -77,6 +78,7 @@ export class RecordRegistry {
     content: RecordContent,
     now: number,
   ): TrackedRecord {
+    requireHuman(context);
     const adapter = this.adapter(before.kind);
     return adapter.setContent(context, before, adapter.validateContent(content), now);
   }

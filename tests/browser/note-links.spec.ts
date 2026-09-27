@@ -20,6 +20,34 @@ async function copyLink(page: Page, text: string) {
   return url;
 }
 
+test('Alexa notes retain full integration IDs in links and display integration history without human undo ownership', async ({
+  page,
+  context,
+  request,
+}) => {
+  const seeded = await request.post('http://127.0.0.1:4174/voice-fixture', {
+    headers: { 'x-test-token': process.env['OUR_PLACE_TEST_TOKEN']! },
+  });
+  expect(seeded.ok()).toBe(true);
+  const outcome = await seeded.json();
+  expect(outcome.status).toBe('Applied');
+  const id = outcome.result.records[0].recordId;
+  expect(id).toMatch(/^[a-f0-9]{64}$/);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Alex', exact: true }).click();
+  const title = 'Voice fixture: remember the filter size';
+  const url = await copyLink(page, title);
+  expect(new URL(url).searchParams.get('entry')).toBe(id);
+  await page.goto(url);
+  await expect(page.getByLabel('Entry text')).toHaveValue(title);
+  await page.getByRole('button', { name: 'Close entry', exact: true }).click();
+  const card = page.locator('.entry-card').filter({ hasText: title });
+  await card.getByRole('button', { name: 'History', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Alexa');
+  await expect(page.getByRole('button', { name: 'Undo this change', exact: true })).toHaveCount(0);
+});
+
 test('copied note links use titles, preserve unfinished source edits, and survive deletion and offline reload', async ({
   page,
   context,

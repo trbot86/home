@@ -15,7 +15,7 @@ import {
 } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { NotFound, Rejection } from '../../application/errors.js';
-import { AccessService, type RequestContext } from '../access/access.js';
+import { AccessService, requireHuman, type HumanRequestContext as RequestContext } from '../access/access.js';
 import type {
   RecordAdapter,
   RecordChange,
@@ -89,6 +89,7 @@ export class HomeRepository {
     return c;
   }
   get(context: RequestContext, id: string, expectedKind?: HomeKind): TrackedRecord {
+    requireHuman(context);
     const row = this.db.prepare('SELECT * FROM records WHERE record_id=?').get(id) as Header | undefined;
     if (
       !row ||
@@ -145,6 +146,7 @@ export class HomeRepository {
     } as HomeRecord;
   }
   snapshot(context: RequestContext): HomeSnapshot {
+    requireHuman(context);
     const rows = this.db
       .prepare(
         `SELECT r.record_id FROM records r JOIN visibility_scopes s USING(scope_id)
@@ -331,6 +333,7 @@ export class HomeRepository {
     payload: unknown,
     now: number,
   ): RecordMutation {
+    requireHuman(context);
     const a = payload as Command<'CreateHomeAsset'>['arguments'] &
       Command<'CreateMaintenanceRecord'>['arguments'] & { expectedRevision: number; archived: boolean };
     const changes: RecordChange[] = [];

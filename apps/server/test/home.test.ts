@@ -19,7 +19,7 @@ import {
   openDatabase,
 } from '../src/infrastructure/database.js';
 import { migrationsRoot } from '../src/paths.js';
-import { AccessService, type RequestContext } from '../src/features/access/access.js';
+import { AccessService, type HumanRequestContext as RequestContext } from '../src/features/access/access.js';
 import { InboxRepository } from '../src/features/inbox/inbox.js';
 import { inboxRecordAdapter } from '../src/features/inbox/inbox-record.js';
 import { RecordRegistry } from '../src/features/records/record-registry.js';
@@ -205,6 +205,7 @@ test('maintenance completion commits service log and recurrence together; replay
     assert.equal(log.notes, completion.note);
     const history = f.services().history.list<HomeRecord>(f.a, log.recordId, 'maintenance_record');
     assert.equal(history[0]!.changeSetId, outcome.changeSetId);
+    assert.ok('personId' in history[0]!.actor);
     assert.equal(history[0]!.actor.personId, f.a.personId);
     assert.equal(
       f.services().tasks.get(f.a, completion.completionId).content.performedByPersonId,
@@ -411,7 +412,7 @@ test('commit failure rolls back completion, service record, next occurrence, his
 
 test('Home migration preserves old task receipts, frozen commands, legacy history and household identity', () => {
   const source = mkdtempSync(join(tmpdir(), 'our-place-pre-home-'));
-  for (const name of readdirSync(migrationsRoot).filter((name) => /^00[1-6]_/.test(name)))
+  for (const name of readdirSync(migrationsRoot).filter((name) => /^00[1-7]_/.test(name)))
     copyFileSync(join(migrationsRoot, name), join(source, name));
   const f = fixture(source);
   try {

@@ -97,6 +97,39 @@ test('task editor buffers, uncertain creation, private tasks and offline viewing
   await page.getByLabel('Instructions', { exact: true }).fill('Keep these unfinished details');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.reload();
+  // Simulate an unfinished form written by the previous app version, before maintenance fields existed.
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('our-place', 2);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('editors', 'readwrite'),
+          store = tx.objectStore('editors');
+        const request = store.openCursor();
+        let upgradedFixture = false;
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) return;
+          if (String(cursor.key).endsWith(':task:new')) {
+            const buffer = cursor.value,
+              form = JSON.parse(buffer.text);
+            delete form.maintenanceAssetId;
+            delete form.maintenanceReference;
+            cursor.update({ ...buffer, text: JSON.stringify(form) });
+            upgradedFixture = true;
+          }
+          cursor.continue();
+        };
+        tx.oncomplete = () => (upgradedFixture ? resolve() : reject(new Error('Missing saved task fixture')));
+        tx.onerror = () => reject(tx.error);
+      });
+    } finally {
+      db.close();
+    }
+  });
   await page.getByRole('button', { name: 'Tasks', exact: true }).click();
   await page.getByRole('button', { name: 'New task', exact: true }).click();
   await expect(page.getByLabel('Task title', { exact: true })).toHaveValue('Research a surprise weekend');

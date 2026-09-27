@@ -14,6 +14,7 @@ import { sha256 } from '../src/features/media/file-media-store.js';
 import { replicateBackups } from '../src/features/operations/backup-replication.js';
 import type { Envelope } from '@our-place/contracts';
 import { OperationsWorker } from '../src/features/operations/worker.js';
+import { HomeRepository } from '../src/features/home/home.js';
 
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aBZkAAAAASUVORK5CYII=', 'base64');
 const origin = 'http://127.0.0.1:5173';
@@ -92,6 +93,41 @@ test('online snapshot survives concurrent edits/deletion and restores records, p
     } finally { await restored.app.close(); }
     assert.equal((await f.backups.status()).runs[0]!.available, true);
     await assert.rejects(restoreBackup(marker, restoredRoot, true), /must not exist/);
+  } finally { await f.close(); }
+});
+
+test('Home receipts stay live through other reference removal and restore with exact service cost and history', async () => {
+  const f = await fixture();
+  try {
+    const assetId = randomUUID(), serviceId = randomUUID();
+    const scopeId = f.session.scopes.find(scope => scope.kind === 'shared')!.scopeId;
+    const home = new HomeRepository(f.db, f.access);
+    const asset = f.command({ recordId: assetId, scopeId, name: 'Fixture heat pump', model: '', serial: '', location: '', acquiredDate: null, notes: 'Keep the service record' });
+    const service = f.command({ recordId: serviceId, scopeId, assetId, occurredAt: f.now(), notes: 'Annual service', costAmount: '143.2500', currency: 'CAD' });
+    assert.equal(f.writes.execute(f.context, 'CreateHomeAsset', asset).status, 'Applied');
+    assert.equal(f.writes.execute(f.context, 'CreateMaintenanceRecord', service).status, 'Applied');
+    const attachment = { attachmentId: randomUUID(), mediaId: f.mediaId, digest: sha256(png), byteLength: png.length, mimeType: 'image/png', position: 0, caption: 'Service receipt' };
+    assert.equal(f.writes.execute(f.context, 'SetRecordAttachments', f.command({ recordId: serviceId, expectedRevision: 1, attachments: [attachment] })).status, 'Applied');
+    assert.equal(f.writes.execute(f.context, 'DeleteInboxEntry', f.command({ inboxId: f.inboxId, expectedRevision: 1 })).status, 'Applied');
+    f.advance(3 * 86400000);
+    assert.equal(await f.media.collect(), 0, 'The Home service remains an active photo reference');
+    const before = home.snapshot(f.context);
+    const completed = await f.backups.create();
+    assert.equal(f.writes.execute(f.context, 'DeleteMaintenanceRecord', f.command({ recordId: serviceId, expectedRevision: 2 })).status, 'Applied');
+    f.advance(3 * 86400000);
+    assert.equal(await f.media.collect(), 1, 'The last removed reference can expire');
+    const restoredRoot = join(f.root, 'restored-home');
+    await restoreBackup(join(f.outputRoot, `${completed.archive.name}.complete.json`), restoredRoot, true);
+    const restored = await buildApp({ dataRoot: restoredRoot, development: true, publicOrigin: origin });
+    try {
+      assert.deepEqual(new HomeRepository(restored.db, restored.access).snapshot(f.context), before);
+      assert.deepEqual((await restored.media.read(f.context, f.mediaId)).bytes, png);
+      const versions = restored.history.list(f.context, serviceId, 'maintenance_record');
+      assert.equal(versions.length, 2);
+      assert.equal(versions[0]!.canUndo, true);
+      assert.equal(restored.writes.execute(f.context, 'CreateMaintenanceRecord', service).status, 'Applied');
+      assert.deepEqual(restored.db.pragma('foreign_key_check'), []);
+    } finally { await restored.app.close(); }
   } finally { await f.close(); }
 });
 

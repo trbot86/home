@@ -22,13 +22,8 @@ import {
   requireCurrentSchema,
   type Sqlite,
 } from './infrastructure/database.js';
-import { AccessService, type RequestContext } from './features/access/access.js';
-import { InboxRepository } from './features/inbox/inbox.js';
-import { inboxRecordAdapter } from './features/inbox/inbox-record.js';
-import { RecordRegistry } from './features/records/record-registry.js';
-import { ShoppingRepository } from './features/shopping/shopping.js';
-import { TasksRepository } from './features/tasks/tasks.js';
-import { HomeRepository } from './features/home/home.js';
+import { AccessService, type HumanRequestContext as RequestContext } from './features/access/access.js';
+import { createRecordFeatures } from './application/record-features.js';
 import { HistoryService } from './features/history/history.js';
 import { WriteCoordinator } from './application/write-coordinator.js';
 import { Deferral, NotFound, ProtocolConflict, Rejection, Unauthenticated } from './application/errors.js';
@@ -87,16 +82,11 @@ export async function buildApp(options: AppOptions) {
     throw error;
   }
   const access = new AccessService(db, now);
-  const inbox = new InboxRepository(db, access);
-  const shopping = new ShoppingRepository(db, access);
-  const home = new HomeRepository(db, access);
-  const tasks = new TasksRepository(db, access, options.householdTimeZone, home);
-  const records = new RecordRegistry(db, [
-    inboxRecordAdapter(inbox),
-    ...shopping.adapters(),
-    ...tasks.adapters(),
-    ...home.adapters(),
-  ]);
+  const { inbox, shopping, home, tasks, records } = createRecordFeatures(
+    db,
+    access,
+    options.householdTimeZone,
+  );
   const history = new HistoryService(db, records, access);
   const writes = new WriteCoordinator(db, inbox, history, now, records, undefined, [
     shopping.commands(),

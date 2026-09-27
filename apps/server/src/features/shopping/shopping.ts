@@ -11,7 +11,7 @@ import {
   type ShoppingEntry,
 } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
-import { AccessService, type RequestContext } from '../access/access.js';
+import { AccessService, requireHuman, type HumanRequestContext as RequestContext } from '../access/access.js';
 import type {
   RecordAdapter,
   RecordChange,
@@ -81,6 +81,7 @@ export class ShoppingRepository {
     }));
   }
   get(context: RequestContext, id: string, expectedKind?: ShoppingKind): TrackedRecord {
+    requireHuman(context);
     const row = this.db.prepare('SELECT * FROM records WHERE record_id=?').get(id) as HeaderRow | undefined;
     if (
       !row ||
@@ -145,6 +146,7 @@ export class ShoppingRepository {
     } as ShoppingRecord;
   }
   snapshot(context: RequestContext): ShoppingSnapshot {
+    requireHuman(context);
     const rows = this.db
       .prepare(
         `SELECT r.record_id FROM records r JOIN visibility_scopes s USING(scope_id)
@@ -246,6 +248,7 @@ export class ShoppingRepository {
     value: RecordContent,
     now: number,
   ): TrackedRecord {
+    requireHuman(context);
     const c = this.content(before.kind as ShoppingKind, value);
     if (c.scopeId !== before.content.scopeId) throw new Rejection('scope_change_not_supported');
     const id = before.recordId;
@@ -303,6 +306,7 @@ export class ShoppingRepository {
     ).next;
   }
   execute(context: RequestContext, kind: ShoppingCommandKind, payload: unknown, now: number): Result {
+    requireHuman(context);
     const created = (after: TrackedRecord): Result => ({
       records: [after],
       changes: [{ before: null, after }],

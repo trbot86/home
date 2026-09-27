@@ -159,7 +159,8 @@ class ClientCore private constructor(val context: Context) {
         // Resolve the ID through an authorised cached record before fetching or serving a cached image.
         val cache = dao.value("$clientId:cache")?.let(::JSONObject) ?: error("photo_unavailable")
         val tasks = cache.optJSONObject("tasks")
-        val records = listOfNotNull(cache.optJSONArray("entries"), tasks?.optJSONArray("definitions"), tasks?.optJSONArray("completions"))
+        val home = cache.optJSONObject("home")
+        val records = listOfNotNull(cache.optJSONArray("entries"), tasks?.optJSONArray("definitions"), tasks?.optJSONArray("completions"), home?.optJSONArray("assets"), home?.optJSONArray("serviceRecords"))
         var attachment: JSONObject? = descriptor?.takeIf { it.optString("mediaId") == id }
         for (entries in records) for (i in 0 until entries.length()) {
             val photos = entries.getJSONObject(i).optJSONArray("attachments") ?: continue
