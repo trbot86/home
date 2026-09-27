@@ -1,9 +1,9 @@
 # Recipes, cooking and recipe shopping groups
 
-Implementation branch after the deployed Home release. Product requirements remain
-in PLANNING.md and the connected schema in DATA_MODEL.md. Committed migrations are
-immutable, including recipe migrations on this feature branch. The live household
-still uses 001–008; no recipe migration has been deployed.
+Food is deployed on the web and in the private Android download. Product requirements
+remain in PLANNING.md and the connected schema in DATA_MODEL.md. Migrations 001–014
+are immutable. The implementation checkpoints below record their original evidence;
+the release section records the subsequent live upgrade.
 
 ## Intended workflow
 
@@ -266,6 +266,22 @@ The native workflow also passes checklist draft recovery, group creation and
 compound undo/redo, recipe navigation, shared profile reads and offline Room/photo
 cache checks. All ten Android unit tests pass.
 
-This remains branch development. Migrations 009–014 and this APK have not been
-deployed to the live household. Deeper collection controls and final live backup,
-upgrade rehearsal, release and artifact verification remain separate work.
+## Verified release (2026-09-27)
+
+The complete Food slice, including migrations 009–014, is deployed. A fresh backup
+from the secondary location restored under production Linux settings into a new,
+isolated Docker volume. All 24 retained tables, four media files and the expected
+migration checksums passed; restoration generated a separate recovery epoch for
+the rehearsal only. The disposable volume was removed after verification.
+
+The live upgrade used the existing ownership checks and verified-backup command
+against the same persistent volume. Both profiles' 19 distinct records, household
+identity and recovery epoch were preserved. The pre-upgrade backup is verified at
+the secondary destination. Live integrity/foreign-key checks pass, and the served
+web bundle, stylesheet and private APK match the tested artifacts. Read-only Food
+checks pass at desktop and phone widths. No live test recipes or shopping items
+were inserted. Detailed identities, paths, hashes and backup reports remain local.
+
+Custom collection management, recipe sharing from Android's share sheet and
+selective reminder delivery can build on this release. These do not change the
+deployed recipe import, Want to try/Favourites, cooking-task or shopping workflows.

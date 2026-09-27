@@ -17,12 +17,16 @@ Updated 2026-09-27.
 - Home assets, model/serial/location details, archive state, photos and service logs.
 - Tasks linked to assets, atomic completion/service recording, historical service,
   exact decimal costs with explicit currencies, and revision-guarded compound undo.
+- Visual Food library, metadata/photo import, Want to try, Favourites, Make soon
+  pins, household adjustments and cooking notes/photos.
+- Linked cooking tasks with actual-date recurrence, plus selected ingredient
+  shopping groups, retained source details and compound undo/redo.
 
 ## Current development
 
 Photo editing is deployed on the web and in the private Android download.
 Browser and Room drafts retain originals and immutable requests through an
-interrupted save. Migrations001–008 are published and immutable. Home assets
+interrupted save. Migrations001–014 are published and immutable. Home assets
 and the service log are deployed on the web and in the private Android download.
 See MAINTENANCE_IMPLEMENTATION.md.
 
@@ -93,7 +97,7 @@ to the live household.
 
 ## Remaining work
 
-Recipes, project boards, calendar integration, selective notifications, richer
+Project boards, calendar integration, selective notifications, richer
 gift workflows and Alexa cloud/device integration remain. Suggested maintenance
 templates can follow the deployed asset and service workflow.
 Fixed-calendar recurrence needs an explicit missed-slot policy. OEM voice,
@@ -111,7 +115,7 @@ photo import, worker attribution/receipts, review after concurrent edits, visual
 screens, household adjustments, cooking notes/photos and independent Soon pins.
 Browser and Android clients cache saved Food data and retain unfinished forms.
 Migration 012 adds only view preferences; existing recipe and household revisions
-are unchanged by pins. Migrations 009–012 have not been applied to the live household.
+are unchanged by pins. The checkpoints below led to the complete Food release.
 
 Verification includes 23 browser flows, ten Android unit tests, native Food flows,
 in-place APK preservation and a real public recipe import into a disposable database.
@@ -123,5 +127,22 @@ recipe checklist, immutable source details and collapsible named groups. Group
 removal keeps items and protects concurrent edits; compound undo/redo includes
 membership changes. Migration 014 is additive. All 27 browser flows and 139 Linux
 package tests pass; the APK update preserves the previous emulator data and drafts.
-Deeper collection controls and final release verification remain; the live app and
-its private download still use the previous release.
+Deeper collection controls remain optional follow-up work.
+
+## Food release (2026-09-27)
+
+The web app and private Android download now include Food and named shopping
+groups. The tested image and APK match the served bytes. A fresh backup was copied
+to the independent secondary destination, restored into a new Docker volume under
+production Linux settings, and migrated through 014. All 24 retained tables and
+four media files were preserved; the isolated rehearsal volume was removed after
+verification. The live upgrade took another verified backup before applying six
+migrations to the existing data volume.
+
+Both profiles' 19 distinct pre-release records passed preservation checks after
+deployment. Installation identity and recovery epoch were unchanged. Live SQLite
+integrity/foreign-key checks, responsive Food rendering, cached feature payloads
+and the secondary upgrade-backup status passed. No test records were created in
+the live household. The named shopping-group suggestion is recorded as completed
+in the ignored local review metadata. Installing the published APK over the
+existing phone app is still a user action; emulator installation was verified.

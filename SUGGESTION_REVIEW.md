@@ -32,11 +32,11 @@ between notes, with a Copy link button and titles visible only to an authorized
 profile. Automatic updating is not implemented. See BUILD_PROGRESS.md for
 validation and the local review records for release status.
 
-Named collapsible shopping groups are implemented on the Food development branch,
+Named collapsible shopping groups are deployed with Food,
 including rename, item membership, removal while retaining items and guarded undo.
-Recipe checklists create named groups with retained source details. The suggestion
-remains pending deployment; do not report it resolved in the household until the
-release is verified. See RECIPE_IMPLEMENTATION.md for tests and remaining work.
+Recipe checklists create named groups with retained source details. The completed
+suggestion ID and verified release evidence are in the ignored local review metadata.
+See RECIPE_IMPLEMENTATION.md for tests and remaining work.
 
 - `<local-run-id>` — completed 2026-09-26. Android system
   Back now closes the current entry/history dialog and preserves unfinished editor

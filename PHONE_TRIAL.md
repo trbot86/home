@@ -29,6 +29,8 @@ Install updates over the existing phone app; do not uninstall or clear data.
 4. Try the capture widget, final speech result and spoken readback.
 5. Check normal device locking and background restrictions without weakening security.
 6. Check Shopping and Tasks, completion/undo and Android Back in dialogs.
+7. Save a recipe link in Food, review imported details, and choose ingredients
+   for a shopping group. Cached recipes and groups remain readable offline.
 
 Emulator tests cannot establish manufacturer-specific microphone, lock-screen,
 gesture or power-management behavior. See BUILD_PROGRESS.md for implementation
