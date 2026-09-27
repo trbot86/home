@@ -31,6 +31,11 @@ Updated 2026-09-27.
 
 ## Current development
 
+Desktop screenshot paste and image-file drop are implemented and verified for
+Inbox, suggestions and the shared photo editor. Twelve affected browser flows,
+fourteen Android unit tests, the native photo-editor regression and all 225
+Linux package tests pass. Publication is pending; see PHOTO_TRANSFER_IMPLEMENTATION.md.
+
 Shopping product photos and purchase receipt photos are deployed on the private
 web host and Android download. They reuse the attachment editor and existing placement
 tables, retaining immutable purchase facts, private gift scopes and old history.

@@ -4,6 +4,8 @@ import type { Attachment, CommandOutcome } from '@our-place/contracts';
 import { AttachmentGallery } from './AttachmentGallery.js';
 import { RecordDialog } from './RecordDialog.js';
 import { Icon } from './Icon.js';
+import { usePhotoTransfer } from './usePhotoTransfer.js';
+import { validatePhotoFiles } from './photo-input.js';
 
 export type AttachmentSaved = (recordId: string, outcome: CommandOutcome, label: string) => void;
 export type AttachmentTarget = {
@@ -109,6 +111,22 @@ export function AttachmentDialog({
       draft.serverEpoch !== serverEpoch ||
       target.deletedAt !== null);
   const editable = !!draft && draft.state === 'DRAFT' && online && !changed && !pending && !busy;
+  async function addFiles(files: File[]) {
+    if (!files.length) return;
+    if (!editable || lock.current) {
+      report(new Error('Photos cannot be added while this editor is read-only or saving.'));
+      return;
+    }
+    await work(async () => {
+      validatePhotoFiles(files, current.current!.attachments.length);
+      for (const file of files) accept(await client.addAttachmentPhoto(current.current!.draftId, file));
+    });
+  }
+  const transfer = usePhotoTransfer({
+    disabledReason: editable ? null : 'Photos cannot be added while this editor is read-only or saving.',
+    onFiles: addFiles,
+    onError: report,
+  });
   function edit(transform: (photos: Attachment[]) => Attachment[]) {
     if (!editable || lock.current) return;
     writes.current++;
@@ -191,6 +209,9 @@ export function AttachmentDialog({
       }}
     >
       <form
+        aria-label="Photo editor"
+        className={transfer.dragging ? 'photo-dragging' : ''}
+        {...transfer.handlers}
         onSubmit={(event) => {
           event.preventDefault();
           if (canSave) void submit();
@@ -331,11 +352,7 @@ export function AttachmentDialog({
                     onChange={(event) => {
                       const files = [...(event.target.files ?? [])];
                       event.target.value = '';
-                      if (editable)
-                        void work(async () => {
-                          for (const file of files)
-                            accept(await client.addAttachmentPhoto(current.current!.draftId, file));
-                        });
+                      void addFiles(files);
                     }}
                   />
                   <button
@@ -350,6 +367,13 @@ export function AttachmentDialog({
               )}
               <span className="fine">{draft.attachments.length}/20 · up to 25 MB each</span>
             </div>
+            {!client.acquireAttachmentPhoto && (
+              <p className="photo-transfer-hint fine">
+                {transfer.dragging
+                  ? 'Drop to add photos'
+                  : 'Paste a screenshot here or drop PNG, JPEG or WebP files.'}
+              </p>
+            )}
             <div className="dialog-footer">
               {draft.state !== 'SUBMITTED' && draft.state !== 'ACKNOWLEDGED' && (
                 <button

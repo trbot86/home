@@ -1578,3 +1578,14 @@ a {
     font-size: 10px;
   }
 }
+.photo-dragging {
+  outline: 2px dashed var(--green);
+  outline-offset: -5px;
+  background-color: var(--wash);
+}
+.photo-transfer-hint {
+  margin: 8px 0 14px;
+}
+.capture > .photo-transfer-hint {
+  padding-inline: 24px;
+}

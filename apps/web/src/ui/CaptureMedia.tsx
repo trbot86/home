@@ -13,7 +13,7 @@ export function CaptureMedia({
   draftId: string;
   category: EntryCategory;
   busy: boolean;
-  addPhotos: (files: FileList | null) => Promise<void>;
+  addPhotos: (files: File[]) => Promise<void>;
   onError: (error: unknown) => void;
 }) {
   return (
@@ -52,7 +52,7 @@ export function CaptureMedia({
             multiple
             disabled={busy}
             onChange={(event) => {
-              void addPhotos(event.target.files);
+              void addPhotos(Array.from(event.target.files ?? []));
               event.target.value = '';
             }}
           />

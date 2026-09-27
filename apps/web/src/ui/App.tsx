@@ -40,6 +40,8 @@ import { FilingLinks, CaptureSources } from './inbox/FilingLinks.js';
 import { filingOf } from '@our-place/contracts';
 import { widgetNavigationError, type WidgetNavigation } from '@our-place/client';
 import { Activity } from './activity/Activity.js';
+import { useFileDropGuard, usePhotoTransfer } from './usePhotoTransfer.js';
+import { validatePhotoFiles } from './photo-input.js';
 
 const emptyState: ClientState = {
   session: null,
@@ -144,6 +146,7 @@ export function App({ client }: { client: ClientPlatform }) {
   const [switching, setSwitching] = useState(false);
   const [localError, setLocalError] = useState(false);
   const submitLock = useRef(false);
+  const photoLock = useRef(false);
   const initialiseLock = useRef(false);
   const loadGeneration = useRef(0);
   const noteLoadGeneration = useRef(0);
@@ -153,6 +156,15 @@ export function App({ client }: { client: ClientPlatform }) {
     : `${state.session?.clientId ?? ''}:${state.session?.serverEpoch ?? ''}`;
   const textRef = useRef<HTMLTextAreaElement>(null);
   const showError = (value: unknown) => setError(message(value));
+  useFileDropGuard(showError);
+  const transfer = usePhotoTransfer({
+    disabledReason:
+      !draft || draft.state !== 'DRAFT' || busy || switching
+        ? 'Finish the current action before adding photos.'
+        : null,
+    onFiles: addPhotos,
+    onError: showError,
+  });
   async function openNote(id: string) {
     if (!state.session || switching) return;
     const owner = currentOwner.current;
@@ -330,7 +342,7 @@ export function App({ client }: { client: ClientPlatform }) {
     }
   }
   async function switchProfile(username: string) {
-    if (busy || saving || switching) return;
+    if (busy || saving || switching || photoLock.current) return;
     setSwitching(true);
     setError('');
     let selectionStarted = false;
@@ -367,7 +379,7 @@ export function App({ client }: { client: ClientPlatform }) {
     }
   }
   async function navigate(nextView: View) {
-    if (busy || switching || navigationLock.current || !state.session) return;
+    if (busy || switching || navigationLock.current || photoLock.current || !state.session) return;
     navigationLock.current = true;
     setBusy(true);
     try {
@@ -403,7 +415,7 @@ export function App({ client }: { client: ClientPlatform }) {
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!draft || submitLock.current) return;
+    if (!draft || submitLock.current || photoLock.current || busy || switching) return;
     submitLock.current = true;
     setBusy(true);
     try {
@@ -421,18 +433,25 @@ export function App({ client }: { client: ClientPlatform }) {
       setBusy(false);
     }
   }
-  async function addPhotos(files: FileList | null) {
-    if (!draft || !files) return;
-    const selectedFiles = Array.from(files);
+  async function addPhotos(files: File[]) {
+    if (!draft || !files.length) return;
+    if (photoLock.current || busy || switching || draft.state !== 'DRAFT') {
+      showError(new Error('Finish the current action before adding photos.'));
+      return;
+    }
+    photoLock.current = true;
     setBusy(true);
     try {
+      validatePhotoFiles(files, draft.attachments.length);
       await saveDraft(text);
       let next = draft;
-      for (const file of selectedFiles) next = await client.addPhoto(draft.draftId, file);
+      for (const file of files) next = await client.addPhoto(draft.draftId, file);
       setDraft(next);
+      setError('');
     } catch (error) {
       showError(error);
     } finally {
+      photoLock.current = false;
       setBusy(false);
     }
   }
@@ -878,7 +897,9 @@ export function App({ client }: { client: ClientPlatform }) {
               <>
                 {(view === 'inbox' || view === 'suggestions') && draft && (
                   <form
-                    className="capture"
+                    className={`capture ${transfer.dragging ? 'photo-dragging' : ''}`}
+                    aria-label={view === 'suggestions' ? 'Suggestion capture' : 'Inbox capture'}
+                    {...transfer.handlers}
                     onSubmit={(event) => {
                       void submit(event);
                     }}
@@ -903,7 +924,7 @@ export function App({ client }: { client: ClientPlatform }) {
                       <span className="draft-state" aria-live="polite">
                         {localError
                           ? 'Draft not saved'
-                          : saving
+                          : saving || busy
                             ? 'Saving draft…'
                             : 'Draft saved on this device'}
                       </span>
@@ -946,6 +967,13 @@ export function App({ client }: { client: ClientPlatform }) {
                           </div>
                         ))}
                       </div>
+                    )}
+                    {!client.acquirePhoto && (
+                      <p className="photo-transfer-hint fine">
+                        {transfer.dragging
+                          ? 'Drop to add photos'
+                          : 'Paste a screenshot here or drop PNG, JPEG or WebP files.'}
+                      </p>
                     )}
                     <div className="capture-footer">
                       <div className="capture-tools">
