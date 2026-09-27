@@ -2,8 +2,11 @@
 
 Research checked: 2026-09-27. The local handler, proposed English (US/Canada) models,
 explicit integration principal and separate capture listener are implemented.
-No live skill, cloud resource, listener, credential or device connection has been
-configured. The production `CaptureSink` transport is still unimplemented;
+The user has created a development skill shell with English (US) selected.
+Interaction-model import/build is awaiting confirmation, and its backend endpoint
+is not connected. No cloud bridge, active capture listener, integration credential
+or device connection has been configured. The production `CaptureSink` transport
+is still unimplemented;
 local tests connect synthetic Alexa events to the capture listener using HTTP
 injection and an isolated SQLite database. See
 [the backend checkpoint](ALEXA_BACKEND_CHECKPOINT.md) for verification and limits.
@@ -196,8 +199,9 @@ assuming that an Appstore business must be created first.
 9. Review results before connecting an authorized binding to the real household.
    Keep machine-specific transcripts, IDs, addresses and reports out of Git.
 
-Product preference and reported setup information have been collected; no live
-setup or device trial has been completed. Local checks cover handler behavior,
+Product preferences, developer-account access and creation of the development
+skill shell have been reported by the user. Model build, backend connection and
+device trials remain unverified. Local checks cover handler behavior,
 model structure, capture authorization, save/retry behavior, schema compatibility,
 backup/restore and TypeScript compatibility. Amazon model acceptance, phrase
 recognition, cloud latency, tailnet isolation and real-device behavior remain
