@@ -16,11 +16,19 @@ After the home server acknowledges the save, the proposed response is:
 
 > Saved to your shared inbox: the spare key is in the blue drawer.
 
-The current handler saves immediately, reads the text back, and ends the session.
-Confirmation before saving is a pending product preference. It does not yet
-support spoken correction, undo, app browsing, long dictation or a durable cloud
-queue. A timeout says that the save could not be confirmed and asks the user to
-check the app before repeating; repeating a spoken command can create a new note.
+Selected interaction: save immediately, then read back without asking for
+confirmation. The user can walk away once they finish speaking; listening to the
+readback is optional and does not decide whether the note is saved. Success
+speech begins only after the home server acknowledges the write. Silence or
+ending the voice session after that acknowledgement must not cancel the note.
+
+The current handler already follows this flow and ends the session after its
+response. It does not yet support spoken correction, undo, app browsing, long
+dictation or a durable cloud queue. If the readback reveals a mistake, correction
+is currently an edit in the app. Any later spoken correction must be a separate,
+explicit action on the saved note, rather than a prerequisite for saving it.
+A timeout says that the save could not be confirmed and asks the user to check
+the app before repeating; repeating a spoken command can create a new note.
 
 The included model exposes only notes. Shopping handler support is disabled by
 default and requires an explicit `shoppingEnabled` option and a later model
@@ -105,18 +113,43 @@ timestamp validation before accepting events.
 [Lambda hosting](https://developer.amazon.com/en-US/docs/alexa/custom-skills/host-a-custom-skill-as-an-aws-lambda-function.html),
 [HTTPS validation](https://developer.amazon.com/en-US/docs/alexa/custom-skills/host-a-custom-skill-as-a-web-service.html).
 
-Attribution is unresolved: Alexa's account identifier identifies the enabled
-Amazon account, not necessarily the person speaking. The current app's clients,
-history and receipts require a person. Agree how a shared speaker should appear
-with the user and coordinate any schema change with the parent task. Never infer
-the author from the note or borrow a person's broad phone credential.
+Selected attribution preference: identify the person if it is straightforward;
+otherwise label the source Alexa. Capture must not ask who is speaking. Alexa's
+account identifier identifies the enabled Amazon account, not necessarily the
+speaker. The current app's clients, history and receipts require a person, so
+the shared integration actor still needs a coordinated design with the parent
+task. Never infer the author from the note or borrow a person's broad phone
+credential.
 [Request identity reference](https://developer.amazon.com/en-US/docs/alexa/custom-skills/request-and-response-json-reference.html).
+
+Amazon can include an opaque `personId` for a recognized speaker when that
+speaker has a voice ID, Personalize skills is enabled, and the skill requests the
+personalization permission. Recognition can fail, and the ID is not a person's
+name. An optional later enhancement could map recognized IDs to household members
+during setup, use that only as attribution metadata, and fall back to Alexa when
+absent or unknown. It must not widen scope, permissions or personal undo rights,
+add a confirmation turn, or prevent a note from saving. Do not enable Amazon
+personalization until that behavior is implemented and its configuration reviewed.
+[Personalization requirements](https://developer.amazon.com/en-US/docs/alexa/custom-skills/add-personalization-to-your-skill.html).
+
+## First account setup step
+
+Open the [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask)
+and sign in with the existing Amazon login used by the test devices. Amazon
+supports using an existing consumer Amazon account for developer registration.
+First establish whether this opens the skills dashboard or developer registration;
+review any registration terms and account information as the account owner. The
+local code does not require registering a skill or provisioning cloud resources
+just to establish developer-console access.
+[Developer account instructions](https://developer.amazon.com/en-US/docs/alexa/ask-overviews/create-developer-account.html).
 
 ## Setup and verification sequence
 
-1. Establish speaker/app locale, same versus separate Amazon accounts, access to
-   a developer account, preferred readback/confirmation, and shared attribution.
-   Record identifiers and configuration only in ignored `.local/alexa/` metadata.
+1. Use the selected save-then-readback interaction. Keep the reported locale and
+   account arrangement in ignored `.local/alexa/` setup metadata; verify the
+   speaker/app language during the device trial. Establish developer-account
+   access and coordinate the selected Alexa attribution fallback before
+   provisioning an integration binding.
 2. Implement and test the proposed listener and authorization in isolated
    fixtures after coordinating shared contracts with the main task. Preserve
    deployed migrations 001–006. No live database is a test fixture.
@@ -141,7 +174,8 @@ the author from the note or borrow a person's broad phone credential.
 9. Review results before connecting an authorized binding to the real household.
    Keep machine-specific transcripts, IDs, addresses and reports out of Git.
 
-No step above is reported as completed by this plan. Local checks cover only
-handler behavior, model structure and TypeScript compatibility. Amazon model
+Product preference and reported setup information have been collected; no live
+setup or trial step above has been completed. Local checks cover only handler
+behavior, model structure and TypeScript compatibility. Amazon model
 acceptance, phrase recognition, cloud latency, tailnet isolation and real-device
 behavior remain unverified.
