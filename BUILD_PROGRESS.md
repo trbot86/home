@@ -26,16 +26,18 @@ Updated 2026-09-27.
 - Optional maintenance ideas with source guidance and independent task drafts.
 - Read-only personal calendar agenda, selective calendar visibility, scheduled
   refresh and coherent web/Android offline cache; Google account setup remains pending.
+- Per-person agenda sections, ordering, item counts and Home/Work defaults,
+  with optional recipe/project panels and durable customisation drafts.
 
 ## Current development
 
 Photo editing is deployed on the web and in the private Android download.
 Browser and Room drafts retain originals and immutable requests through an
-interrupted save. Migrations001–019 are published and immutable. Home assets
+interrupted save. Migrations001–020 are published and immutable. Home assets
 and the service log are deployed on the web and in the private Android download.
 See MAINTENANCE_IMPLEMENTATION.md.
 
-Personal agenda customisation is implemented and verified for release:
+Personal agenda customisation is deployed on the web and private Android download:
 section order, counts and visibility, Home/Work defaults, recipe and project
 panels, durable editor drafts and private preference sync. See
 AGENDA_LAYOUT_IMPLEMENTATION.md for the contract and migration020.
@@ -44,7 +46,7 @@ The candidate passes 203 Linux package tests, 12 affected browser flows and
 the ten Android unit tests. Native layout sync, profile separation, Back,
 offline reload and in-place APK preservation passed on the dedicated emulator.
 A production-Linux restore from the secondary backup preserved 50 retained
-tables and both media files while migrating through 020. Live release is pending.
+tables and both media files while migrating through 020.
 
 The separate Alexa task's capture backend is integrated. Integration actors are
 distinct from people, and the separate listener can only capture shared inbox
@@ -276,3 +278,19 @@ record hashes, installation identity and recovery epoch. Integrity and foreign-k
 checks passed, and the upgrade backup is verified at the secondary destination.
 Live desktop/phone-width checks were read-only. Installing the published APK on
 physical phones and completing real Google consent remain user/device steps.
+
+## Personal agenda layout release (2026-09-27)
+
+Source revision `c065dad` adds Agenda → Customise agenda for each person.
+Section types, order, item limits, Home/Work defaults and calendar range sync
+across their devices. Recipe and project cards open the existing records.
+Offline drafts and pending saves retain their existing durability guarantees.
+
+The live upgrade applied migration020 after creating and verifying a fresh
+backup. Both profiles' 19 existing record hashes, installation identity and
+recovery epoch are preserved; integrity and foreign-key checks pass. The
+upgrade backup is verified independently at the secondary destination.
+The served web assets and private Android download match the tested artifacts.
+Live checks opened the editor at desktop/phone widths without saving household
+preferences or creating test content. Actual phone installation remains a user
+step; the emulator update preserved its cached sections, photo draft and editors.
