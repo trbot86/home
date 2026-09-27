@@ -100,9 +100,22 @@ importers:
 
   packages/alexa:
     dependencies:
+      '@fastify/rate-limit':
+        specifier: 11.2.0
+        version: 11.2.0
       '@our-place/contracts':
         specifier: workspace:*
         version: link:../contracts
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
+      node-forge:
+        specifier: 1.4.0
+        version: 1.4.0
+    devDependencies:
+      '@types/node-forge':
+        specifier: 1.3.14
+        version: 1.3.14
 
   packages/client:
     dependencies:
@@ -478,6 +491,9 @@ packages:
 
   '@types/fs-extra@8.1.5':
     resolution: {integrity: sha512-0dzKcwO+S8s2kuF5Z9oUWatQJj5Uq/iqphEtE3GQJVRRYm/tD1LglU2UnXi2A8jLq5umkGouOXOR9y0n613ZwQ==}
+
+  '@types/node-forge@1.3.14':
+    resolution: {integrity: sha512-mhVF2BnD4BO+jtOp7z1CdzaK4mbuK0LLQYAvdOLqHTavxFNq4zA1EmYkpnFjP8HOUzedfQkRnp0E2ulSAYSzAw==}
 
   '@types/node@24.13.6':
     resolution: {integrity: sha512-SGrw/h3KPFshy3OE6ZL53LMBG5vGQQ8/gIpiqz/kRZhPJ7HgwCEs8LBuNtWLa8dvGZVpSF7+Bf+c11HUrCb/yg==}
@@ -997,6 +1013,10 @@ packages:
   node-addon-api@8.9.2:
     resolution: {integrity: sha512-VijLXbi3UACN69I0JVXJsX4tjACjNoQDgv2gTF6sx2wWEi8tkSg2eX8p5gSIFi8z2+DL3oHmY6OyKce38SDolg==}
     engines: {node: ^18 || ^20 || >= 21}
+
+  node-forge@1.4.0:
+    resolution: {integrity: sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==}
+    engines: {node: '>= 6.13.0'}
 
   on-exit-leak-free@2.1.2:
     resolution: {integrity: sha512-0eJJY6hXLGf1udHwfNftBqH+g73EU4B504nZeKpz1sYRKafAghwxEJunB2O7rDZkL4PGfsMVnTXZ2EjibbqcsA==}
@@ -1651,6 +1671,10 @@ snapshots:
     dependencies:
       '@types/node': 24.13.6
 
+  '@types/node-forge@1.3.14':
+    dependencies:
+      '@types/node': 24.13.6
+
   '@types/node@24.13.6':
     dependencies:
       undici-types: 7.18.2
@@ -2077,6 +2101,8 @@ snapshots:
       - supports-color
 
   node-addon-api@8.9.2: {}
+
+  node-forge@1.4.0: {}
 
   on-exit-leak-free@2.1.2: {}
 

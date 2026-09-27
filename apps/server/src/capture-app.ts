@@ -69,7 +69,12 @@ export async function buildCaptureApp(options: { dataRoot: string; db?: Sqlite; 
       keepAliveTimeout: 5_000,
       ajv: { customOptions: { coerceTypes: false, removeAdditional: false, useDefaults: false } },
     });
-    await app.register(rateLimit, { max: 60, timeWindow: '1 minute' });
+    await app.register(rateLimit, {
+      max: 60,
+      timeWindow: '1 minute',
+      // Unix sockets/named pipes have no remote IP; share one local rate budget.
+      keyGenerator: (request) => request.ip ?? 'local-socket',
+    });
     app.addHook('onRequest', async (request, reply) => {
       reply.header('cache-control', 'no-store').header('x-content-type-options', 'nosniff');
       if (request.headers.origin) return reply.code(403).send({ code: 'origin_rejected' });

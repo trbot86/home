@@ -3,15 +3,24 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": "./src/skill.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx --test test/*.test.ts",
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit && node build.mjs"
   },
   "dependencies": {
-    "@our-place/contracts": "workspace:*"
+    "@fastify/rate-limit": "11.2.0",
+    "@our-place/contracts": "workspace:*",
+    "fastify": "5.12.5",
+    "node-forge": "1.4.0"
+  },
+  "devDependencies": {
+    "@types/node-forge": "1.3.14"
   }
 }
