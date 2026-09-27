@@ -3,7 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "files": ["dist", "migrations"],
+  "files": [
+    "dist",
+    "migrations"
+  ],
   "scripts": {
     "dev": "tsx watch src/main.ts --development",
     "start": "tsx src/main.ts",
@@ -20,6 +23,9 @@
     "@sinclair/typebox": "0.34.52",
     "better-sqlite3": "13.0.3",
     "fastify": "5.12.5",
+    "html-encoding-sniffer": "6.0.0",
+    "ipaddr.js": "2.5.0",
+    "parse5": "8.0.1",
     "tar": "7.5.22"
   }
 }

@@ -12,6 +12,7 @@ export * from './tasks.js';
 export * from './home.js';
 export * from './calendar-date.js';
 export * from './capture.js';
+export * from './recipe-import.js';
 
 export const Source = object({
   kind: Type.Union([
