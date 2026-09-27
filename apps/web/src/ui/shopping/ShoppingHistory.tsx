@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { LinkedText } from '../LinkedText.js';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { HistoryEntry, ShoppingRecord } from '@our-place/contracts';
 import { date } from '../format.js';
@@ -68,7 +69,9 @@ export function ShoppingHistory({
                 {'quantity' in item.version && item.version.quantity ? ` · ${item.version.quantity}` : ''}
               </p>
               {'notes' in item.version && item.version.notes && (
-                <p className="historical-text fine">{item.version.notes}</p>
+                <p className="historical-text fine">
+                  <LinkedText client={client} text={item.version.notes} />
+                </p>
               )}
               <div className="history-actions">
                 <button

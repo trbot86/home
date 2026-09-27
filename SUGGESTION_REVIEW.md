@@ -24,6 +24,12 @@ On the active development host, exact suggestion IDs and the prior review record
 are retained in ignored `.local/private-publication/doc-originals/SUGGESTION_REVIEW.md`.
 Read that local record before processing suggestions already present there. Keep
 future household-specific review metadata local as well.
+New review results are kept under ignored `.local/suggestion-review/`.
+
+The current usability update addresses the browser favicon, clickable web
+addresses, and an Android installation-page shortcut. Internal links between
+notes remain a separate request; automatic updating is not implemented. See
+BUILD_PROGRESS.md for validation and the local review records for release status.
 
 - `<local-run-id>` — completed 2026-09-26. Android system
   Back now closes the current entry/history dialog and preserves unfinished editor

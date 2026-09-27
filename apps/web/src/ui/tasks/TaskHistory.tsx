@@ -3,6 +3,7 @@ import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { HistoryEntry, TaskRecord } from '@our-place/contracts';
 import { RecordDialog } from '../RecordDialog.js';
 import { AttachmentGallery } from '../AttachmentGallery.js';
+import { LinkedText } from '../LinkedText.js';
 import { date } from '../format.js';
 import { displayDate, type TaskRun } from './shared.js';
 function details(record: TaskRecord): string {
@@ -130,7 +131,9 @@ export function TaskHistory({
                 <span>{date(item.recordedAt)}</span>
               </div>
               <p className="fine">{action(item.kind)}</p>
-              <p className="historical-text">{details(item.version)}</p>
+              <p className="historical-text">
+                <LinkedText client={client} text={details(item.version)} />
+              </p>
               {item.version.kind !== 'task_occurrence' && (
                 <AttachmentGallery client={client} attachments={item.version.attachments ?? []} />
               )}

@@ -5,6 +5,8 @@ import { Icon } from './Icon.js';
 import { AttachmentGallery } from './AttachmentGallery.js';
 import { AttachmentDialog, type AttachmentSaved } from './AttachmentDialog.js';
 import { date } from './format.js';
+import { LinkedText } from './LinkedText.js';
+import { textLinks } from './text-links.js';
 
 export function EntryDialog({
   client,
@@ -43,6 +45,13 @@ export function EntryDialog({
   const [tab, setTab] = useState(startHistory ? 'history' : 'edit');
   const [busy, setBusy] = useState(false);
   const [photosOpen, setPhotosOpen] = useState(false);
+  const links = [
+    ...new Map(
+      textLinks(text)
+        .filter((part) => part.href)
+        .map((part) => [part.href, part]),
+    ).values(),
+  ];
   useEffect(() => {
     dialog.current?.showModal();
     void client
@@ -160,6 +169,18 @@ export function EntryDialog({
               </button>
             </div>
           )}
+          {!!links.length && (
+            <div className="entry-links" aria-label="Links in this note">
+              <p className="fine">Links in this note</p>
+              <ul>
+                {links.map((part) => (
+                  <li key={part.href}>
+                    <LinkedText client={client} text={part.text} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <AttachmentGallery client={client} attachments={entry.attachments} />
           {!entry.deletedAt && (
             <button type="button" disabled={busy} onClick={() => setPhotosOpen(true)}>
@@ -214,7 +235,9 @@ export function EntryDialog({
                                 ? 'Redid a change'
                                 : 'Restored this entry'}
                 </p>
-                <p className="historical-text">{item.version.text || 'Photo entry'}</p>
+                <p className="historical-text">
+                  <LinkedText client={client} text={item.version.text || 'Photo entry'} />
+                </p>
                 <AttachmentGallery client={client} attachments={item.version.attachments} />
                 <div className="history-actions">
                   <button

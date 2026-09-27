@@ -9,6 +9,7 @@ import com.getcapacitor.annotation.CapacitorPlugin
 import dev.ourplace.household.capture.PhotoCaptureActivity
 import dev.ourplace.household.capture.QuickCaptureActivity
 import dev.ourplace.household.storage.json
+import dev.ourplace.household.platform.WebLinks
 import org.json.JSONObject
 import java.util.concurrent.Executors
 
@@ -27,6 +28,16 @@ class HouseholdPlugin : Plugin() {
     @PluginMethod fun invoke(call: PluginCall) {
         val method = call.getString("method") ?: return call.reject("method_required")
         val args = call.getObject("args") ?: JSObject()
+        if (method == "openExternalUrl") {
+            try {
+                val intent = WebLinks.intent(args.requireText("url"))
+                activity.runOnUiThread {
+                    try { activity.startActivity(intent); call.resolve(JSObject().put("value", JSONObject.NULL)) }
+                    catch (error: Exception) { call.reject("Could not open a browser", error) }
+                }
+            } catch (error: Exception) { call.reject("Invalid web link", error) }
+            return
+        }
         val networkMethods = setOf("authenticationOptions", "login", "logout", "refresh", "sync", "command", "submitAttachmentDraft", "history", "shoppingHistory", "recordHistory", "photoPath", "storage", "backups", "createBackup", "recoverDraft", "reconcileEdits")
         (if (method in networkMethods) network else core.executor).execute {
             try {

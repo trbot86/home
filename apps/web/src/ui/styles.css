@@ -618,6 +618,9 @@ nav button[aria-current] {
 .entry-body:hover {
   background: none;
 }
+.entry-body {
+  cursor: pointer;
+}
 .entry-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -852,6 +855,60 @@ nav button[aria-current] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 15px;
+}
+.text-link {
+  color: var(--green);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.text-link:hover {
+  color: var(--ink);
+}
+.link-error {
+  display: block;
+  color: var(--error);
+  font-size: 12px;
+}
+.entry-links {
+  margin: 16px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+.entry-links p {
+  margin: 0 0 8px;
+}
+.entry-links ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+}
+.app-updates {
+  margin: 24px 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+}
+.app-updates > p {
+  max-width: 65ch;
+  color: var(--muted);
+  line-height: 1.65;
+}
+.update-link {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--green);
+  line-height: 1.5;
+  text-underline-offset: 4px;
+}
+.update-link[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: default;
 }
 .detail-photos .photo {
   width: 100%;

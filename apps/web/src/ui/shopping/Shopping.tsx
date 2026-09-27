@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LinkedText, WebLink } from '../LinkedText.js';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { ShoppingRecord } from '@our-place/contracts';
 import { Icon } from '../Icon.js';
@@ -271,7 +272,11 @@ export function Shopping({
                     <h3>{item.label}</h3>
                     {item.quantity && <span>{item.quantity}</span>}
                   </div>
-                  {item.notes && <p className="shopping-notes">{item.notes}</p>}
+                  {item.notes && (
+                    <p className="shopping-notes">
+                      <LinkedText client={client} text={item.notes} />
+                    </p>
+                  )}
                   {product && (
                     <p className="fine">
                       {product.model || 'From your restock shelf'}
@@ -279,9 +284,9 @@ export function Shopping({
                         <>
                           {' '}
                           ·{' '}
-                          <a href={product.productUrl} target="_blank" rel="noreferrer">
+                          <WebLink client={client} href={product.productUrl}>
                             Product link
-                          </a>
+                          </WebLink>
                         </>
                       )}
                     </p>
@@ -355,11 +360,15 @@ export function Shopping({
                 <h3>{product.name}</h3>
                 {product.model && <p>{product.model}</p>}
                 {product.quantity && <p className="fine">Usually {product.quantity}</p>}
-                {product.notes && <p className="shopping-notes">{product.notes}</p>}
+                {product.notes && (
+                  <p className="shopping-notes">
+                    <LinkedText client={client} text={product.notes} />
+                  </p>
+                )}
                 {product.productUrl && (
-                  <a href={product.productUrl} target="_blank" rel="noreferrer">
+                  <WebLink client={client} href={product.productUrl}>
                     Open product link ↗
-                  </a>
+                  </WebLink>
                 )}
                 <button
                   className="primary restock-need"

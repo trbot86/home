@@ -21,6 +21,7 @@ import type {
 type NativeMethod =
   | 'state'
   | 'endpoint'
+  | 'openExternalUrl'
   | 'configure'
   | 'login'
   | 'authenticationOptions'
@@ -106,6 +107,9 @@ export class AndroidClient implements ClientPlatform {
   }
   serverAddress(): Promise<string> {
     return this.invoke('endpoint');
+  }
+  openExternalUrl(url: string): Promise<void> {
+    return this.invoke('openExternalUrl', { url });
   }
   configureServer(url: string): Promise<void> {
     return this.invoke('configure', { url });

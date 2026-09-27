@@ -1,6 +1,8 @@
 import { Photo } from './Photo.js';
 import { EntryDialog } from './EntryDialog.js';
 import { Storage } from './Storage.js';
+import { AppUpdates } from './AppUpdates.js';
+import { LinkedText } from './LinkedText.js';
 import { date } from './format.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState, Draft } from '@our-place/client';
@@ -562,6 +564,7 @@ export function App({ client }: { client: ClientPlatform }) {
             ) : view === 'storage' ? (
               <>
                 <Storage client={client} state={state} onError={showError} />
+                <AppUpdates client={client} online={state.online} onError={showError} />
                 {state.session.isAdministrator && (
                   <BackupPanel client={client} online={state.online} onError={showError} />
                 )}
@@ -688,7 +691,9 @@ export function App({ client }: { client: ClientPlatform }) {
                       <article className="pending-card" key={item.draftId}>
                         <Icon name={item.state === 'DRAFT' ? 'inbox' : 'clock'} />
                         <div>
-                          <p className="entry-text">{item.text || 'Photo capture'}</p>
+                          <p className="entry-text">
+                            <LinkedText client={client} text={item.text || 'Photo capture'} />
+                          </p>
                           <span className="fine">
                             {item.state === 'DRAFT'
                               ? 'Unfinished draft · not submitted'
@@ -885,15 +890,20 @@ export function App({ client }: { client: ClientPlatform }) {
                                 {date(entry.createdAt)}
                               </time>
                             </div>
-                            <button
+                            <div
                               className="entry-body"
                               onClick={() => setSelected({ id: entry.inboxId, history: false })}
                             >
-                              <p className="entry-text">{entry.text || 'A picture to remember'}</p>
-                            </button>
+                              <p className="entry-text">
+                                <LinkedText client={client} text={entry.text || 'A picture to remember'} />
+                              </p>
+                            </div>
                             <div className="entry-actions">
                               <button
-                                disabled={!state.online || state.pendingEdits.includes(entry.inboxId)}
+                                disabled={
+                                  view === 'trash' &&
+                                  (!state.online || state.pendingEdits.includes(entry.inboxId))
+                                }
                                 onClick={() => {
                                   if (view === 'trash')
                                     void runCommand(
@@ -905,7 +915,11 @@ export function App({ client }: { client: ClientPlatform }) {
                                   else setSelected({ id: entry.inboxId, history: false });
                                 }}
                               >
-                                {view === 'trash' ? 'Restore' : 'Edit'}
+                                {view === 'trash'
+                                  ? 'Restore'
+                                  : !state.online || state.pendingEdits.includes(entry.inboxId)
+                                    ? 'View'
+                                    : 'Edit'}
                               </button>
                               <button onClick={() => setSelected({ id: entry.inboxId, history: true })}>
                                 <Icon name="clock" size={14} />

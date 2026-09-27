@@ -23,6 +23,12 @@ interrupted save. Migration006 is published and immutable. Maintenance assets
 and the service log are next.
 See MAINTENANCE_IMPLEMENTATION.md.
 
+The current usability update adds a house favicon, clickable web addresses in
+notes and captions, and a Storage shortcut to this household's Android
+installation page. Android opens links in the external browser and preserves
+unfinished edits when returning. The installation shortcut downloads through
+the browser; Android still asks before installing. It is not an automatic updater.
+
 ## Verification
 
 The deployed Tasks release passed 40 server tests, five contract tests, nine
@@ -36,6 +42,11 @@ Local reports contain exact build, backup and deployment evidence. They are
 intentionally excluded from this public repository.
 The release preserved existing record hashes and installation/recovery identity.
 Both the secondary backup and a restore into a new isolated folder were verified.
+
+The usability update passed 14 browser flows and ten Android unit tests. After
+the final link-component refinement, the eight affected browser flows passed
+again. An isolated Android emulator verified actual browser handoff, returning
+to an unfinished editor, and the installation shortcut's configured endpoint.
 
 ## Remaining work
 

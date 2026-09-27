@@ -24,6 +24,7 @@ import { taskRecords, displayDate, priorityNames, type TaskRun } from './shared.
 import './tasks.css';
 import { AttachmentDialog, type AttachmentSaved } from '../AttachmentDialog.js';
 import { AttachmentGallery } from '../AttachmentGallery.js';
+import { LinkedText } from '../LinkedText.js';
 type View = 'focus' | 'all' | 'completed' | 'deleted';
 type Editor = { mode: 'create' | 'definition' | 'occurrence'; taskId?: string; occurrenceId?: string };
 const groupNames: Record<TaskAttention, string> = {
@@ -250,7 +251,11 @@ export function Tasks({
               ? ` · Every ${task.recurrence.count === 1 ? task.recurrence.unit.slice(0, -1) : `${task.recurrence.count} ${task.recurrence.unit}`} after completion`
               : ''}
           </p>
-          {task.instructions && <p className="task-instructions">{task.instructions}</p>}
+          {task.instructions && (
+            <p className="task-instructions">
+              <LinkedText client={client} text={task.instructions} />
+            </p>
+          )}
           <AttachmentGallery client={client} attachments={task.attachments ?? []} />
           <div className="task-dates">
             {item.deadlineDate && (
@@ -489,7 +494,11 @@ export function Tasks({
                   <p className="task-meta">
                     Done by {item.performerName} · {date(item.completedAt)}
                   </p>
-                  {item.note && <p className="task-instructions">{item.note}</p>}
+                  {item.note && (
+                    <p className="task-instructions">
+                      <LinkedText client={client} text={item.note} />
+                    </p>
+                  )}
                   <AttachmentGallery client={client} attachments={item.attachments ?? []} />
                   {task.deletedAt !== null && (
                     <p className="fine">Task deleted · completion kept in history</p>

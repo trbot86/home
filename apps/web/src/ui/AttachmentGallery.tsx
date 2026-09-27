@@ -3,6 +3,7 @@ import type { ClientPlatform } from '@our-place/client';
 import type { Attachment } from '@our-place/contracts';
 import { Photo } from './Photo.js';
 import { RecordDialog } from './RecordDialog.js';
+import { LinkedText } from './LinkedText.js';
 import './attachments.css';
 
 export function AttachmentGallery({
@@ -26,7 +27,11 @@ export function AttachmentGallery({
             >
               <Photo client={client} id={photo.mediaId} descriptor={photo} />
             </button>
-            {photo.caption && <figcaption>{photo.caption}</figcaption>}
+            {photo.caption && (
+              <figcaption>
+                <LinkedText client={client} text={photo.caption} />
+              </figcaption>
+            )}
           </figure>
         ))}
       </div>
