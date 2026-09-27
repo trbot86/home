@@ -40,6 +40,11 @@ the next occurrence from actual completion, with calendar-month clamping; fixed
 calendar schedules and notification delivery remain future work. History and
 guarded undo cover the whole completion action. Cached tasks are read-only offline.
 
+From an asset in Home, **Browse maintenance ideas** offers optional starting points
+with source guidance. Customize a task before saving; its dates and recurrence
+start unset. Unfinished suggestion drafts remain separate from manually written
+tasks and from other assets.
+
 The Food section saves recipe links immediately and collects metadata
 and a source picture in the background. It offers Want to try, Favourites, independent
 Make soon pins, source editing, household adjustments, cooking notes/photos and

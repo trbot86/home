@@ -21,12 +21,15 @@ Updated 2026-09-27.
   pins, household adjustments and cooking notes/photos.
 - Linked cooking tasks with actual-date recurrence, plus selected ingredient
   shopping groups, retained source details and compound undo/redo.
+- Project boards, nested mixed-media pages, source-owned record links, ordered
+  next-action pins, subtree moves, selective restoration and history.
+- Optional maintenance ideas with source guidance and independent task drafts.
 
 ## Current development
 
 Photo editing is deployed on the web and in the private Android download.
 Browser and Room drafts retain originals and immutable requests through an
-interrupted save. Migrations001–014 are published and immutable. Home assets
+interrupted save. Migrations001–016 are published and immutable. Home assets
 and the service log are deployed on the web and in the private Android download.
 See MAINTENANCE_IMPLEMENTATION.md.
 
@@ -98,8 +101,7 @@ to the live household.
 ## Remaining work
 
 Calendar integration, selective notifications, richer
-gift workflows and Alexa cloud/device integration remain. Suggested maintenance
-templates can follow the deployed asset and service workflow.
+gift workflows and Alexa cloud/device integration remain.
 Fixed-calendar recurrence needs an explicit missed-slot policy. OEM voice,
 widget and locked-phone behavior requires physical-device checks. Metadata
 snapshots have explicit limits pending incremental synchronization.
@@ -163,3 +165,15 @@ retained tables and media while applying migrations 015–016. The live upgrade
 preserved both profiles' 19 existing record hashes and installation/recovery
 identity; foreign-key/integrity checks passed. Published web/APK bytes match the
 tested builds, and the upgrade backup is verified on the secondary drive.
+
+## Maintenance ideas release (2026-09-27)
+
+Home now offers five optional maintenance ideas with links to official guidance.
+Each opens a normal editable task, with dates and recurrence unset and a separate
+durable draft for that asset and idea. Existing manual drafts stay intact.
+All 11 affected browser flows, native Android checks, in-place APK preservation,
+typechecking and package boundaries pass. The image passes 155 Linux package
+tests. The release requires no schema change. A fresh online backup and its
+secondary copy were verified before publication. Both profiles' existing record
+hashes and installation/recovery identity stayed unchanged, and served web/APK
+bytes match the tested builds. Live checks added no synthetic household records.

@@ -102,7 +102,7 @@ undo the completion as one action. Later relevant edits reject that undo.
 
 ## Optional maintenance ideas
 
-The maintenance-ideas branch adds five source-backed starting points: heating
+The deployed maintenance-ideas feature adds five source-backed starting points: heating
 filter checks, dishwasher filters and spray arms, washer cleaning and refrigerator
 seal inspection. Browse and filter them from an asset, then customize an ordinary
 task before saving. Dates and recurrence start unset. A title already present on
@@ -129,7 +129,10 @@ Home, Tasks and Food browser flows pass, including separate drafts, private scop
 opt-in dates/recurrence, undo/redo, offline browsing and 320–1440 pixel layouts.
 The image passes all 155 Linux package tests. Android builds, in-place update
 preservation and native UI verification pass, including Back, Room draft recovery,
-private asset scope and editable recurrence. Live publication is pending.
+private asset scope and editable recurrence. The feature is published on the web
+and in the private Android download. It needed no migration. Both profiles'
+existing records and household identity were preserved; served artifacts match
+the tested builds, and the fresh pre-release backup has a verified secondary copy.
 
 Fixed-calendar recurrence, notification channels and calendar integration remain
 separate slices.
