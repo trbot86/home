@@ -1,9 +1,19 @@
 # Fixed calendar recurrence: design checkpoint
 
-Status: proposal, not implemented or deployed. The late-reporting choice below
-is awaiting household input. Existing recurrence remains based on actual
-completion. This pass is grounded in the current Tasks contracts, repository,
-editor and published migration 005; migrations 001 through 021 remain immutable.
+Status: calendar arithmetic implemented and tested; the feature is not deployed.
+The late-reporting choice below is awaiting household input. Existing recurrence
+remains based on actual completion. This pass is grounded in the current Tasks
+contracts, repository, editor and published migration 005; migrations 001 through
+021 remain immutable.
+
+`nextAnchoredCalendarDate` in `packages/contracts/src/calendar-date.ts` finds the
+first daily, weekly or monthly slot after an explicit cutoff. It is independent
+of the pending late-reporting policy and does not read the clock. Five new tests
+cover anchor/interval behavior, February and leap-year recovery, the supported
+date range, invalid inputs and timezone-derived cutoffs. The full package suite
+passes 229 tests on Windows, with one existing platform-specific socket test
+skipped. Type checks and package-boundary checks pass. No schema, command or UI
+has changed; those parts below remain proposed.
 
 ## Behavior and the remaining choice
 

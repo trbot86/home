@@ -31,11 +31,14 @@ Updated 2026-09-27.
 
 ## Current development
 
-Fixed-calendar recurrence has a concrete design checkpoint in
-FIXED_RECURRENCE_PLAN.md. One late-reporting policy question is pending; no
-recurrence code or schema has changed. The plan separates a fixed occurrence's
-scheduled slot from its movable target and guards against older phone editors
-silently replacing a fixed rule when saving other task details.
+Fixed-calendar recurrence has a design checkpoint and tested calendar arithmetic
+in FIXED_RECURRENCE_PLAN.md. One late-reporting policy question is pending. The
+calculation supports either choice through an explicit cutoff and keeps monthly
+schedules anchored after short months. All 229 runnable package tests pass on
+Windows, with one existing platform-specific test skipped; type and boundary
+checks pass. The feature is not deployed. No command, schema or UI has changed.
+The plan separates a fixed occurrence's scheduled slot from its movable target
+and guards against older phone editors replacing a fixed rule on other edits.
 
 Desktop screenshot paste and image-file drop are deployed for
 Inbox, suggestions and the shared photo editor. Twelve affected browser flows,
