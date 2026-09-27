@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Our place</string>
+    <string name="title_activity_main">Our place</string>
+    <string name="package_name">dev.ourplace.household</string>
+    <string name="custom_url_scheme">dev.ourplace.household</string>
+</resources>

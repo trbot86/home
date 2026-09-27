@@ -1,0 +1,209 @@
+[
+  {
+    "name": "applied",
+    "valid": true,
+    "outcome": {
+      "status": "Applied",
+      "receipt": {
+        "operationId": "operation-123",
+        "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "recordedAt": 1000
+      },
+      "result": {
+        "records": [
+          {
+            "recordId": "record-123",
+            "revision": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "replayed",
+    "valid": true,
+    "outcome": {
+      "status": "Applied",
+      "receipt": {
+        "operationId": "operation-123",
+        "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "recordedAt": 1000
+      },
+      "result": {
+        "records": [
+          {
+            "recordId": "record-123",
+            "revision": 1
+          }
+        ]
+      },
+      "replayed": true,
+      "changeSetId": "changeset-123"
+    }
+  },
+  {
+    "name": "rejected",
+    "valid": true,
+    "outcome": {
+      "status": "Rejected",
+      "receipt": {
+        "operationId": "operation-123",
+        "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "recordedAt": 1000
+      },
+      "code": "conflict",
+      "safeDetails": {
+        "fields": [
+          "text"
+        ]
+      }
+    }
+  },
+  {
+    "name": "deferred",
+    "valid": true,
+    "outcome": {
+      "status": "Deferred",
+      "code": "media_pending"
+    }
+  },
+  {
+    "name": "recovery",
+    "valid": true,
+    "outcome": {
+      "status": "RecoveryRequired",
+      "currentServerEpoch": "epoch-123",
+      "restorePoint": null
+    }
+  },
+  {
+    "name": "coerced revision",
+    "valid": false,
+    "outcome": {
+      "status": "Applied",
+      "receipt": {
+        "operationId": "operation-123",
+        "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "recordedAt": 1000
+      },
+      "result": {
+        "records": [
+          {
+            "recordId": "record-123",
+            "revision": "1"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "fractional revision",
+    "valid": false,
+    "outcome": {
+      "status": "Applied",
+      "receipt": {
+        "operationId": "operation-123",
+        "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "recordedAt": 1000
+      },
+      "result": {
+        "records": [
+          {
+            "recordId": "record-123",
+            "revision": 1.5
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "extra property",
+    "valid": false,
+    "outcome": {
+      "status": "Applied",
+      "receipt": {
+        "operationId": "operation-123",
+        "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "recordedAt": 1000
+      },
+      "result": {
+        "records": [
+          {
+            "recordId": "record-123",
+            "revision": 1
+          }
+        ]
+      },
+      "unexpected": true
+    }
+  },
+  {
+    "name": "coerced timestamp",
+    "valid": false,
+    "outcome": {
+      "status": "Applied",
+      "receipt": {
+        "operationId": "operation-123",
+        "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "recordedAt": "1000"
+      },
+      "result": {
+        "records": [
+          {
+            "recordId": "record-123",
+            "revision": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "null optional",
+    "valid": false,
+    "outcome": {
+      "status": "Applied",
+      "receipt": {
+        "operationId": "operation-123",
+        "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "recordedAt": 1000
+      },
+      "result": {
+        "records": [
+          {
+            "recordId": "record-123",
+            "revision": 1
+          }
+        ]
+      },
+      "changeSetId": null
+    }
+  },
+  {
+    "name": "missing restore point",
+    "valid": false,
+    "outcome": {
+      "status": "RecoveryRequired",
+      "currentServerEpoch": "epoch-123"
+    }
+  },
+  {
+    "name": "unsafe number",
+    "valid": false,
+    "outcome": {
+      "status": "Applied",
+      "receipt": {
+        "operationId": "operation-123",
+        "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "recordedAt": 9007199254740992
+      },
+      "result": {
+        "records": [
+          {
+            "recordId": "record-123",
+            "revision": 1
+          }
+        ]
+      }
+    }
+  }
+]

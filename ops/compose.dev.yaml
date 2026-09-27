@@ -1,0 +1,39 @@
+name: our-place-dev
+services:
+  household:
+    image: our-place:development
+    container_name: our-place-dev
+    labels:
+      com.our-place.role: phone-trial
+      com.our-place.workspace: ${OUR_PLACE_WORKSPACE:?Set workspace identity}
+    init: true
+    restart: unless-stopped
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    environment:
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set private HTTPS origin}
+      EXPECTED_INSTALLATION_ID: ${EXPECTED_INSTALLATION_ID:?Bootstrap first}
+      CLIENT_DOWNLOAD_ROOT: /client-downloads
+      AUTHENTICATION_MODE: trusted-network
+      BACKUP_HOUR: 6
+      TZ: America/Toronto
+    ports: ['127.0.0.1:3174:3000']
+    volumes:
+      - trial-data:/data
+      - type: bind
+        source: ${OUR_PLACE_WORKSPACE:?Set workspace identity}/.local/phone-trial/install
+        target: /client-downloads
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${BACKUP_OUTPUT_DIR:?Set dedicated backup directory}
+        target: /backups
+        bind:
+          create_host_path: false
+    tmpfs: ['/tmp:size=64m,mode=1777']
+volumes:
+  trial-data:
+    external: true
+    name: our-place-dev-data

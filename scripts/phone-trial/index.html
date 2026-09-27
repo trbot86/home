@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#20231f" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Our place · Android trial</title>
+    <link rel="stylesheet" href="/install/install.css" />
+    <script src="/install/install.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">A little less to remember</p>
+      <h1>Our place.</h1>
+      <p class="intro">Your household, on your phone.</p>
+      <ol>
+        <li>Connect this phone to your household Tailscale network.</li>
+        <li>
+          <a class="button" href="/install/our-place-debug.apk" download>Download the Android app</a>
+          <p>
+            Open the download and allow installation from this source if Android asks. This is a development
+            build.
+          </p>
+        </li>
+        <li>
+          Open Our place. This server is already filled in on new installations. If needed, enter:
+          <p><code id="address">{{origin}}</code></p>
+          <button id="copy" type="button">Copy server address</button>
+          <span id="copy-status" role="status"></span>
+        </li>
+        <li>Choose your profile. No password is needed; the app remembers your choice. Use the profile menu to switch.</li>
+      </ol>
+      <p><a href="/">Open in the browser</a></p>
+      <footer>
+        <p>
+          Keep Tailscale connected and this PC awake while using the server. You can still capture things
+          offline after choosing your profile.
+        </p>
+        <details>
+          <summary>Build details</summary>
+          <p>APK SHA256: <code>{{digest}}</code><br />Updated {{updatedAt}}</p>
+        </details>
+      </footer>
+    </main>
+  </body>
+</html>

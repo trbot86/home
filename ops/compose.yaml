@@ -1,0 +1,33 @@
+name: our-place
+services:
+  household:
+    build:
+      context: ..
+    image: our-place:local
+    init: true
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set the household private HTTPS origin}
+      EXPECTED_INSTALLATION_ID: ${EXPECTED_INSTALLATION_ID:?Set the identity printed by bootstrap}
+      BACKUP_HOUR: ${BACKUP_HOUR:-6}
+      TZ: ${TZ:-America/Toronto}
+    ports:
+      - "127.0.0.1:${HOUSEHOLD_PORT:-3173}:3000"
+    volumes:
+      - household-data:/data
+      - type: bind
+        source: ${BACKUP_OUTPUT_DIR:?Set a dedicated existing Windows backup directory}
+        target: /backups
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+volumes:
+  household-data:
+    external: true
+    name: ${HOUSEHOLD_DATA_VOLUME:-our-place-data}

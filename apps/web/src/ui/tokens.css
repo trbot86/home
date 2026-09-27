@@ -1,0 +1,28 @@
+:root {
+  /* Keep the original mockup's dark sage palette, independent of OS appearance. */
+  color-scheme: dark;
+  --serif: Georgia, 'Times New Roman', serif;
+  --sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --bg: #20231f;
+  --paper: #292e28;
+  --side: #242821;
+  --ink: #edf0e7;
+  --muted: #b0b8a8;
+  --line: #42493e;
+  --green: #bacfac;
+  --wash: #354430;
+  --on: #243020;
+  --amber: #edbd8e;
+  --amberwash: #463829;
+  --blue: #b0cbe5;
+  --bluewash: #2f3d49;
+  --green-hover: #aabd9d;
+  --line-strong: #65705e;
+  --amberline: #766149;
+  --error: #f1b79f;
+  --errorwash: #48332b;
+  --errorline: #80604c;
+  --shadow: #00000029;
+  --shadow-deep: #00000066;
+  --backdrop: #10160fc9;
+}

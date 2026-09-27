@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors the dark sage palette in apps/web/src/ui/tokens.css. -->
+    <color name="household_background">#20231f</color>
+    <color name="household_surface">#292e28</color>
+    <color name="household_text">#edf0e7</color>
+    <color name="household_muted">#b0b8a8</color>
+    <color name="household_accent">#bacfac</color>
+    <color name="household_wash">#354430</color>
+</resources>

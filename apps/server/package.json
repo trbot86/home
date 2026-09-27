@@ -1,0 +1,25 @@
+{
+  "name": "@our-place/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "files": ["dist", "migrations"],
+  "scripts": {
+    "dev": "tsx watch src/main.ts --development",
+    "start": "tsx src/main.ts",
+    "bootstrap": "tsx src/bootstrap.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "build": "tsc --noEmit && node ../../scripts/build-server.mjs"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.1.2",
+    "@fastify/rate-limit": "11.2.0",
+    "@fastify/static": "10.1.4",
+    "@our-place/contracts": "workspace:*",
+    "@sinclair/typebox": "0.34.52",
+    "better-sqlite3": "13.0.3",
+    "fastify": "5.12.5",
+    "tar": "7.5.22"
+  }
+}

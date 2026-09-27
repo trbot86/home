@@ -1,0 +1,9 @@
+{
+  "name": "@our-place/contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "typecheck": "tsc --noEmit", "test": "tsx --test test/*.test.ts", "build": "tsc --noEmit" },
+  "dependencies": { "@sinclair/typebox": "0.34.52" }
+}

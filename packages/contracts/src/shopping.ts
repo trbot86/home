@@ -1,0 +1,79 @@
+import { Type, type Static } from '@sinclair/typebox';
+import { Id, Instant, Revision, object } from './primitives.js';
+export const ShoppingPurpose = Type.Union(
+  (['groceries', 'household', 'wants', 'gifts'] as const).map((value) => Type.Literal(value)),
+);
+const name = Type.String({ minLength: 1, maxLength: 300 });
+const quantity = Type.String({ maxLength: 120 });
+const notes = Type.String({ maxLength: 10000 });
+const nullableId = Type.Union([Id, Type.Null()]);
+const commonContent = { scopeId: Id, deletedAt: Type.Union([Instant, Type.Null()]) };
+export const ShoppingListFields = { name, purpose: ShoppingPurpose };
+export const RestockItemFields = {
+  name,
+  model: Type.String({ maxLength: 500 }),
+  quantity,
+  notes,
+  productUrl: Type.Union([Type.String({ maxLength: 4096, pattern: '^https?://[^\\s]+$' }), Type.Null()]),
+};
+export const ShoppingEntryFields = { label: name, quantity, notes };
+export const PurchaseItem = object({ purchaseItemId: Id, shoppingEntryId: Id, label: name, quantity });
+export const shoppingContentSchemas = {
+  shopping_list: object({ ...commonContent, ...ShoppingListFields }),
+  restock_item: object({ ...commonContent, ...RestockItemFields }),
+  shopping_entry: object({
+    ...commonContent,
+    ...ShoppingEntryFields,
+    listId: Id,
+    restockItemId: nullableId,
+    state: Type.Union([Type.Literal('needed'), Type.Literal('purchased'), Type.Literal('cancelled')]),
+    position: Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+  }),
+  purchase: object({
+    ...commonContent,
+    boughtAt: Instant,
+    buyerPersonId: Id,
+    buyerName: Type.String({ maxLength: 300 }),
+    notes,
+    items: Type.Array(PurchaseItem, { minItems: 1, maxItems: 100 }),
+  }),
+} as const;
+export type ShoppingKind = keyof typeof shoppingContentSchemas;
+type Header<K extends ShoppingKind> = {
+  recordId: string;
+  kind: K;
+  revision: number;
+  createdAt: number;
+  updatedAt: number;
+};
+export type ShoppingList = Header<'shopping_list'> & Static<typeof shoppingContentSchemas.shopping_list>;
+export type RestockItem = Header<'restock_item'> & Static<typeof shoppingContentSchemas.restock_item>;
+export type ShoppingEntry = Header<'shopping_entry'> & Static<typeof shoppingContentSchemas.shopping_entry>;
+export type Purchase = Header<'purchase'> & Static<typeof shoppingContentSchemas.purchase>;
+export type ShoppingRecord = ShoppingList | RestockItem | ShoppingEntry | Purchase;
+export type ShoppingSnapshot = {
+  lists: ShoppingList[];
+  restockItems: RestockItem[];
+  entries: ShoppingEntry[];
+  purchases: Purchase[];
+};
+export const emptyShopping = (): ShoppingSnapshot => ({
+  lists: [],
+  restockItems: [],
+  entries: [],
+  purchases: [],
+});
+const target = { recordId: Id, expectedRevision: Revision };
+export const shoppingCommands = {
+  CreateShoppingList: object({ recordId: Id, scopeId: Id, ...ShoppingListFields }),
+  UpdateShoppingList: object({ ...target, ...ShoppingListFields }),
+  CreateRestockItem: object({ recordId: Id, scopeId: Id, ...RestockItemFields }),
+  UpdateRestockItem: object({ ...target, ...RestockItemFields }),
+  AddShoppingEntry: object({ recordId: Id, listId: Id, ...ShoppingEntryFields }),
+  NeedRestockItem: object({ recordId: Id, listId: Id, restockItemId: Id, expectedRestockRevision: Revision }),
+  UpdateShoppingEntry: object({ ...target, ...ShoppingEntryFields }),
+  MoveShoppingEntry: object({ ...target, listId: Id }),
+  PurchaseShoppingEntry: object({ ...target, purchaseId: Id, purchaseItemId: Id, boughtAt: Instant }),
+  DeleteShoppingRecord: object(target),
+  RestoreShoppingRecord: object(target),
+} as const;

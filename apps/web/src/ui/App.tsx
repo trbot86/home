@@ -1,0 +1,1006 @@
+import { Photo } from './Photo.js';
+import { EntryDialog } from './EntryDialog.js';
+import { Storage } from './Storage.js';
+import { date } from './format.js';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import type { ClientPlatform, ClientState, Draft } from '@our-place/client';
+import {
+  categoryOf,
+  emptyShopping,
+  emptyTasks,
+  type CommandKind,
+  type EntryCategory,
+  type InboxEntry,
+} from '@our-place/contracts';
+import { Shopping } from './shopping/Shopping.js';
+import { shoppingRecords } from './shopping/shared.js';
+import { Tasks } from './tasks/Tasks.js';
+import { taskRecords } from './tasks/shared.js';
+import { Icon } from './Icon.js';
+import { BackupPanel } from './BackupPanel.js';
+import { SignIn } from './SignIn.js';
+import { CaptureMedia } from './CaptureMedia.js';
+import { ProfileControl } from './ProfileControl.js';
+
+const emptyState: ClientState = {
+  session: null,
+  entries: [],
+  shopping: emptyShopping(),
+  tasks: emptyTasks(),
+  drafts: [],
+  online: navigator.onLine,
+  sampledAt: null,
+  pendingEdits: [],
+  recoveryRequired: false,
+};
+const message = (error: unknown) =>
+  error instanceof Error ? error.message : 'Something went wrong. Your saved draft is still here.';
+type View = 'inbox' | 'suggestions' | 'shopping' | 'tasks' | 'trash' | 'storage';
+function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
+  const candidates = drafts.filter((d) => d.state === 'DRAFT' && categoryOf(d) === category);
+  return candidates.find((d) => d.text.trim() || d.attachments.length) ?? candidates[0];
+}
+
+export function App({ client }: { client: ClientPlatform }) {
+  const [state, setState] = useState<ClientState>(emptyState);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<View>('inbox');
+  const category: EntryCategory = view === 'suggestions' ? 'app_suggestion' : 'inbox';
+  const navigationLock = useRef(false);
+  const [scope, setScope] = useState('all');
+  const [search, setSearch] = useState('');
+  const [limit, setLimit] = useState(24);
+  const [sort, setSort] = useState('newest');
+  const [error, setError] = useState('');
+  const [toast, setToast] = useState<{
+    label: string;
+    recordId: string;
+    changeSetId: string;
+    redo?: boolean;
+  } | null>(null);
+  const reversal = useRef<typeof toast>(null);
+  const reversalLock = useRef(false);
+  const [selected, setSelected] = useState<{ id: string; history: boolean } | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [text, setText] = useState('');
+  const [captureScope, setCaptureScope] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [localError, setLocalError] = useState(false);
+  const submitLock = useRef(false);
+  const initialiseLock = useRef(false);
+  const loadGeneration = useRef(0);
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  const showError = (value: unknown) => setError(message(value));
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      const generation = ++loadGeneration.current;
+      void client
+        .state()
+        .then((value) => {
+          if (alive && generation === loadGeneration.current) {
+            setState(value);
+            setLoading(false);
+          }
+        })
+        .catch(showError);
+    };
+    const sync = () => {
+      void client
+        .state()
+        .then((value) => (value.session ? client.sync() : undefined))
+        .catch((error) => {
+          if (message(error) !== 'server unreachable') showError(error);
+        });
+      load();
+    };
+    const off = client.subscribe(load);
+    load();
+    sync();
+    const interval = window.setInterval(sync, 15000);
+    window.addEventListener('online', sync);
+    window.addEventListener('offline', load);
+    window.addEventListener('focus', sync);
+    return () => {
+      alive = false;
+      off();
+      clearInterval(interval);
+      window.removeEventListener('online', sync);
+      window.removeEventListener('offline', load);
+      window.removeEventListener('focus', sync);
+    };
+  }, [client]);
+  useEffect(() => {
+    if (switching) return;
+    if (!state.session) {
+      setDraft(null);
+      setText('');
+      return;
+    }
+    if (draft || initialiseLock.current) return;
+    initialiseLock.current = true;
+    const shared = state.session.scopes.find((s) => s.kind === 'shared')!.scopeId;
+    const existing = unfinishedDraft(state.drafts, category);
+    void (existing ? Promise.resolve(existing) : client.createDraft(shared, category))
+      .then((value) => {
+        setDraft(value);
+        setText(value.text);
+        setCaptureScope(value.scopeId);
+      })
+      .catch(showError)
+      .finally(() => {
+        initialiseLock.current = false;
+      });
+  }, [state.session, state.drafts, draft, client, switching, category]);
+  useEffect(() => {
+    if (!draft) return;
+    const latest = state.drafts.find((item) => item.draftId === draft.draftId);
+    if (latest?.state === 'DRAFT')
+      setDraft((current) =>
+        current?.draftId === latest.draftId && current.revision < latest.revision ? latest : current,
+      );
+  }, [state.drafts, draft]);
+  async function saveDraft(value: string, scopeId = captureScope) {
+    if (!draft) return;
+    setSaving(true);
+    setLocalError(false);
+    try {
+      const updated = await client.saveDraft(draft.draftId, value, scopeId);
+      setDraft((current) =>
+        current?.draftId === updated.draftId && current.revision < updated.revision ? updated : current,
+      );
+    } catch (error) {
+      setLocalError(true);
+      showError(error);
+      throw error;
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function switchProfile(username: string) {
+    if (busy || saving || switching) return;
+    setSwitching(true);
+    setError('');
+    let selectionStarted = false;
+    try {
+      if (draft?.state === 'DRAFT') await client.saveDraft(draft.draftId, text, captureScope);
+      selectionStarted = true;
+      await client.login(username, '');
+    } catch (error) {
+      showError(error);
+    } finally {
+      // A lost refresh after successful selection must not leave the old profile's editor on screen.
+      if (selectionStarted) {
+        setDraft(null);
+        setText('');
+        setSelected(null);
+        setToast(null);
+        reversal.current = null;
+        setScope('all');
+        setSearch('');
+        setView('inbox');
+        loadGeneration.current++;
+        try {
+          setState(await client.state());
+        } catch (error) {
+          showError(error);
+        }
+      }
+      setSwitching(false);
+    }
+  }
+  async function navigate(nextView: View) {
+    if (busy || switching || navigationLock.current || !state.session) return;
+    navigationLock.current = true;
+    setBusy(true);
+    try {
+      if (nextView === 'inbox' || nextView === 'suggestions') {
+        const nextCategory = nextView === 'suggestions' ? 'app_suggestion' : 'inbox';
+        if (!draft || categoryOf(draft) !== nextCategory) {
+          if (draft?.state === 'DRAFT') await client.saveDraft(draft.draftId, text, captureScope);
+          const latest = await client.state();
+          const existing = unfinishedDraft(latest.drafts, nextCategory);
+          const next =
+            existing ??
+            (await client.createDraft(
+              state.session.scopes.find((s) => s.kind === 'shared')!.scopeId,
+              nextCategory,
+            ));
+          setDraft(next);
+          setText(next.text);
+          setCaptureScope(next.scopeId);
+        }
+      }
+      setScope('all');
+      setSearch('');
+      setView(nextView);
+    } catch (error) {
+      showError(error);
+    } finally {
+      navigationLock.current = false;
+      setBusy(false);
+    }
+  }
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!draft || submitLock.current) return;
+    submitLock.current = true;
+    setBusy(true);
+    try {
+      await saveDraft(text);
+      await client.submitDraft(draft.draftId);
+      const next = await client.createDraft(captureScope, categoryOf(draft));
+      setDraft(next);
+      setText('');
+      setError('');
+    } catch (error) {
+      showError(error);
+    } finally {
+      submitLock.current = false;
+      setBusy(false);
+    }
+  }
+  async function addPhotos(files: FileList | null) {
+    if (!draft || !files) return;
+    const selectedFiles = Array.from(files);
+    setBusy(true);
+    try {
+      await saveDraft(text);
+      let next = draft;
+      for (const file of selectedFiles) next = await client.addPhoto(draft.draftId, file);
+      setDraft(next);
+    } catch (error) {
+      showError(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function runCommand(
+    entry: InboxEntry | { recordId: string },
+    kind: CommandKind,
+    args: unknown,
+    label: string,
+    expectedServerEpoch = state.session!.serverEpoch,
+  ) {
+    try {
+      const recordId = 'inboxId' in entry ? entry.inboxId : entry.recordId;
+      const outcome = await client.command(recordId, kind, args, expectedServerEpoch);
+      if (outcome.status === 'Applied') {
+        if (outcome.changeSetId) {
+          const action = {
+            label,
+            recordId,
+            changeSetId: outcome.changeSetId,
+            ...(kind === 'UndoChangeSet' ? { redo: true } : {}),
+          };
+          reversal.current = action;
+          setToast(action);
+        }
+        setError('');
+      } else if (outcome.status === 'Rejected')
+        showError(
+          new Error(
+            outcome.code === 'revision_conflict'
+              ? 'This entry changed. Your text is kept; reload the latest version before saving.'
+              : outcome.code.replaceAll('_', ' '),
+          ),
+        );
+      else
+        showError(
+          new Error(
+            outcome.status === 'RecoveryRequired'
+              ? 'The server was restored. Your pending work is kept for reconciliation.'
+              : 'Waiting for the server. This action will be checked again.',
+          ),
+        );
+      return outcome;
+    } catch (error) {
+      showError(error);
+      return null;
+    }
+  }
+  const activeEntries = state.entries
+    .filter(
+      (entry) =>
+        (view === 'trash' ? entry.deletedAt !== null : entry.deletedAt === null) &&
+        (view === 'trash' || categoryOf(entry) === category) &&
+        (scope === 'all' || entry.scopeId === scope) &&
+        entry.text.toLowerCase().includes(search.toLowerCase()),
+    )
+    .sort((a, b) => (sort === 'newest' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt));
+  const pending = state.drafts.filter(
+    (d) =>
+      categoryOf(d) === category && d.draftId !== draft?.draftId && (d.text.trim() || d.attachments.length),
+  );
+  const selectedEntry = state.entries.find((e) => e.inboxId === selected?.id);
+  const sharedScope = state.session?.scopes.find((s) => s.kind === 'shared')?.scopeId;
+  useEffect(
+    () =>
+      client.onBack?.(() => {
+        if (selected) {
+          setSelected(null);
+          return true;
+        }
+        if (busy || switching) return true;
+        if (state.session && view !== 'inbox') {
+          void navigate('inbox');
+          return true;
+        }
+        return false;
+      }),
+    [client, selected, view, busy, switching, draft, text, captureScope, state.session],
+  );
+  async function reverseLatest() {
+    const action = reversal.current;
+    if (!action || !state.online || reversalLock.current) return;
+    const entry =
+      state.entries.find((e) => e.inboxId === action.recordId) ??
+      shoppingRecords(state.shopping).find((record) => record.recordId === action.recordId) ??
+      taskRecords(state.tasks).find((record) => record.recordId === action.recordId);
+    if (!entry || state.pendingEdits.includes(action.recordId)) return;
+    reversalLock.current = true;
+    try {
+      await runCommand(
+        entry,
+        action.redo ? 'RedoChangeSet' : 'UndoChangeSet',
+        { changeSetId: action.changeSetId },
+        action.redo ? 'Change redone' : 'Change undone',
+      );
+    } finally {
+      reversalLock.current = false;
+    }
+  }
+  useEffect(() => {
+    const undoKey = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.altKey ||
+        !(event.ctrlKey || event.metaKey) ||
+        event.key.toLowerCase() !== 'z'
+      )
+        return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || target.closest('input, textarea, select, [contenteditable="true"]'))
+      )
+        return;
+      if (
+        !reversal.current ||
+        !!reversal.current.redo !== event.shiftKey ||
+        !state.online ||
+        busy ||
+        switching ||
+        selected ||
+        document.querySelector('dialog[open]')
+      )
+        return;
+      event.preventDefault();
+      void reverseLatest();
+    };
+    window.addEventListener('keydown', undoKey);
+    return () => window.removeEventListener('keydown', undoKey);
+  }, [state, busy, switching, selected]);
+  if (loading) return <div className="loading">Opening our place…</div>;
+  if (switching)
+    return (
+      <div className="loading" role="status">
+        Opening your profile…
+      </div>
+    );
+  return (
+    <>
+      {error && (
+        <div className="error-banner" role="alert">
+          <span>{error}</span>
+          <button aria-label="Dismiss message" onClick={() => setError('')}>
+            <Icon name="close" />
+          </button>
+        </div>
+      )}
+      {!state.session ? (
+        <SignIn client={client} onError={showError} />
+      ) : (
+        <div className="app-shell">
+          <aside className="sidebar">
+            <a
+              className="brand"
+              href="#"
+              onClick={(event) => {
+                event.preventDefault();
+                void navigate('inbox');
+              }}
+            >
+              <span className="brand-mark">
+                <Icon name="home" />
+              </span>
+              Our place<span className="brand-dot">.</span>
+            </a>
+            <p className="sidebar-caption">Room for everyday life</p>
+            <nav aria-label="Main navigation">
+              {(
+                [
+                  { id: 'inbox', label: 'Inbox', compactLabel: 'Inbox', icon: 'inbox' },
+                  { id: 'shopping', label: 'Shopping', compactLabel: 'Shopping', icon: 'shopping' },
+                  { id: 'tasks', label: 'Tasks', compactLabel: 'Tasks', icon: 'tasks' },
+                  { id: 'trash', label: 'Recently deleted', compactLabel: 'Deleted', icon: 'trash' },
+                  { id: 'storage', label: 'Storage & backups', compactLabel: 'Storage', icon: 'settings' },
+                ] as const
+              ).map((item) => (
+                <button
+                  key={item.id}
+                  aria-label={item.label}
+                  aria-current={view === item.id ? 'page' : undefined}
+                  disabled={busy || switching}
+                  onClick={() => {
+                    void navigate(item.id);
+                  }}
+                >
+                  <Icon name={item.icon} />
+                  <span className="nav-label-full">{item.label}</span>
+                  <span className="nav-label-compact" aria-hidden="true">
+                    {item.compactLabel}
+                  </span>
+                  {item.id === 'inbox' && (
+                    <span className="nav-count">
+                      {state.entries.filter((e) => !e.deletedAt && categoryOf(e) === 'inbox').length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+            <div className="sidebar-bottom">
+              <button
+                className="suggestion"
+                aria-label="App suggestions"
+                aria-current={view === 'suggestions' ? 'page' : undefined}
+                disabled={busy || switching}
+                onClick={() => {
+                  void navigate('suggestions');
+                }}
+              >
+                <Icon name="plus" />
+                App suggestions
+                <span className="nav-count">
+                  {state.entries.filter((e) => !e.deletedAt && categoryOf(e) === 'app_suggestion').length}
+                </span>
+              </button>
+              <ProfileControl
+                client={client}
+                person={state.session.person}
+                online={state.online}
+                disabled={!state.online || busy || saving || !draft}
+                onSwitch={switchProfile}
+                onError={showError}
+              />
+            </div>
+          </aside>
+          <main className={`main main-${view}`}>
+            <header className="page-header">
+              <div>
+                <p className="eyebrow">Your household, together</p>
+                <h1>
+                  {view === 'inbox'
+                    ? 'A place for the little things.'
+                    : view === 'suggestions'
+                      ? 'Make our place a little better.'
+                      : view === 'shopping'
+                        ? 'A little less to remember.'
+                        : view === 'tasks'
+                          ? 'Tasks, at your pace.'
+                          : view === 'trash'
+                            ? 'Room for second thoughts.'
+                            : 'Everything accounted for.'}
+                </h1>
+                <p>
+                  {view === 'inbox'
+                    ? 'Catch a thought now. Figure out the details later.'
+                    : view === 'suggestions'
+                      ? 'Ideas, rough edges, and things you’d like this app to do.'
+                      : view === 'shopping'
+                        ? 'What we need, what we love, and what’s running low.'
+                        : view === 'tasks'
+                          ? 'A plan for what matters, and a record of what got done.'
+                          : view === 'trash'
+                            ? 'Deleted entries keep their history. Bring one back when you need it.'
+                            : 'A clear view of what’s saved, and where.'}
+                </p>
+              </div>
+              <div className="connection">
+                <span className={`status-dot ${state.online ? '' : 'offline'}`} />
+                <span>{state.online ? 'Connected' : 'Offline · on this device'}</span>
+                <button
+                  aria-label="Refresh and sync"
+                  onClick={() => {
+                    void client.sync().catch(showError);
+                  }}
+                >
+                  <Icon name="refresh" size={16} />
+                </button>
+              </div>
+            </header>
+            {state.recoveryRequired && (
+              <div className="notice">
+                <Icon name="clock" />
+                <p>
+                  The server was restored from a backup. Your local drafts and pending requests have been
+                  kept. Older pending requests need reconciliation.
+                </p>
+                {state.pendingEdits.length > 0 && (
+                  <button
+                    onClick={() => {
+                      void client.reconcileEdits().catch(showError);
+                    }}
+                  >
+                    Resolve old edits · keep my text
+                  </button>
+                )}
+              </div>
+            )}
+            {view === 'tasks' ? (
+              <Tasks client={client} state={state} run={runCommand} onError={showError} />
+            ) : view === 'shopping' ? (
+              <Shopping client={client} state={state} run={runCommand} onError={showError} />
+            ) : view === 'storage' ? (
+              <>
+                <Storage client={client} state={state} onError={showError} />
+                {state.session.isAdministrator && (
+                  <BackupPanel client={client} online={state.online} onError={showError} />
+                )}
+              </>
+            ) : (
+              <>
+                {(view === 'inbox' || view === 'suggestions') && draft && (
+                  <form
+                    className="capture"
+                    onSubmit={(event) => {
+                      void submit(event);
+                    }}
+                    onKeyDown={(event) => {
+                      if (
+                        (event.ctrlKey || event.metaKey) &&
+                        event.key === 'Enter' &&
+                        !event.nativeEvent.isComposing
+                      ) {
+                        event.preventDefault();
+                        event.currentTarget.requestSubmit();
+                      }
+                    }}
+                  >
+                    <div className="capture-heading">
+                      <span className="capture-icon">
+                        <Icon name="plus" />
+                      </span>
+                      <label htmlFor="capture-text">
+                        {view === 'suggestions' ? 'Suggest an improvement' : 'What’s on your mind?'}
+                      </label>
+                      <span className="draft-state" aria-live="polite">
+                        {localError
+                          ? 'Draft not saved'
+                          : saving
+                            ? 'Saving draft…'
+                            : 'Draft saved on this device'}
+                      </span>
+                    </div>
+                    <textarea
+                      id="capture-text"
+                      ref={textRef}
+                      value={text}
+                      maxLength={20000}
+                      disabled={busy}
+                      placeholder={
+                        view === 'suggestions'
+                          ? 'What could work better? Add a screenshot if it helps…'
+                          : 'A thought, a link, something for the house…'
+                      }
+                      onChange={(event) => {
+                        setText(event.target.value);
+                        void saveDraft(event.target.value).catch(() => {});
+                      }}
+                      rows={3}
+                    />
+                    {draft.attachments.length > 0 && (
+                      <div className="capture-photos">
+                        {draft.attachments.map((attachment) => (
+                          <div key={attachment.mediaId}>
+                            <Photo client={client} id={attachment.mediaId} />
+                            <button
+                              type="button"
+                              aria-label="Remove photo"
+                              disabled={busy}
+                              onClick={() => {
+                                void client
+                                  .removePhoto(draft.draftId, attachment.mediaId)
+                                  .then(setDraft)
+                                  .catch(showError);
+                              }}
+                            >
+                              <Icon name="close" size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="capture-footer">
+                      <div className="capture-tools">
+                        <CaptureMedia
+                          client={client}
+                          draftId={draft.draftId}
+                          category={categoryOf(draft)}
+                          busy={busy}
+                          addPhotos={addPhotos}
+                          onError={showError}
+                        />
+                      </div>
+                      <div className="capture-submit">
+                        <select
+                          aria-label="Who can see this capture"
+                          value={captureScope}
+                          disabled={busy}
+                          onChange={(event) => {
+                            setCaptureScope(event.target.value);
+                            void saveDraft(text, event.target.value).catch(() => {});
+                          }}
+                        >
+                          {state.session.scopes.map((s) => (
+                            <option key={s.scopeId} value={s.scopeId}>
+                              {s.kind === 'shared' ? 'Shared' : 'Just me'}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="keyboard-hint">Ctrl ↵</span>
+                        <button
+                          className="primary"
+                          disabled={busy || (!text.trim() && !draft.attachments.length)}
+                        >
+                          {busy ? 'Saving…' : view === 'suggestions' ? 'Save suggestion' : 'Save to inbox'}
+                          <Icon name="arrow" size={17} />
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+                {pending.length > 0 && (
+                  <section className="pending-section" aria-label="Local drafts and pending captures">
+                    <div className="section-heading">
+                      <h2>On this device</h2>
+                      <span className="fine">Safe here, with clear next steps</span>
+                    </div>
+                    {pending.map((item) => (
+                      <article className="pending-card" key={item.draftId}>
+                        <Icon name={item.state === 'DRAFT' ? 'inbox' : 'clock'} />
+                        <div>
+                          <p className="entry-text">{item.text || 'Photo capture'}</p>
+                          <span className="fine">
+                            {item.state === 'DRAFT'
+                              ? 'Unfinished draft · not submitted'
+                              : item.state === 'SUBMITTED'
+                                ? 'Waiting for confirmation · kept unchanged for retry'
+                                : item.state === 'ACKNOWLEDGED'
+                                  ? 'Saved on the server · waiting to refresh'
+                                  : `Needs a correction${item.outcome?.status === 'Rejected' ? ` · ${item.outcome.code.replaceAll('_', ' ')}` : ''}`}
+                          </span>
+                        </div>
+                        {item.state === 'DRAFT' && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setDraft(item);
+                                setText(item.text);
+                                setCaptureScope(item.scopeId);
+                                textRef.current?.focus();
+                              }}
+                            >
+                              Continue
+                            </button>
+                            <button
+                              aria-label="Discard draft"
+                              onClick={() => {
+                                void client.discardDraft(item.draftId).catch(showError);
+                              }}
+                            >
+                              <Icon name="trash" size={17} />
+                            </button>
+                          </>
+                        )}
+                        {item.state === 'SUBMITTED' && state.recoveryRequired && (
+                          <button
+                            onClick={() => {
+                              void client
+                                .recoverDraft(item.draftId)
+                                .then((value) => {
+                                  if (value) {
+                                    setDraft(value);
+                                    setText(value.text);
+                                    setCaptureScope(value.scopeId);
+                                  }
+                                })
+                                .catch(showError);
+                            }}
+                          >
+                            Stop old retry · keep a new draft
+                          </button>
+                        )}
+                        {item.state === 'REJECTED' && (
+                          <button
+                            onClick={() => {
+                              void client
+                                .copyRejectedDraft(item.draftId)
+                                .then((value) => {
+                                  setDraft(value);
+                                  setText(value.text);
+                                  setCaptureScope(value.scopeId);
+                                })
+                                .catch(showError);
+                            }}
+                          >
+                            Make a corrected copy
+                          </button>
+                        )}
+                      </article>
+                    ))}
+                  </section>
+                )}
+                <section className="collection">
+                  <div className="collection-heading">
+                    <div>
+                      <p className="eyebrow">
+                        {view === 'trash'
+                          ? 'Kept in history'
+                          : view === 'suggestions'
+                            ? 'Ideas for the app'
+                            : 'A little breathing room'}
+                      </p>
+                      <h2>
+                        {view === 'trash'
+                          ? 'Recently deleted'
+                          : view === 'suggestions'
+                            ? 'App suggestions'
+                            : 'Your inbox'}
+                        <span className="count">{activeEntries.length}</span>
+                      </h2>
+                    </div>
+                    <label className="search">
+                      <Icon name="search" size={17} />
+                      <input
+                        aria-label={view === 'suggestions' ? 'Search suggestions' : 'Search inbox'}
+                        placeholder="Find a thought…"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <div className="list-controls">
+                    <div className="tabs" aria-label="Visibility filter">
+                      <button className={scope === 'all' ? 'active' : ''} onClick={() => setScope('all')}>
+                        Everything
+                      </button>
+                      {state.session.scopes.map((s) => (
+                        <button
+                          key={s.scopeId}
+                          className={scope === s.scopeId ? 'active' : ''}
+                          onClick={() => setScope(s.scopeId)}
+                        >
+                          {s.kind === 'shared' ? (
+                            'Shared'
+                          ) : (
+                            <>
+                              <Icon name="lock" size={13} />
+                              Just me
+                            </>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="list-options">
+                      <select aria-label="Sort inbox" value={sort} onChange={(e) => setSort(e.target.value)}>
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                      </select>
+                      <select
+                        aria-label="Entries per page"
+                        value={limit}
+                        onChange={(e) => setLimit(Number(e.target.value))}
+                      >
+                        <option value={12}>Show 12</option>
+                        <option value={24}>Show 24</option>
+                        <option value={48}>Show 48</option>
+                        <option value={2000}>Show all</option>
+                      </select>
+                    </div>
+                  </div>
+                  {activeEntries.length === 0 ? (
+                    <div className="empty">
+                      <span>
+                        <Icon name={view === 'trash' ? 'trash' : 'inbox'} size={32} />
+                      </span>
+                      <h3>
+                        {search
+                          ? 'Nothing matches yet.'
+                          : view === 'trash'
+                            ? 'Nothing in the bin.'
+                            : view === 'suggestions'
+                              ? 'Room for your next idea.'
+                              : 'A little space for whatever comes next.'}
+                      </h3>
+                      <p>
+                        {search
+                          ? 'Try a different word or visibility filter.'
+                          : view === 'trash'
+                            ? 'Entries you delete will appear here.'
+                            : view === 'suggestions'
+                              ? 'Save an improvement above. It stays separate from your household inbox.'
+                              : 'Save your first thought above. There’s no need to make it tidy.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="entry-grid">
+                      {activeEntries.slice(0, limit).map((entry) => (
+                        <article className="entry-card" key={entry.inboxId}>
+                          {entry.attachments[0] && (
+                            <button
+                              className="entry-image"
+                              aria-label="Open photo entry"
+                              onClick={() => setSelected({ id: entry.inboxId, history: false })}
+                            >
+                              <Photo client={client} id={entry.attachments[0].mediaId} />
+                              {entry.attachments.length > 1 && (
+                                <span className="photo-count">+{entry.attachments.length - 1}</span>
+                              )}
+                            </button>
+                          )}
+                          <div className="entry-content">
+                            <div className="entry-meta">
+                              <span
+                                className={`scope-badge ${entry.scopeId === sharedScope ? '' : 'private'}`}
+                              >
+                                {entry.scopeId === sharedScope ? (
+                                  'Shared with us'
+                                ) : (
+                                  <>
+                                    <Icon name="lock" size={12} />
+                                    Just me
+                                  </>
+                                )}
+                              </span>
+                              <time dateTime={new Date(entry.createdAt).toISOString()}>
+                                {date(entry.createdAt)}
+                              </time>
+                            </div>
+                            <button
+                              className="entry-body"
+                              onClick={() => setSelected({ id: entry.inboxId, history: false })}
+                            >
+                              <p className="entry-text">{entry.text || 'A picture to remember'}</p>
+                            </button>
+                            <div className="entry-actions">
+                              <button
+                                disabled={!state.online || state.pendingEdits.includes(entry.inboxId)}
+                                onClick={() => {
+                                  if (view === 'trash')
+                                    void runCommand(
+                                      entry,
+                                      'RestoreInboxEntry',
+                                      { inboxId: entry.inboxId, expectedRevision: entry.revision },
+                                      'Entry restored',
+                                    );
+                                  else setSelected({ id: entry.inboxId, history: false });
+                                }}
+                              >
+                                {view === 'trash' ? 'Restore' : 'Edit'}
+                              </button>
+                              <button onClick={() => setSelected({ id: entry.inboxId, history: true })}>
+                                <Icon name="clock" size={14} />
+                                History
+                              </button>
+                              {view !== 'trash' && (
+                                <button
+                                  aria-label={
+                                    categoryOf(entry) === 'app_suggestion'
+                                      ? 'Move to inbox'
+                                      : 'Move to app suggestions'
+                                  }
+                                  disabled={!state.online || state.pendingEdits.includes(entry.inboxId)}
+                                  onClick={() => {
+                                    void runCommand(
+                                      entry,
+                                      'SetInboxEntryCategory',
+                                      {
+                                        inboxId: entry.inboxId,
+                                        expectedRevision: entry.revision,
+                                        category:
+                                          categoryOf(entry) === 'app_suggestion' ? 'inbox' : 'app_suggestion',
+                                      },
+                                      categoryOf(entry) === 'app_suggestion'
+                                        ? 'Moved to inbox'
+                                        : 'Moved to app suggestions',
+                                    );
+                                  }}
+                                >
+                                  {categoryOf(entry) === 'app_suggestion' ? 'To inbox' : 'Suggest'}
+                                </button>
+                              )}
+                              <span className="action-spacer" />
+                              {state.pendingEdits.includes(entry.inboxId) ? (
+                                <span className="fine">Awaiting reply</span>
+                              ) : (
+                                view !== 'trash' && (
+                                  <button
+                                    aria-label="Delete entry"
+                                    disabled={!state.online}
+                                    onClick={() => {
+                                      void runCommand(
+                                        entry,
+                                        'DeleteInboxEntry',
+                                        { inboxId: entry.inboxId, expectedRevision: entry.revision },
+                                        'Moved to recently deleted',
+                                      );
+                                    }}
+                                  >
+                                    <Icon name="trash" size={16} />
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                  {activeEntries.length > limit && (
+                    <button className="load-more" onClick={() => setLimit((value) => value + 24)}>
+                      Show more · {activeEntries.length - limit} remaining
+                    </button>
+                  )}
+                  <div className="collection-footer">
+                    <span>
+                      <Icon name={state.online ? 'check' : 'clock'} size={14} />
+                      {state.sampledAt
+                        ? `Last refreshed ${date(state.sampledAt)}`
+                        : 'Your shared inbox will appear after the first connection.'}
+                    </span>
+                    <span>Small things, remembered.</span>
+                  </div>
+                </section>
+              </>
+            )}
+          </main>
+          {selectedEntry && selected && (
+            <EntryDialog
+              client={client}
+              serverEpoch={state.session.serverEpoch}
+              entry={selectedEntry}
+              startHistory={selected.history}
+              online={state.online}
+              pending={state.pendingEdits.includes(selectedEntry.inboxId)}
+              close={() => setSelected(null)}
+              run={runCommand}
+              onError={showError}
+            />
+          )}
+          {toast && (
+            <div className="toast" role="status">
+              <Icon name="check" />
+              <span>{toast.label}</span>
+              <button
+                disabled={!state.online}
+                title={toast.redo ? 'Ctrl+Shift+Z' : 'Ctrl+Z'}
+                onClick={() => {
+                  void reverseLatest();
+                }}
+              >
+                {toast.redo ? 'Redo' : 'Undo'}
+              </button>
+              <button aria-label="Dismiss confirmation" onClick={() => setToast(null)}>
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}

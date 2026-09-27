@@ -1,0 +1,14 @@
+.git
+node_modules
+**/node_modules
+.pnpm-store
+.tools
+.cache
+.local
+apps/android
+**/dist
+test-results
+playwright-report
+.env*
+*.sqlite*
+*.jks

@@ -1,0 +1,9 @@
+packages:
+  - apps/server
+  - apps/web
+  - packages/*
+allowBuilds:
+  # v13 ships tested N-API prebuilds for our Windows/Linux x64 targets.
+  # pnpm 11 otherwise attempts an unnecessary node-gyp rebuild despite gypfile:false.
+  better-sqlite3: false
+  esbuild: true

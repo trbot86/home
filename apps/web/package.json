@@ -1,0 +1,22 @@
+{
+  "name": "@our-place/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@our-place/client": "workspace:*",
+    "@capacitor/core": "8.5.2",
+    "@our-place/contracts": "workspace:*",
+    "idb": "8.0.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "vite": "8.3.1"
+  }
+}

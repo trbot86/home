@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Use the same dark palette even when the phone uses light appearance. -->
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/household_surface</item>
+        <item name="colorPrimaryDark">@color/household_background</item>
+        <item name="colorAccent">@color/household_accent</item>
+        <item name="android:colorAccent">@color/household_accent</item>
+        <item name="android:colorBackground">@color/household_background</item>
+        <item name="android:windowBackground">@color/household_background</item>
+        <item name="android:statusBarColor">@color/household_background</item>
+        <item name="android:navigationBarColor">@color/household_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:textColorPrimary">@color/household_text</item>
+        <item name="android:textColorSecondary">@color/household_muted</item>
+        <item name="android:textColorHint">@color/household_muted</item>
+        <item name="android:colorButtonNormal">@color/household_wash</item>
+        <item name="colorButtonNormal">@color/household_wash</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="AppTheme">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+    </style>
+
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/household_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+        <item name="android:windowBackground">@color/household_background</item>
+        <item name="android:statusBarColor">@color/household_background</item>
+        <item name="android:navigationBarColor">@color/household_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>
