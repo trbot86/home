@@ -2,7 +2,8 @@
 
 Implementation branch after the deployed Home release. Product requirements remain
 in PLANNING.md and the connected schema in DATA_MODEL.md. Migrations 001–008 are
-immutable. Recipe migration 009 is under development; no live recipe data exists yet.
+immutable. Recipe migration 009 is committed on the feature branch and also remains
+immutable; it has not been deployed and no live recipe data exists yet.
 
 ## Intended workflow
 
@@ -110,7 +111,7 @@ UTF-8; malformed bytes fail for manual follow-up instead of introducing replacem
 characters into ingredient amounts. The current upstream README describes some
 unreleased behavior, so package-source inspection and fixtures govern this adapter.
 
-## Storage checkpoint (in progress)
+## Storage checkpoint (2026-09-27)
 
 Migration 009 adds recipes, stable ingredient/step rows, separate household
 adjustments, collections/memberships and cooking records. Commands use the existing
@@ -137,3 +138,8 @@ Still required before release: durable import jobs and worker attribution, revie
 import application, source-photo staging, Soon pins, task/cooking integration,
 ingredient shopping groups/provenance, Food UI, native cache/forms and device tests.
 There is no new deployed recipe feature yet.
+
+The next internal boundary is specified in
+[Recipe worker design](RECIPE_WORKER_DESIGN.md). Existing application contracts
+already allow an attributed worker change to block a stale human undo; no implicit
+human impersonation or causal undo grouping is needed for this first importer.
