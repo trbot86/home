@@ -25,6 +25,7 @@ export function Projects({
   onError,
   onPhotosSaved,
   onOpenRecord,
+  initialRecordId,
 }: {
   client: ClientPlatform;
   state: ClientState;
@@ -32,8 +33,9 @@ export function Projects({
   onError: (error: unknown) => void;
   onPhotosSaved: AttachmentSaved;
   onOpenRecord: (reference: RecordReference) => void;
+  initialRecordId?: string | null;
 }) {
-  const [selected, setSelected] = useState<string | null>(null),
+  const [selected, setSelected] = useState<string | null>(initialRecordId ?? null),
     [view, setView] = useState('active'),
     [scope, setScope] = useState('all'),
     [search, setSearch] = useState(''),

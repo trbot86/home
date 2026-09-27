@@ -3,7 +3,7 @@ import { EntryDialog } from './EntryDialog.js';
 import { Storage } from './Storage.js';
 import { AppUpdates } from './AppUpdates.js';
 import { CalendarSettings } from './calendars/CalendarSettings.js';
-import { Agenda } from './calendars/Agenda.js';
+import { PersonalAgenda } from './calendars/PersonalAgenda.js';
 import { LinkedText } from './LinkedText.js';
 import { NoteLinksProvider, noteIdFromUrl } from './NoteLinks.js';
 import { date } from './format.js';
@@ -116,11 +116,13 @@ export function App({ client }: { client: ClientPlatform }) {
     setView(
       reference.kind.startsWith('task')
         ? 'tasks'
-        : reference.kind.startsWith('recipe')
-          ? 'food'
-          : ['home_asset', 'maintenance_record'].includes(reference.kind)
-            ? 'home'
-            : 'shopping',
+        : reference.kind.startsWith('project')
+          ? 'projects'
+          : reference.kind.startsWith('recipe')
+            ? 'food'
+            : ['home_asset', 'maintenance_record'].includes(reference.kind)
+              ? 'home'
+              : 'shopping',
     );
   }
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -704,9 +706,25 @@ export function App({ client }: { client: ClientPlatform }) {
               </div>
             )}
             {view === 'agenda' ? (
-              <Agenda
+              <PersonalAgenda
                 client={client}
                 state={state}
+                run={runCommand}
+                onError={showError}
+                onAllTasks={() => {
+                  setLinkedTarget(null);
+                  setView('tasks');
+                }}
+                onRecipe={(id) => {
+                  setRecipeTarget(id);
+                  setLinkedTarget(null);
+                  setView('food');
+                }}
+                onProject={(id) => {
+                  setLinkedTarget(id);
+                  setView('projects');
+                }}
+                onRecord={openLinkedRecord}
                 onSettings={() => setView('storage')}
                 onTask={(id) => {
                   setLinkedTarget(id);
@@ -764,6 +782,8 @@ export function App({ client }: { client: ClientPlatform }) {
               />
             ) : view === 'projects' ? (
               <Projects
+                key={linkedTarget ?? 'projects'}
+                initialRecordId={linkedTarget}
                 client={client}
                 state={state}
                 run={runCommand}

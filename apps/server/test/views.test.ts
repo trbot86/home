@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { emptyRecipeFields, type CommandKind, type CommandOutcome } from '@our-place/contracts';
+import {
+  defaultAgendaLayout,
+  emptyRecipeFields,
+  type CommandKind,
+  type CommandOutcome,
+} from '@our-place/contracts';
 import { integrationFixture } from './integration-fixture.js';
 import { buildApp } from '../src/app.js';
 import { ViewPreferences } from '../src/features/views/views.js';
@@ -86,6 +91,98 @@ async function fixture() {
     },
   };
 }
+
+test('personal agenda layouts isolate profiles, reject stale edits and commit atomically with replayable receipts', async () => {
+  const f = await fixture();
+  try {
+    f.note();
+    const contentTables = ['records', 'record_changes', 'change_sets'];
+    const before = contentTables.map((table) => f.db.prepare(`SELECT * FROM ${table}`).all());
+    const layout = defaultAgendaLayout();
+    layout.context = 'work';
+    layout.days = 30;
+    layout.sections.reverse();
+    layout.sections[0]!.enabled = true;
+    const args = { scopeId: f.privateScope, expectedViewRevision: 0, layout },
+      command = f.envelope(args);
+    rejected(f.run('SetAgendaLayout', { ...args, scopeId: f.shared }), 'private_view_required');
+    rejected(f.run('SetAgendaLayout', command.arguments, f.b), 'private_view_required');
+    const saved = applied(f.service.writes.execute(f.a, 'SetAgendaLayout', command));
+    assert.equal(saved.changeSetId, undefined);
+    assert.deepEqual(f.service.writes.execute(f.a, 'SetAgendaLayout', command), { ...saved, replayed: true });
+    const view = f.views.snapshot(f.a).find((v) => v.kind === 'agenda')!;
+    assert.equal(view.revision, 1);
+    assert.deepEqual(view.kind === 'agenda' && view.layout, layout);
+    assert.deepEqual(view.pins, []);
+    assert.equal(
+      f.views.snapshot(f.b).some((v) => v.kind === 'agenda'),
+      false,
+    );
+    for (const [i, table] of contentTables.entries())
+      assert.deepEqual(f.db.prepare(`SELECT * FROM ${table}`).all(), before[i]);
+    rejected(f.run('SetAgendaLayout', command.arguments), 'view_revision_conflict');
+    rejected(
+      f.run('SetViewPinOrder', { viewId: view.viewId, expectedViewRevision: 1, recordIds: [] }),
+      'view_does_not_support_pins',
+    );
+    const updated = f.envelope({
+      ...args,
+      expectedViewRevision: 1,
+      layout: defaultAgendaLayout(),
+    });
+    f.db.exec(
+      "CREATE TEMP TRIGGER reject_layout_receipt BEFORE INSERT ON operation_receipts BEGIN SELECT RAISE(ABORT,'injected layout commit failure'); END",
+    );
+    assert.throws(
+      () => f.service.writes.execute(f.a, 'SetAgendaLayout', updated),
+      /injected layout commit failure/,
+    );
+    assert.deepEqual(
+      f.views.snapshot(f.a).find((v) => v.kind === 'agenda'),
+      view,
+    );
+    f.db.exec('DROP TRIGGER reject_layout_receipt');
+    applied(f.service.writes.execute(f.a, 'SetAgendaLayout', updated));
+    assert.equal(f.views.snapshot(f.a).find((v) => v.kind === 'agenda')!.revision, 2);
+    assert.deepEqual(f.db.pragma('foreign_key_check'), []);
+    assert.throws(
+      () =>
+        f.db
+          .prepare(
+            "INSERT INTO saved_views(view_id,scope_id,kind,revision,layout_json) VALUES (?,?,'agenda',1,?)",
+          )
+          .run(randomUUID(), f.shared, JSON.stringify(layout)),
+      /private scope/,
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test('agenda layout validation rejects duplicate sections and invalid limits without changing saved preferences', async () => {
+  const f = await fixture();
+  try {
+    const layout = defaultAgendaLayout();
+    applied(f.run('SetAgendaLayout', { scopeId: f.privateScope, expectedViewRevision: 0, layout }));
+    const before = f.views.snapshot(f.a);
+    const duplicate = structuredClone(layout);
+    duplicate.sections[0]!.kind = 'calendar';
+    rejected(
+      f.run('SetAgendaLayout', { scopeId: f.privateScope, expectedViewRevision: 1, layout: duplicate }),
+      'invalid_agenda_sections',
+    );
+    for (const limit of [0, 101, 1.5, '6', null]) {
+      const invalid = { ...layout, sections: layout.sections.map((s, i) => (i === 0 ? { ...s, limit } : s)) };
+      rejected(
+        f.run('SetAgendaLayout', { scopeId: f.privateScope, expectedViewRevision: 1, layout: invalid }),
+        'invalid_arguments',
+      );
+    }
+    assert.deepEqual(f.views.snapshot(f.a), before);
+  } finally {
+    await f.close();
+  }
+});
 
 test('project pins order references without revising the project or targets; stale and interrupted operations remain safe', async () => {
   const f = await fixture();

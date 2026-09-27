@@ -21,12 +21,11 @@
 }
 .agenda-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem;
   align-items: start;
 }
-.agenda-focus,
-.agenda-events {
+.agenda-panel {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -42,13 +41,20 @@
 .agenda .fine {
   color: var(--muted);
 }
+.agenda > .fine {
+  margin: 0.8rem 0 1.2rem;
+}
 .agenda-task {
   display: grid;
+  justify-content: stretch;
+  justify-items: start;
   gap: 0.5rem;
   width: 100%;
   text-align: left;
   margin-top: 0.8rem;
   padding: 1rem;
+  background: var(--wash);
+  border: 1px solid var(--line);
 }
 .agenda-task span {
   font-size: 0.85rem;
@@ -112,8 +118,91 @@
   .agenda-controls > label {
     flex: 1 1 40%;
   }
-  .agenda-focus,
-  .agenda-events {
+  .agenda-panel {
     padding: 1rem;
+  }
+}
+.agenda-layout:has(> :only-child) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.agenda-recipes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.8rem;
+}
+.agenda-recipe {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  align-items: stretch;
+  background: var(--wash);
+}
+.agenda-recipe img {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+}
+.agenda-recipe strong {
+  padding: 0.8rem;
+}
+.agenda-project-pin {
+  border-top: 1px solid var(--line);
+  padding: 0.7rem 0;
+}
+.agenda-project-pin .agenda-task {
+  margin-top: 0;
+}
+.agenda-layout-dialog fieldset {
+  border: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.agenda-layout-dialog label {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.agenda-layout-dialog input,
+.agenda-layout-dialog select {
+  padding: 0.6rem;
+  width: 100%;
+  min-width: 0;
+}
+.agenda-layout-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5rem auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.8rem 0;
+  border-top: 1px solid var(--line);
+}
+.agenda-layout-dialog .agenda-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.agenda-toggle input {
+  width: auto;
+  flex-shrink: 0;
+}
+.agenda-order,
+.agenda-layout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.agenda-layout-actions {
+  margin-top: 1.3rem;
+}
+@media (max-width: 500px) {
+  .agenda-layout-row {
+    grid-template-columns: minmax(0, 1fr) 4rem;
+  }
+  .agenda-order {
+    grid-column: 1/-1;
   }
 }

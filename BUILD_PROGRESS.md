@@ -24,14 +24,27 @@ Updated 2026-09-27.
 - Project boards, nested mixed-media pages, source-owned record links, ordered
   next-action pins, subtree moves, selective restoration and history.
 - Optional maintenance ideas with source guidance and independent task drafts.
+- Read-only personal calendar agenda, selective calendar visibility, scheduled
+  refresh and coherent web/Android offline cache; Google account setup remains pending.
 
 ## Current development
 
 Photo editing is deployed on the web and in the private Android download.
 Browser and Room drafts retain originals and immutable requests through an
-interrupted save. Migrations001–016 are published and immutable. Home assets
+interrupted save. Migrations001–019 are published and immutable. Home assets
 and the service log are deployed on the web and in the private Android download.
 See MAINTENANCE_IMPLEMENTATION.md.
+
+Personal agenda customisation is implemented and verified for release:
+section order, counts and visibility, Home/Work defaults, recipe and project
+panels, durable editor drafts and private preference sync. See
+AGENDA_LAYOUT_IMPLEMENTATION.md for the contract and migration020.
+
+The candidate passes 203 Linux package tests, 12 affected browser flows and
+the ten Android unit tests. Native layout sync, profile separation, Back,
+offline reload and in-place APK preservation passed on the dedicated emulator.
+A production-Linux restore from the secondary backup preserved 50 retained
+tables and both media files while migrating through 020. Live release is pending.
 
 The separate Alexa task's capture backend is integrated. Integration actors are
 distinct from people, and the separate listener can only capture shared inbox

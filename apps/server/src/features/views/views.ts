@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import type { Command, SavedView } from '@our-place/contracts';
+import {
+  AgendaLayout,
+  agendaSectionKinds,
+  isValid,
+  type Command,
+  type SavedView,
+} from '@our-place/contracts';
 import { Rejection } from '../../application/errors.js';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { AccessService, requireHuman, type HumanRequestContext } from '../access/access.js';
@@ -12,6 +18,7 @@ type ViewRow = {
   kind: SavedView['kind'];
   revision: number;
   context_record_id: string | null;
+  layout_json?: string | null;
 };
 export class ViewPreferences {
   private readonly links: RecordLinkPolicy;
@@ -41,21 +48,58 @@ export class ViewPreferences {
       revision: view.revision,
       ...(view.kind === 'food_soon'
         ? { kind: 'food_soon' as const }
-        : { kind: 'project_next' as const, projectId: view.context_record_id! }),
+        : view.kind === 'project_next'
+          ? { kind: 'project_next' as const, projectId: view.context_record_id! }
+          : { kind: 'agenda' as const, layout: this.readLayout(view.layout_json) }),
       pins: this.pins(view.view_id),
     }));
   }
   commands(): CommandHandler {
     return {
-      kinds: ['SetRecordPin', 'SetViewPinOrder'],
+      kinds: ['SetRecordPin', 'SetViewPinOrder', 'SetAgendaLayout'],
       execute: (context, kind, payload) => {
         requireHuman(context);
         if (!this.db.inTransaction) throw new Error('Pins require a receipt transaction');
-        if (kind === 'SetRecordPin') this.setPin(context, payload as Command<'SetRecordPin'>['arguments']);
+        if (kind === 'SetAgendaLayout')
+          this.setAgendaLayout(context, payload as Command<'SetAgendaLayout'>['arguments']);
+        else if (kind === 'SetRecordPin')
+          this.setPin(context, payload as Command<'SetRecordPin'>['arguments']);
         else this.setOrder(context, payload as Command<'SetViewPinOrder'>['arguments']);
         return { records: [], changes: [] };
       },
     };
+  }
+  private readLayout(json: string | null | undefined) {
+    const value: unknown = JSON.parse(json ?? 'null');
+    if (
+      !isValid(AgendaLayout, value) ||
+      new Set(value.sections.map((s) => s.kind)).size !== agendaSectionKinds.length
+    )
+      throw new Error('Stored agenda layout is invalid');
+    return value;
+  }
+  private setAgendaLayout(context: HumanRequestContext, args: Command<'SetAgendaLayout'>['arguments']) {
+    const scope = this.access
+      .scopes(context)
+      .find((scope) => scope.scopeId === args.scopeId && scope.kind === 'private');
+    if (!scope) throw new Rejection('private_view_required');
+    if (new Set(args.layout.sections.map((section) => section.kind)).size !== agendaSectionKinds.length)
+      throw new Rejection('invalid_agenda_sections');
+    const row = this.db
+      .prepare("SELECT * FROM saved_views WHERE scope_id=? AND kind='agenda'")
+      .get(args.scopeId) as ViewRow | undefined;
+    if ((row?.revision ?? 0) !== args.expectedViewRevision) throw new Rejection('view_revision_conflict');
+    const json = JSON.stringify(args.layout);
+    if (row)
+      this.db
+        .prepare('UPDATE saved_views SET layout_json=?,revision=revision+1 WHERE view_id=?')
+        .run(json, row.view_id);
+    else
+      this.db
+        .prepare(
+          "INSERT INTO saved_views(view_id,scope_id,kind,revision,layout_json) VALUES (?,?,'agenda',1,?)",
+        )
+        .run(randomUUID(), args.scopeId, json);
   }
   private requireProject(scopeId: string, projectId: string) {
     if (
@@ -116,6 +160,7 @@ export class ViewPreferences {
     const view = this.db.prepare('SELECT * FROM saved_views WHERE view_id=?').get(args.viewId) as
       ViewRow | undefined;
     if (!view || !this.access.canAccess(context, view.scope_id)) throw new Rejection('unavailable');
+    if (view.kind === 'agenda') throw new Rejection('view_does_not_support_pins');
     if (view.context_record_id) this.requireProject(view.scope_id, view.context_record_id);
     if (view.revision !== args.expectedViewRevision) throw new Rejection('view_revision_conflict');
     const current = this.pins(view.view_id),

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { copyFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { appendFileSync, copyFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -612,6 +612,87 @@ test('commit failures and lost replies cannot leave partial trees, duplicate blo
     f.close();
   }
 });
+
+for (const fault of [
+  '',
+  'SELECT missing_migration_function();',
+  "INSERT INTO clients(client_id,person_id,kind) VALUES ('bad-client','no-person','browser');",
+]) {
+  test(`020 agenda layout migration preserves old rows and pins${fault ? ` after ${fault.startsWith('SELECT') ? 'SQL' : 'FK'} rollback` : ''}`, () => {
+    const previous = mkdtempSync(join(tmpdir(), 'our-place-agenda-previous-'));
+    for (const file of readdirSync(migrationsRoot).filter((name) => /^0(0\d|1\d)_/.test(name)))
+      copyFileSync(join(migrationsRoot, file), join(previous, file));
+    const f = fixture(previous);
+    try {
+      const note = f.note(),
+        project = f.project(),
+        recipeId = randomUUID();
+      const command = f.envelope({
+        recordId: recipeId,
+        scopeId: f.shared,
+        ...emptyRecipeFields(),
+        title: 'Retained soup',
+        collectionIds: [],
+      });
+      const saved = applied(f.active.writes.execute(f.a, 'CreateRecipe', command));
+      for (const [kind, context, target] of [
+        ['food_soon', null, recipeId],
+        ['project_next', project, note],
+      ] as const) {
+        const viewId = randomUUID();
+        f.db
+          .prepare(
+            'INSERT INTO saved_views(view_id,scope_id,kind,revision,context_record_id) VALUES (?,?,?,3,?)',
+          )
+          .run(viewId, f.shared, kind, context);
+        f.db
+          .prepare(
+            'INSERT INTO record_pins(view_id,scope_id,record_id,position,target_scope_id) VALUES (?,?,?,7,?)',
+          )
+          .run(viewId, f.shared, target, f.shared);
+      }
+      const views = new ViewPreferences(f.db, f.access),
+        pins = views.snapshot(f.a);
+      const tables = (
+        f.db
+          .prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name!='schema_migrations' ORDER BY name",
+          )
+          .all() as { name: string }[]
+      ).map((r) => r.name);
+      const selects = tables.map(
+        (table) =>
+          `SELECT ${(f.db.pragma(`table_info(${table})`) as { name: string }[]).map((c) => c.name).join(',')} FROM ${table}`,
+      );
+      const before = selects.map((sql) => JSON.stringify(f.db.prepare(sql).all()));
+      const filename = '020_agenda_layouts.sql';
+      copyFileSync(join(migrationsRoot, filename), join(previous, filename));
+      if (fault) {
+        appendFileSync(join(previous, filename), '\n' + fault);
+        const migrations = f.db.prepare('SELECT * FROM schema_migrations').all();
+        assert.throws(() => migrate(f.db, previous), /function|foreign key check/);
+        for (const [i, sql] of selects.entries())
+          assert.equal(JSON.stringify(f.db.prepare(sql).all()), before[i], tables[i]);
+        assert.deepEqual(f.db.prepare('SELECT * FROM schema_migrations').all(), migrations);
+        assert.equal(f.db.pragma('foreign_keys', { simple: true }), 1);
+        assert.deepEqual(views.snapshot(f.a), pins);
+      }
+      f.upgrade();
+      for (const [i, sql] of selects.entries())
+        assert.equal(JSON.stringify(f.db.prepare(sql).all()), before[i], tables[i]);
+      assert.deepEqual(views.snapshot(f.a), pins);
+      assert.deepEqual(applied(f.active.writes.execute(f.a, 'CreateRecipe', command)).receipt, saved.receipt);
+      applied(f.run('UndoChangeSet', { changeSetId: saved.changeSetId }));
+      assert.deepEqual(views.snapshot(f.a), pins);
+      assert.equal(f.db.pragma('foreign_keys', { simple: true }), 1);
+      assert.deepEqual(f.db.pragma('foreign_key_check'), []);
+      assert.equal(f.db.pragma('integrity_check', { simple: true }), 'ok');
+    } finally {
+      f.close();
+      rmSync(previous, { recursive: true, force: true });
+    }
+  });
+}
 
 test('014 upgrade retains all old tables, Food pins and frozen receipts byte-for-byte', () => {
   const previous = mkdtempSync(join(tmpdir(), 'our-place-projects-previous-'));

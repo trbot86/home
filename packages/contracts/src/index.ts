@@ -12,6 +12,7 @@ import { calendarCommands } from './calendars.js';
 export * from './calendars.js';
 export * from './projects.js';
 export * from './views.js';
+export * from './overview.js';
 import { Attachment, SetRecordAttachments } from './attachments.js';
 export * from './attachments.js';
 export { Id, Instant, Revision, Digest } from './primitives.js';
