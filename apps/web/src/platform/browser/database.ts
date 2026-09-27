@@ -1,6 +1,14 @@
 import { openDB, type DBSchema } from 'idb';
 import type { AttachmentDraft, Draft, EditorBuffer } from '@our-place/client';
-import type { CommandKind, CommandOutcome, InboxEntry, Session, ShoppingSnapshot, TaskSnapshot } from '@our-place/contracts';
+import type {
+  CommandKind,
+  CommandOutcome,
+  InboxEntry,
+  Session,
+  ShoppingSnapshot,
+  TaskSnapshot,
+  HomeSnapshot,
+} from '@our-place/contracts';
 export type Attempt = {
   key: string;
   clientId: string;
@@ -17,14 +25,25 @@ interface LocalSchema extends DBSchema {
   media: { key: string; value: { clientId: string; mediaId: string; bytes: Blob } };
   attempts: { key: string; value: Attempt };
   editors: { key: string; value: EditorBuffer };
-  cache: { key: string; value: { entries: InboxEntry[]; shopping?: ShoppingSnapshot; tasks?:TaskSnapshot; sampledAt: number; serverEpoch: string } };
+  cache: {
+    key: string;
+    value: {
+      entries: InboxEntry[];
+      shopping?: ShoppingSnapshot;
+      tasks?: TaskSnapshot;
+      home?: HomeSnapshot;
+      sampledAt: number;
+      serverEpoch: string;
+    };
+  };
   profiles: { key: string; value: Session };
   meta: { key: string; value: string | number };
 }
 export const localDatabase = openDB<LocalSchema>('our-place', 2, {
   upgrade(db, oldVersion) {
-    if (oldVersion < 1) for (const store of ['drafts', 'media', 'attempts', 'editors', 'cache', 'profiles', 'meta'] as const)
-      db.createObjectStore(store);
+    if (oldVersion < 1)
+      for (const store of ['drafts', 'media', 'attempts', 'editors', 'cache', 'profiles', 'meta'] as const)
+        db.createObjectStore(store);
     if (oldVersion < 2) db.createObjectStore('attachmentDrafts');
   },
 });

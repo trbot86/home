@@ -8,6 +8,7 @@ export function useSavedForm<T extends Record<string, string>>(
   revision: number,
   serverEpoch: string,
   onError: (error: unknown) => void,
+  upgrade?: (saved: Record<string, unknown>) => Record<string, unknown>,
 ) {
   const [values, setValues] = useState(initial),
     [baseRevision, setBaseRevision] = useState(revision),
@@ -22,7 +23,9 @@ export function useSavedForm<T extends Record<string, string>>(
       .then((saved) => {
         if (!alive) return;
         if (saved) {
-          const parsed = JSON.parse(saved.text);
+          let parsed = JSON.parse(saved.text);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && upgrade)
+            parsed = upgrade(parsed);
           if (!parsed || Object.keys(current.current).some((field) => typeof parsed[field] !== 'string'))
             throw new Error('Saved form needs recovery');
           current.current = parsed as T;

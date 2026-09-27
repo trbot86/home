@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
-import type { CommandKind, TaskDefinition, TaskOccurrence, TaskRecurrence } from '@our-place/contracts';
+import type {
+  CommandKind,
+  TaskDefinition,
+  TaskOccurrence,
+  TaskRecurrence,
+  HomeAsset,
+} from '@our-place/contracts';
 import { RecordDialog } from '../RecordDialog.js';
 import { useSavedForm } from '../useSavedForm.js';
 import { priorityNames, type TaskRun } from './shared.js';
@@ -14,6 +20,7 @@ export function TaskEditor({
   close,
   onSaved,
   onError,
+  asset,
 }: {
   client: ClientPlatform;
   state: ClientState;
@@ -24,6 +31,7 @@ export function TaskEditor({
   close: () => void;
   onSaved: () => void;
   onError: (error: unknown) => void;
+  asset?: HomeAsset;
 }) {
   const session = state.session!,
     definition = mode !== 'occurrence',
@@ -31,7 +39,8 @@ export function TaskEditor({
   const initial = () => ({
     taskId: task?.recordId ?? crypto.randomUUID(),
     occurrenceId: occurrence?.recordId ?? crypto.randomUUID(),
-    scopeId: task?.scopeId ?? session.scopes.find((scope) => scope.kind === 'shared')!.scopeId,
+    scopeId:
+      task?.scopeId ?? asset?.scopeId ?? session.scopes.find((scope) => scope.kind === 'shared')!.scopeId,
     title: task?.title ?? '',
     instructions: task?.instructions ?? '',
     context: task?.context ?? 'home',
@@ -45,10 +54,24 @@ export function TaskEditor({
     repeatUnit: task?.recurrence?.unit ?? 'off',
     repeatCount: String(task?.recurrence?.count ?? 1),
     timeZone: task?.recurrence?.timeZone ?? state.tasks.timeZone,
+    maintenanceAssetId: task?.maintenance?.assetId ?? asset?.recordId ?? '',
+    maintenanceReference: task?.maintenance?.reference ?? '',
   });
   const record = mode === 'occurrence' ? occurrence : task,
-    key = record?.recordId ?? 'task:new';
-  const buffer = useSavedForm(client, key, initial, record?.revision ?? 1, session.serverEpoch, onError),
+    key = record?.recordId ?? (asset ? `task:new:${asset.recordId}` : 'task:new');
+  const buffer = useSavedForm(
+      client,
+      key,
+      initial,
+      record?.revision ?? 1,
+      session.serverEpoch,
+      onError,
+      (saved) => ({
+        maintenanceAssetId: task?.maintenance?.assetId ?? asset?.recordId ?? '',
+        maintenanceReference: task?.maintenance?.reference ?? '',
+        ...saved,
+      }),
+    ),
     form = buffer.values;
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
@@ -105,6 +128,9 @@ export function TaskEditor({
         defaultAssigneeId: (mode === 'create' ? form.assigneeId : form.defaultAssigneeId) || null,
         defaultPriority: Number(mode === 'create' ? form.priority : form.defaultPriority),
         recurrence,
+        maintenance: form.maintenanceAssetId
+          ? { assetId: form.maintenanceAssetId, reference: form.maintenanceReference }
+          : null,
       };
       const plan = {
         assigneeId: form.assigneeId || null,
@@ -255,6 +281,7 @@ export function TaskEditor({
                       value={form.scopeId}
                       onChange={(event) => {
                         buffer.field('scopeId', event.target.value);
+                        buffer.field('maintenanceAssetId', '');
                         if (
                           session.scopes.find((scope) => scope.scopeId === event.target.value)?.kind ===
                           'private'
@@ -273,6 +300,46 @@ export function TaskEditor({
                   </label>
                 )}
               </div>
+              <label className="task-field">
+                Maintains (optional)
+                <select
+                  aria-label="Maintains (optional)"
+                  value={form.maintenanceAssetId}
+                  onChange={(event) => buffer.field('maintenanceAssetId', event.target.value)}
+                >
+                  <option value="">No linked appliance or system</option>
+                  {state.home.assets
+                    .filter(
+                      (item) =>
+                        item.scopeId === form.scopeId &&
+                        item.deletedAt === null &&
+                        (!item.archived || item.recordId === form.maintenanceAssetId),
+                    )
+                    .map((item) => (
+                      <option key={item.recordId} value={item.recordId}>
+                        {item.name}
+                        {item.archived ? ' · archived' : ''}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {form.maintenanceAssetId && (
+                <>
+                  <label className="task-field">
+                    Maintenance reference
+                    <textarea
+                      aria-label="Maintenance reference"
+                      rows={2}
+                      maxLength={4096}
+                      value={form.maintenanceReference}
+                      onChange={(event) => buffer.field('maintenanceReference', event.target.value)}
+                    />
+                  </label>
+                  <p className="fine">
+                    Completing this task also records the work in the asset’s service log.
+                  </p>
+                </>
+              )}
             </>
           )}
           {planning && (

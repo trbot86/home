@@ -13,8 +13,16 @@ import type {
   ShoppingRecord,
   ShoppingSnapshot,
   TaskSnapshot,
+  HomeSnapshot,
 } from '@our-place/contracts';
-import { categoryOf, emptyShopping, emptyTasks, isValid, OutcomeSchema } from '@our-place/contracts';
+import {
+  categoryOf,
+  emptyShopping,
+  emptyTasks,
+  emptyHome,
+  isValid,
+  OutcomeSchema,
+} from '@our-place/contracts';
 import { localDatabase, localKey, digest, type Attempt } from './database.js';
 import { AttachmentDraftStore } from './attachment-drafts.js';
 
@@ -88,6 +96,7 @@ export class BrowserClient implements ClientPlatform {
       entries: cache?.entries ?? [],
       shopping: cache?.shopping ?? emptyShopping(),
       tasks: cache?.tasks ?? emptyTasks(),
+      home: cache?.home ?? emptyHome(),
       drafts: session
         ? (await db.getAll('drafts')).filter((d) => d.clientId === session.clientId && !d.settled)
         : [],
@@ -164,6 +173,7 @@ export class BrowserClient implements ClientPlatform {
       entries: InboxEntry[];
       shopping?: ShoppingSnapshot;
       tasks?: TaskSnapshot;
+      home?: HomeSnapshot;
       sampledAt: number;
       serverEpoch: string;
     }>('/cache/inbox');

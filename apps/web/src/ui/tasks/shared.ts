@@ -1,11 +1,6 @@
-import type { CommandKind, CommandOutcome, TaskSnapshot, TaskRecord } from '@our-place/contracts';
-export type TaskRun = (
-  target: { recordId: string },
-  kind: CommandKind,
-  args: unknown,
-  label: string,
-  epoch?: string,
-) => Promise<CommandOutcome | null>;
+import type { TaskSnapshot, TaskRecord } from '@our-place/contracts';
+import type { RunRecordCommand } from '@our-place/client';
+export type TaskRun = RunRecordCommand;
 export const taskRecords = (snapshot: TaskSnapshot): TaskRecord[] => [
   ...snapshot.definitions,
   ...snapshot.occurrences,

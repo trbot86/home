@@ -1,8 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { ClientPlatform } from '@our-place/client';
-import type { InboxEntry } from '@our-place/contracts';
-
-const entryId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { Id, isValid, type InboxEntry } from '@our-place/contracts';
 
 /** A link identifies a note; it never grants access or embeds its text. */
 export function noteIdFromUrl(href: string, origin: string): string | null {
@@ -16,7 +14,7 @@ export function noteIdFromUrl(href: string, origin: string): string | null {
       !url.hash &&
       url.searchParams.size === 1 &&
       id !== null &&
-      entryId.test(id)
+      isValid(Id, id)
       ? id
       : null;
   } catch {

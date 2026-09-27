@@ -11,6 +11,7 @@ import type {
   ShoppingRecord,
   ShoppingSnapshot,
   TaskSnapshot,
+  HomeSnapshot,
 } from '@our-place/contracts';
 export type Draft = {
   draftId: string;
@@ -32,6 +33,7 @@ export type ClientState = {
   entries: InboxEntry[];
   shopping: ShoppingSnapshot;
   tasks: TaskSnapshot;
+  home: HomeSnapshot;
   drafts: Draft[];
   online: boolean;
   sampledAt: number | null;
@@ -60,6 +62,13 @@ export type AttachmentDraft = {
   outcome?: CommandOutcome;
 };
 export * from './task-views.js';
+export type RunRecordCommand = (
+  target: { recordId: string },
+  kind: CommandKind,
+  args: unknown,
+  label: string,
+  epoch?: string,
+) => Promise<CommandOutcome | null>;
 export interface ClientPlatform {
   /** Return true when the visible app surface consumed system Back. */
   onBack?(listener: () => boolean, priority?: 'dialog'): () => void;
@@ -90,7 +99,12 @@ export interface ClientPlatform {
   saveEditor(recordId: string, text: string, baseRevision: number, serverEpoch: string): Promise<void>;
   readEditor(recordId: string): Promise<EditorBuffer | undefined>;
   clearEditor(recordId: string): Promise<void>;
-  openAttachmentDraft(recordId: string, scopeId: string, revision: number, attachments: Attachment[]): Promise<AttachmentDraft>;
+  openAttachmentDraft(
+    recordId: string,
+    scopeId: string,
+    revision: number,
+    attachments: Attachment[],
+  ): Promise<AttachmentDraft>;
   readAttachmentDraft(draftId: string): Promise<AttachmentDraft>;
   saveAttachmentDraft(draftId: string, revision: number, attachments: Attachment[]): Promise<AttachmentDraft>;
   addAttachmentPhoto(draftId: string, file: Blob): Promise<AttachmentDraft>;

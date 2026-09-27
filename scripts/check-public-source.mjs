@@ -11,7 +11,8 @@ const forbiddenPath = /(?:^|\/)(?:\.local|\.cache|\.tools|\.gradle|node_modules|
 const blockedNames = /(?:^|\/)(?:accounts|credentials|secrets)\.json$|(?:^|\/)\.env(?:\..+)?$|local\.properties$|\.local\.(?:json|md)$/i;
 const textRules = [
   ['private tailnet address', /\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.ts\.net\b/i],
-  ['local user home path', /(?:[a-z]:[\\/]Users[\\/]|\/home\/|\/Users\/)[a-z0-9_.-]+/i],
+  // Unix homes must begin at an absolute-path boundary, not inside a relative feature import.
+  ['local user home path', /(?:[a-z]:[\\/]Users[\\/]|(?<![a-z0-9_.-])\/(?:home|Users)\/)[a-z0-9_.-]+/i],
   ['private key material', /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/],
   ['credential token', /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[A-Z0-9]{16}|sk-(?:proj-)?[A-Za-z0-9_-]{30,})\b/],
   ['credential embedded in URL', /https?:\/\/[^\s/]+:[^\s/@]+@/],

@@ -256,6 +256,13 @@ export function Tasks({
               <LinkedText client={client} text={task.instructions} />
             </p>
           )}
+          {task.maintenance && (
+            <p className="fine">
+              Maintains{' '}
+              {state.home.assets.find((asset) => asset.recordId === task.maintenance!.assetId)?.name ??
+                'linked asset'}
+            </p>
+          )}
           <AttachmentGallery client={client} attachments={task.attachments ?? []} />
           <div className="task-dates">
             {item.deadlineDate && (

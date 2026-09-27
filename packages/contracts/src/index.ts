@@ -3,11 +3,13 @@ import { Value } from '@sinclair/typebox/value';
 import { Id, Instant, Revision, Digest, object } from './primitives.js';
 import { shoppingCommands } from './shopping.js';
 import { taskCommands } from './tasks.js';
+import { homeCommands } from './home.js';
 import { Attachment, SetRecordAttachments } from './attachments.js';
 export * from './attachments.js';
 export { Id, Instant, Revision, Digest } from './primitives.js';
 export * from './shopping.js';
 export * from './tasks.js';
+export * from './home.js';
 export * from './calendar-date.js';
 
 export const Source = object({
@@ -54,6 +56,7 @@ export const AbandonRestoredOperation = object({
 export const argumentSchemas = {
   ...shoppingCommands,
   ...taskCommands,
+  ...homeCommands,
   SetRecordAttachments,
   CreateInboxEntry,
   SetInboxEntryText,

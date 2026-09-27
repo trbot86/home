@@ -5,6 +5,14 @@ export const date = (time: number) =>
     hour: 'numeric',
     minute: '2-digit',
   }).format(time);
+export const dateWithYear = (time: number) =>
+  new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(time);
 export const size = (bytes?: number) =>
   bytes === undefined
     ? 'Unavailable'

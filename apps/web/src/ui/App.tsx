@@ -11,6 +11,7 @@ import {
   categoryOf,
   emptyShopping,
   emptyTasks,
+  emptyHome,
   type CommandKind,
   type CommandOutcome,
   type EntryCategory,
@@ -19,6 +20,7 @@ import {
 import { Shopping } from './shopping/Shopping.js';
 import { shoppingRecords } from './shopping/shared.js';
 import { Tasks } from './tasks/Tasks.js';
+import { Home } from './home/Home.js';
 import { taskRecords } from './tasks/shared.js';
 import { Icon } from './Icon.js';
 import { BackupPanel } from './BackupPanel.js';
@@ -31,6 +33,7 @@ const emptyState: ClientState = {
   entries: [],
   shopping: emptyShopping(),
   tasks: emptyTasks(),
+  home: emptyHome(),
   drafts: [],
   online: navigator.onLine,
   sampledAt: null,
@@ -39,7 +42,7 @@ const emptyState: ClientState = {
 };
 const message = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Your saved draft is still here.';
-type View = 'inbox' | 'suggestions' | 'shopping' | 'tasks' | 'trash' | 'storage';
+type View = 'inbox' | 'suggestions' | 'shopping' | 'tasks' | 'home' | 'trash' | 'storage';
 function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
   const candidates = drafts.filter((d) => d.state === 'DRAFT' && categoryOf(d) === category);
   return candidates.find((d) => d.text.trim() || d.attachments.length) ?? candidates[0];
@@ -405,7 +408,10 @@ export function App({ client }: { client: ClientPlatform }) {
     const entry =
       state.entries.find((e) => e.inboxId === action.recordId) ??
       shoppingRecords(state.shopping).find((record) => record.recordId === action.recordId) ??
-      taskRecords(state.tasks).find((record) => record.recordId === action.recordId);
+      taskRecords(state.tasks).find((record) => record.recordId === action.recordId) ??
+      [...state.home.assets, ...state.home.serviceRecords].find(
+        (record) => record.recordId === action.recordId,
+      );
     if (!entry || state.pendingEdits.includes(action.recordId)) return;
     reversalLock.current = true;
     try {
@@ -498,6 +504,7 @@ export function App({ client }: { client: ClientPlatform }) {
                   { id: 'inbox', label: 'Inbox', compactLabel: 'Inbox', icon: 'inbox' },
                   { id: 'shopping', label: 'Shopping', compactLabel: 'Shopping', icon: 'shopping' },
                   { id: 'tasks', label: 'Tasks', compactLabel: 'Tasks', icon: 'tasks' },
+                  { id: 'home', label: 'Home', compactLabel: 'Home', icon: 'home' },
                   { id: 'trash', label: 'Recently deleted', compactLabel: 'Deleted', icon: 'trash' },
                   { id: 'storage', label: 'Storage & backups', compactLabel: 'Storage', icon: 'settings' },
                 ] as const
@@ -563,9 +570,11 @@ export function App({ client }: { client: ClientPlatform }) {
                         ? 'A little less to remember.'
                         : view === 'tasks'
                           ? 'Tasks, at your pace.'
-                          : view === 'trash'
-                            ? 'Room for second thoughts.'
-                            : 'Everything accounted for.'}
+                          : view === 'home'
+                            ? 'Care for the place we call home.'
+                            : view === 'trash'
+                              ? 'Room for second thoughts.'
+                              : 'Everything accounted for.'}
                 </h1>
                 <p>
                   {view === 'inbox'
@@ -576,9 +585,11 @@ export function App({ client }: { client: ClientPlatform }) {
                         ? 'What we need, what we love, and what’s running low.'
                         : view === 'tasks'
                           ? 'A plan for what matters, and a record of what got done.'
-                          : view === 'trash'
-                            ? 'Deleted entries keep their history. Bring one back when you need it.'
-                            : 'A clear view of what’s saved, and where.'}
+                          : view === 'home'
+                            ? 'The details worth keeping, and the care that keeps things going.'
+                            : view === 'trash'
+                              ? 'Deleted entries keep their history. Bring one back when you need it.'
+                              : 'A clear view of what’s saved, and where.'}
                 </p>
               </div>
               <div className="connection">
@@ -622,6 +633,14 @@ export function App({ client }: { client: ClientPlatform }) {
               />
             ) : view === 'shopping' ? (
               <Shopping client={client} state={state} run={runCommand} onError={showError} />
+            ) : view === 'home' ? (
+              <Home
+                client={client}
+                state={state}
+                run={runCommand}
+                onError={showError}
+                onPhotosSaved={acceptOutcome}
+              />
             ) : view === 'storage' ? (
               <>
                 <Storage client={client} state={state} onError={showError} />

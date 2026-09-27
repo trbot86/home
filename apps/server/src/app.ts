@@ -28,6 +28,7 @@ import { inboxRecordAdapter } from './features/inbox/inbox-record.js';
 import { RecordRegistry } from './features/records/record-registry.js';
 import { ShoppingRepository } from './features/shopping/shopping.js';
 import { TasksRepository } from './features/tasks/tasks.js';
+import { HomeRepository } from './features/home/home.js';
 import { HistoryService } from './features/history/history.js';
 import { WriteCoordinator } from './application/write-coordinator.js';
 import { Deferral, NotFound, ProtocolConflict, Rejection, Unauthenticated } from './application/errors.js';
@@ -88,16 +89,19 @@ export async function buildApp(options: AppOptions) {
   const access = new AccessService(db, now);
   const inbox = new InboxRepository(db, access);
   const shopping = new ShoppingRepository(db, access);
-  const tasks = new TasksRepository(db, access, options.householdTimeZone);
+  const home = new HomeRepository(db, access);
+  const tasks = new TasksRepository(db, access, options.householdTimeZone, home);
   const records = new RecordRegistry(db, [
     inboxRecordAdapter(inbox),
     ...shopping.adapters(),
     ...tasks.adapters(),
+    ...home.adapters(),
   ]);
   const history = new HistoryService(db, records, access);
   const writes = new WriteCoordinator(db, inbox, history, now, records, undefined, [
     shopping.commands(),
     tasks.commands(),
+    home.commands(),
   ]);
   const files = new FileMediaStore(join(options.dataRoot, 'media'), options.development === true);
   await files.initialise();
@@ -227,6 +231,7 @@ export async function buildApp(options: AppOptions) {
       ...inbox.snapshot(context, now()),
       shopping: shopping.snapshot(context),
       tasks: tasks.snapshot(context),
+      home: home.snapshot(context),
     };
   });
   app.get<{ Params: { id: string } }>('/api/shopping/:id/history', async (request) => {

@@ -16,6 +16,7 @@ import {
   type TaskRecurrence,
   type TaskSnapshot,
   type Attachment,
+  type MaintenancePlan,
 } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { NotFound, Rejection } from '../../application/errors.js';
@@ -28,6 +29,7 @@ import type {
 } from '../records/record-registry.js';
 import type { CommandHandler, RecordMutation } from '../records/command-handler.js';
 import { AttachmentRepository } from '../media/attachments.js';
+import { HomeRepository } from '../home/home.js';
 type TaskCommandKind = keyof typeof taskCommands;
 const tables: Record<TaskKind, [string, string]> = {
   task: ['tasks', 'task_id'],
@@ -49,6 +51,7 @@ export class TasksRepository {
     private readonly db: Sqlite,
     private readonly access: AccessService,
     private readonly timeZone = 'America/Toronto',
+    private readonly home?: HomeRepository,
   ) {
     if (!isTimeZone(timeZone)) throw new Error('Invalid household timezone');
     this.attachments = new AttachmentRepository(db, access);
@@ -83,7 +86,13 @@ export class TasksRepository {
         throw new Rejection('invalid_calendar_date');
     const rule = c.recurrence as TaskRecurrence | null | undefined;
     if (rule && !isTimeZone(rule.timeZone)) throw new Rejection('invalid_time_zone');
-    return kind === 'task_occurrence' ? c : { ...c, attachments: c.attachments ?? [] };
+    return kind === 'task_occurrence'
+      ? c
+      : {
+          ...c,
+          attachments: c.attachments ?? [],
+          ...(kind === 'task' ? { maintenance: c.maintenance ?? null } : {}),
+        };
   }
   get(context: RequestContext, id: string, expectedKind?: TaskKind): TrackedRecord {
     const row = this.db.prepare('SELECT * FROM records WHERE record_id=?').get(id) as Header | undefined;
@@ -111,6 +120,7 @@ export class TasksRepository {
         defaultAssigneeId: data.default_assignee_id,
         defaultPriority: data.default_priority,
         recurrence: rule ?? null,
+        maintenance: this.home?.taskPlan(id) ?? null,
       };
     } else if (row.kind === 'task_occurrence')
       fields = {
@@ -140,8 +150,12 @@ export class TasksRepository {
       revision: row.revision,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      content: this.content(row.kind, { scopeId: row.scope_id, deletedAt: row.deleted_at, ...fields,
-        ...(row.kind === 'task_occurrence' ? {} : { attachments: this.attachments.list(id) }) }),
+      content: this.content(row.kind, {
+        scopeId: row.scope_id,
+        deletedAt: row.deleted_at,
+        ...fields,
+        ...(row.kind === 'task_occurrence' ? {} : { attachments: this.attachments.list(id) }),
+      }),
     };
   }
   project(record: TrackedRecord): TaskRecord {
@@ -213,8 +227,12 @@ export class TasksRepository {
       throw new Rejection('person_unavailable');
   }
   private checkReferences(context: RequestContext, kind: TaskKind, id: string, c: RecordContent): void {
-    if (kind === 'task') this.person(context, c.scopeId, c.defaultAssigneeId as string | null);
-    else if (kind === 'task_occurrence') {
+    if (kind === 'task') {
+      this.person(context, c.scopeId, c.defaultAssigneeId as string | null);
+      const plan = (c.maintenance ?? null) as MaintenancePlan | null;
+      if (plan && !this.home) throw new Rejection('maintenance_unavailable');
+      this.home?.validateTaskPlan(context, c.scopeId, plan, this.home.taskPlan(id));
+    } else if (kind === 'task_occurrence') {
       this.person(context, c.scopeId, c.assigneeId as string | null);
       const task = this.require(context, String(c.taskId), 'task');
       if (task.content.scopeId !== c.scopeId) throw new Rejection('scope_mismatch');
@@ -273,6 +291,7 @@ export class TasksRepository {
         .prepare("INSERT INTO tasks VALUES (?,'task',?,?,?,?,?,?)")
         .run(id, c.scopeId, c.title, c.instructions, c.context, c.defaultAssigneeId, c.defaultPriority);
       this.saveRecurrence(id, c.recurrence as TaskRecurrence | null);
+      this.home?.saveTaskPlan(id, c.scopeId, c.maintenance as MaintenancePlan | null);
     } else if (kind === 'task_occurrence')
       this.db
         .prepare("INSERT INTO task_occurrences VALUES (?,'task_occurrence',?,?,?,?,?,?,?,?,?,1)")
@@ -303,7 +322,11 @@ export class TasksRepository {
           c.recurrence ? JSON.stringify(c.recurrence) : null,
           c.nextOccurrenceId,
         );
-    if (kind !== 'task_occurrence') this.attachments.replace(context, id, c.scopeId, c.attachments as Attachment[], now, { creating: true, live: true });
+    if (kind !== 'task_occurrence')
+      this.attachments.replace(context, id, c.scopeId, c.attachments as Attachment[], now, {
+        creating: true,
+        live: true,
+      });
     return this.get(context, id, kind);
   }
   private setContent(
@@ -326,6 +349,7 @@ export class TasksRepository {
         )
         .run(c.title, c.instructions, c.context, c.defaultAssigneeId, c.defaultPriority, id);
       this.saveRecurrence(id, c.recurrence as TaskRecurrence | null);
+      this.home?.saveTaskPlan(id, c.scopeId, c.maintenance as MaintenancePlan | null);
     } else if (before.kind === 'task_occurrence') {
       if (c.taskId !== before.content.taskId || c.ordinal !== before.content.ordinal)
         throw new Error('Occurrence identity cannot change');
@@ -342,7 +366,10 @@ export class TasksRepository {
     this.db
       .prepare('UPDATE records SET revision=revision+1,updated_at=?,deleted_at=? WHERE record_id=?')
       .run(now, c.deletedAt, id);
-    if (before.kind !== 'task_occurrence') this.attachments.replace(context, id, c.scopeId, c.attachments as Attachment[], now, { live: c.deletedAt === null });
+    if (before.kind !== 'task_occurrence')
+      this.attachments.replace(context, id, c.scopeId, c.attachments as Attachment[], now, {
+        live: c.deletedAt === null,
+      });
     return this.get(context, id);
   }
   private ordinal(taskId: string): number {
@@ -376,6 +403,7 @@ export class TasksRepository {
         defaultAssigneeId: a.defaultAssigneeId,
         defaultPriority: a.defaultPriority,
         recurrence: a.recurrence,
+        maintenance: a.maintenance ?? null,
       });
       create('task_occurrence', a.occurrenceId, {
         scopeId: a.scopeId,
@@ -484,7 +512,7 @@ export class TasksRepository {
     const person = this.db
       .prepare('SELECT display_name FROM people WHERE person_id=?')
       .get(args.performedByPersonId) as { display_name: string };
-    create('task_completion', args.completionId, {
+    const completion = create('task_completion', args.completionId, {
       scopeId: occurrence.scopeId,
       deletedAt: null,
       occurrenceId: before.recordId,
@@ -496,6 +524,17 @@ export class TasksRepository {
       recurrence: rule,
       nextOccurrenceId: args.nextOccurrenceId,
     });
+    if (definition.maintenance) {
+      if (!this.home) throw new Rejection('maintenance_unavailable');
+      changes.push(
+        this.home.recordCompletion(
+          context,
+          definition.maintenance,
+          this.project(completion) as TaskCompletion,
+          now,
+        ),
+      );
+    }
     return result();
   }
   private assertConsistent(): void {
