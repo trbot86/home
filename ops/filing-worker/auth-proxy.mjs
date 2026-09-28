@@ -2,6 +2,7 @@ import http from 'node:http';
 import net from 'node:net';
 import { lookup } from 'node:dns/promises';
 import { pathToFileURL } from 'node:url';
+import { inferenceHandler } from './inference-gateway.mjs';
 
 export function publicAddress(address) {
   if (net.isIP(address) !== 4) return false;
@@ -20,9 +21,14 @@ export function publicAddress(address) {
   );
 }
 
-// Authentication only. No model, general web, host, or LAN access is enabled here.
-export function createAuthProxy(resolve = lookup, connect = net.connect) {
-  const server = http.createServer((_req, res) => res.writeHead(403).end());
+// CONNECT is authentication-only; inference uses the separately validated handler.
+export function createAuthProxy(
+  resolve = lookup,
+  connect = net.connect,
+  handler = (_req, res) => res.writeHead(403).end(),
+) {
+  const server = http.createServer(handler);
+  server.on('upgrade', (_req, socket) => socket.destroy());
   server.on('connect', async (req, downstream, head) => {
     if (req.url !== 'auth.openai.com:443' || head.length) {
       downstream.end('HTTP/1.1 403 Forbidden\r\n\r\n');
@@ -56,4 +62,4 @@ export function createAuthProxy(resolve = lookup, connect = net.connect) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
-  createAuthProxy().listen(3128, '0.0.0.0');
+  createAuthProxy(lookup, net.connect, inferenceHandler()).listen(3128, '0.0.0.0');

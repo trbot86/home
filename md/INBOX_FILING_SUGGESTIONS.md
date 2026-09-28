@@ -86,11 +86,13 @@ frozen request bytes and hashes; it does not recreate the local database.
 ## Dedicated Codex worker
 
 The separate authentication boundary and fresh-login procedure are now available
-in [FILING_WORKER_SETUP.md](FILING_WORKER_SETUP.md). Inference and production
-activation remain disconnected pending the post-login checks documented there.
+in [FILING_WORKER_SETUP.md](FILING_WORKER_SETUP.md), including the enforced inference
+gateway, localhost broker, bounded whole-container lifecycle, and opt-in synthetic
+real-model rehearsal. Production activation remains an explicit host configuration
+step and never grants per-profile scope consent.
 
 The server adapter and standalone `filing-worker-main` entry point implement a
-dedicated Codex worker transport. Host activation is absent. Tests use synthetic
+dedicated Codex worker transport. Routine automated tests use synthetic
 data and substitute the model subprocess; they do not authenticate or send model
 requests. No daily bulk exporter or unrestricted desktop session is added.
 
@@ -98,9 +100,9 @@ The server entry point reads `FILING_WORKER_CONFIG_FILE` only when explicitly se
 The host-owned JSON file has `launcher` (absolute executable path),
 `workingDirectory` (absolute empty directory), `isolationReviewed: true`, and
 optional `model` and `effort`. Defaults are `gpt-5.6-luna` and `low`; this is a
-requested initial choice, not a claim of account availability. The file belongs
-in ignored host configuration and must never contain household content. No
-configuration was created by this implementation.
+requested initial choice; the setup rehearsal checks actual account availability.
+The file belongs in ignored host configuration and must never contain household
+content. The setup helper creates it without activating app processing.
 
 The launcher is trusted deployment infrastructure, not model-controlled text.
 It receives no arguments and one bounded JSON request on stdin; it must enter the
@@ -173,8 +175,8 @@ evidence for reusing a general-purpose authenticated app-server safely here.
 No existing app-server session or account configuration should be changed to
 try to make this adapter work.
 
-Keep this dedicated-worker adapter disconnected pending the independent host
-isolation/authentication rehearsal and explicit activation. Do not substitute a
+Keep this dedicated-worker adapter disconnected until the independent host
+isolation/authentication rehearsal passes and activation is configured. Do not substitute a
 direct API or change account/billing settings. Account entitlement and retention
 policy are not established by the model name or by these synthetic tests.
 
@@ -188,7 +190,8 @@ open-app sync interval is 15 seconds.
 - Adapter: `filing-codex-provider.test.ts` covers bounded/stripped wire input,
   choice-only output, real synthetic subprocess failures/cancellation, environment
   isolation, Codex argument/schema construction, temporary cleanup and disabled
-  configuration defaults. No real model or deployed isolation boundary is tested.
+  configuration defaults. These unit tests do not exercise a real model; the
+  separate opt-in worker rehearsal does, using only a temporary synthetic database.
 
 - Server: `inbox-filing-suggestions.test.ts`, `inbox-filing.test.ts`, `upgrades.test.ts`.
   Covers consent and authentication, scope isolation, bounded data, no-provider

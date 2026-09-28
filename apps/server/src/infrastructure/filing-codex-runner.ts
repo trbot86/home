@@ -1,5 +1,6 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join, isAbsolute } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { boundedInput, choiceKeys, runBoundedProcess } from './filing-codex-provider.js';
 
 /** Runs ONLY inside the separately provisioned isolation boundary. No household mounts. */
@@ -63,6 +64,22 @@ export async function runFilingCodex(
       `model_reasoning_effort="${r.effort}"`,
       '-c',
       'web_search="disabled"',
+      '-c',
+      'model_provider="filing"',
+      '-c',
+      'model_providers.filing.name="Isolated filing"',
+      '-c',
+      'model_providers.filing.base_url="http://auth-egress:3128"',
+      '-c',
+      'model_providers.filing.requires_openai_auth=true',
+      '-c',
+      'model_providers.filing.supports_websockets=false',
+      '-c',
+      'model_providers.filing.request_max_retries=0',
+      '-c',
+      'model_providers.filing.stream_max_retries=0',
+      '-c',
+      `model_providers.filing.http_headers={"X-Filing-Job"="${randomUUID()}"}`,
     ];
     for (const feature of [
       'shell_tool',
@@ -89,6 +106,15 @@ export async function runFilingCodex(
       TMPDIR: directory,
       TEMP: directory,
       TMP: directory,
+      // Fixed image paths, never inherited from the host account.
+      ...(process.platform === 'linux'
+        ? {
+            PATH: '/usr/local/bin:/usr/bin:/bin',
+            HTTPS_PROXY: 'http://auth-egress:3128',
+            HTTP_PROXY: 'http://auth-egress:3128',
+            NO_PROXY: 'auth-egress',
+          }
+        : {}),
       ...(process.env['SystemRoot'] ? { SystemRoot: process.env['SystemRoot'] } : {}),
     };
     const output = await execute(

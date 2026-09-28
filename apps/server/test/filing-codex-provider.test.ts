@@ -113,7 +113,9 @@ test('dedicated runner uses an ephemeral constrained CLI, choice schema, clean e
         assert.deepEqual(JSON.parse(payload), boundedInput(input));
         assert.equal(env['CODEX_HOME'], root);
         assert.equal(env['OPENAI_API_KEY'], undefined);
-        assert.equal(env['PATH'], undefined);
+        assert.equal(env['PATH'], process.platform === 'linux' ? '/usr/local/bin:/usr/bin:/bin' : undefined);
+        assert.ok(args.includes('model_providers.filing.supports_websockets=false'));
+        assert.ok(args.includes('model_providers.filing.request_max_retries=0'));
         const schema = JSON.parse(await readFile(join(cwd, 'response.schema.json'), 'utf8'));
         assert.deepEqual(schema.properties.keys.items.enum, ['0', '1', '2']);
         return '{"keys":["1"]}';

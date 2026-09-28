@@ -20,6 +20,7 @@ for (const name of [
   'Proxy.Dockerfile',
   'Guard.Dockerfile',
   'auth-proxy.mjs',
+  'inference-gateway.mjs',
   'network-guard.mjs',
 ])
   await copyFile(resolve(root, 'ops/filing-worker', name), resolve(output, name));

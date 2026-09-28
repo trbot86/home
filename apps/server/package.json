@@ -6,7 +6,8 @@
   "files": [
     "dist",
     "migrations",
-    "capture-entry.sh"
+    "capture-entry.sh",
+    "filing-client.mjs"
   ],
   "scripts": {
     "dev": "tsx watch src/main.ts --development",

@@ -1,0 +1,11 @@
+services:
+  household:
+    environment:
+      FILING_WORKER_CONFIG_FILE: /run/filing/provider.json
+    volumes:
+      - type: bind
+        source: ${OUR_PLACE_WORKSPACE:?Set workspace identity}/.local/filing-worker/client
+        target: /run/filing
+        read_only: true
+        bind:
+          create_host_path: false

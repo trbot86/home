@@ -66,7 +66,18 @@ async function requireState() {
   return state;
 }
 async function compose(...args) {
-  return docker('compose', '--env-file', envPath, '-f', 'ops/compose.dev.yaml', ...args);
+  const filing = await optionalJson(join(root, 'filing-worker.json'));
+  if (filing && (filing.repository !== workspace || filing.isolationReviewed !== true))
+    throw new Error('Invalid local filing worker activation');
+  return docker(
+    'compose',
+    '--env-file',
+    envPath,
+    '-f',
+    'ops/compose.dev.yaml',
+    ...(filing ? ['-f', 'ops/filing-worker/app.compose.yaml'] : []),
+    ...args,
+  );
 }
 async function provision(config) {
   return new Promise((resolvePromise, reject) => {
