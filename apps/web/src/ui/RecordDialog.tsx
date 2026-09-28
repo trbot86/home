@@ -1,3 +1,4 @@
+import { isDialogBackdropClick } from './dialog-backdrop.js';
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { ClientPlatform } from '@our-place/client';
 import { Icon } from './Icon.js';
@@ -44,7 +45,7 @@ export function RecordDialog({
         close();
       }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) close();
+        if (isDialogBackdropClick(event)) close();
       }}
     >
       <div className="dialog-header">

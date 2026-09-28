@@ -1,4 +1,5 @@
 import { ShareRecord } from './ShareRecord.js';
+import { isDialogBackdropClick } from './dialog-backdrop.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { CommandKind, HistoryEntry, InboxEntry } from '@our-place/contracts';
@@ -106,7 +107,7 @@ export function EntryDialog({
       aria-labelledby="entry-title"
       onCancel={close}
       onClick={(e) => {
-        if (e.target === e.currentTarget) close();
+        if (isDialogBackdropClick(e)) close();
       }}
     >
       <ShareRecord
