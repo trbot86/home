@@ -30,7 +30,7 @@ try {
   if (!(await invoke('state')).session) await invoke('login', { username: 'alex', password: '' });
   await page.reload();
   await page.getByRole('button', { name: 'Food', exact: true }).click();
-  await page.getByRole('button', { name: 'Save a recipe', exact: true }).click();
+  await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await page.getByRole('button', { name: 'Write a recipe', exact: true }).click();
   const title = `Native soup ${Date.now()}`;
   await page.getByLabel('Recipe name', { exact: true }).fill(title);
@@ -45,7 +45,7 @@ try {
   }
   await page.reload();
   await page.getByRole('button', { name: 'Food', exact: true }).click();
-  await page.getByRole('button', { name: 'Save a recipe', exact: true }).click();
+  await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await expect(page.getByLabel('Recipe name', { exact: true })).toHaveValue(title);
   await expect(page.getByLabel('Directions', { exact: true })).toHaveValue('Keep this unfinished recipe.');
   await page.getByRole('button', { name: 'Save to Want to try', exact: true }).click();
@@ -136,7 +136,7 @@ try {
     .first()
     .click();
   await expect(page.locator('.food-detail-heading')).toContainText(title);
-  await page.getByRole('button', { name: 'Save a recipe', exact: true }).click();
+  await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await page.getByLabel('Recipe source link', { exact: true }).fill('https://example.com/multiple');
   await page.getByRole('button', { name: 'Save to Want to try', exact: true }).click();
   await expect(page.locator('.food-import-status')).toContainText('Waiting');

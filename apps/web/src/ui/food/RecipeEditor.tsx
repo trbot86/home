@@ -224,7 +224,7 @@ export function RecipeEditor({
   return (
     <RecordDialog
       client={client}
-      title={recipe ? 'Edit recipe' : 'Save a recipe'}
+      title={recipe ? 'Edit recipe' : 'Add a recipe'}
       subtitle="Food to look forward to"
       className="task-dialog food-dialog"
       close={() => {

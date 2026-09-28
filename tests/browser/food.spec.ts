@@ -9,8 +9,8 @@ async function login(page: Page) {
   await page.getByRole('button', { name: 'Food', exact: true }).click();
 }
 async function manual(page: Page, title: string) {
-  await page.getByRole('button', { name: 'Save a recipe', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Save a recipe', exact: true });
+  await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Add a recipe', exact: true });
   await dialog.getByRole('button', { name: 'Write a recipe', exact: true }).click();
   await dialog.getByLabel('Recipe name', { exact: true }).fill(title);
   await dialog.getByLabel('Ingredients', { exact: true }).fill('2 carrots\n1 onion');
@@ -237,7 +237,7 @@ test('pasted link saves immediately, ambiguous source is reviewed, duplicate lin
   context,
 }) => {
   await login(page);
-  await page.getByRole('button', { name: 'Save a recipe', exact: true }).click();
+  await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await page.getByLabel('Recipe source link', { exact: true }).fill('https://example.com/multiple');
   await page.getByLabel('Recipe source link', { exact: true }).press('Control+Enter');
   await expect(page.locator('.food-import-status')).toContainText('Waiting');
@@ -250,7 +250,7 @@ test('pasted link saves immediately, ambiguous source is reviewed, duplicate lin
   await expect(page.locator('.food-detail')).toContainText('Total · 30 min');
   await expect(page.locator('.food-detail')).toContainText('2 carrots');
   await expect(page.locator('.food-detail img')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Save a recipe', exact: true }).click();
+  await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await page.getByLabel('Recipe source link', { exact: true }).fill('https://example.com/multiple#top');
   await page.getByLabel('Recipe source link', { exact: true }).press('Control+Enter');
   await page.getByRole('button', { name: 'Open existing recipe', exact: true }).click();
@@ -268,7 +268,7 @@ test('recipe forms survive reload and lost acknowledgement without duplicate sav
   page,
 }) => {
   await login(page);
-  await page.getByRole('button', { name: 'Save a recipe', exact: true }).click();
+  await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await page.getByRole('button', { name: 'Write a recipe', exact: true }).click();
   await page.getByLabel('Recipe name', { exact: true }).fill('Private unfinished pie');
   await page.getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Just me' });
@@ -276,7 +276,7 @@ test('recipe forms survive reload and lost acknowledgement without duplicate sav
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.reload();
   await page.getByRole('button', { name: 'Food', exact: true }).click();
-  await page.getByRole('button', { name: 'Save a recipe', exact: true }).click();
+  await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await expect(page.getByLabel('Recipe name', { exact: true })).toHaveValue('Private unfinished pie');
   await expect(page.getByLabel('Description', { exact: true })).toHaveValue(
     'Keep this draft and its private visibility.',
@@ -292,7 +292,7 @@ test('recipe forms survive reload and lost acknowledgement without duplicate sav
   await page.getByLabel('Description', { exact: true }).press('Control+Enter');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.getByRole('button', { name: 'Refresh and sync', exact: true }).click();
-  await page.getByRole('button', { name: 'Save a recipe', exact: true }).click();
+  await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('.food-card').filter({ hasText: 'Private unfinished pie' })).toHaveCount(1);
   await page.getByLabel('Current profile').selectOption({ label: 'Sam' });
