@@ -1,5 +1,11 @@
 import { isSecure } from './record-security.js';
-import { categoryOf, filingOf, type FilingAdvice, type FilingAdviceReview } from '@our-place/contracts';
+import {
+  categoryOf,
+  filingOf,
+  type FilingAdvice,
+  type FilingAdviceReview,
+  type FilingAdviceContext,
+} from '@our-place/contracts';
 import { immediate, installation, type Sqlite } from '../infrastructure/database.js';
 import { requireHuman, type HumanRequestContext } from '../features/access/access.js';
 import type { InboxRepository } from '../features/inbox/inbox.js';
@@ -7,6 +13,9 @@ import type { RecordRegistry } from '../features/records/record-registry.js';
 import { Rejection } from './errors.js';
 
 const categories = ['tasks', 'shopping', 'projects'] as const;
+const maximumDestinations = 10000,
+  maximumTitleCharacters = 240000;
+type Discovery = { ids: string[]; mode: 'recent' | 'all'; eligibleCount: number };
 const destinationLabels: Record<string, string> = {
   project: 'Project',
   project_page: 'Project page',
@@ -31,6 +40,7 @@ type Row = {
   choices_json: string;
   attempt: number;
   attempted_at: number;
+  context_json: string | null;
 };
 
 /** Disabled unless a caller supplies explicit permission and a provider.
@@ -69,6 +79,13 @@ export class InboxFilingSuggestions {
       !['project', 'project_page', 'shopping_list', 'task'].includes(target.kind)
     )
       throw new Rejection('suggestion_target_unavailable');
+    if (
+      target.kind === 'task' &&
+      !this.db
+        .prepare("SELECT 1 FROM task_occurrences WHERE task_id=? AND state='open' AND is_live=1")
+        .get(id)
+    )
+      throw new Rejection('suggestion_target_unavailable');
     return target;
   }
 
@@ -90,24 +107,32 @@ export class InboxFilingSuggestions {
       }
     });
     if (choices.length !== saved.length) return { state: 'stale', attempt: row.attempt, choices: [] };
-    return { state: row.state, attempt: row.attempt, choices };
+    return {
+      state: row.state,
+      attempt: row.attempt,
+      choices,
+      ...(row.context_json ? { context: JSON.parse(row.context_json) as FilingAdviceContext } : {}),
+    };
   }
 
-  discover(context: HumanRequestContext, inboxId: string): string[] {
+  discover(context: HumanRequestContext, inboxId: string, mode: 'recent' | 'all' = 'recent'): Discovery {
     const source = this.source(context, inboxId);
-    if (!this.permission?.destinationTitles || !this.permission.scopeIds.includes(source.scopeId)) return [];
+    if (!this.permission?.destinationTitles || !this.permission.scopeIds.includes(source.scopeId))
+      return { ids: [], mode, eligibleCount: 0 };
     if (isSecure(this.db, inboxId)) throw new Rejection('secure_record_excluded');
-    return (
-      this.db
-        .prepare(
-          `SELECT record_id FROM records
-      WHERE scope_id=? AND deleted_at IS NULL
+    const eligible = `FROM records r WHERE scope_id=? AND deleted_at IS NULL
       AND record_id NOT IN (SELECT record_id FROM secure_records)
       AND kind IN ('project','project_page','shopping_list','task')
-      ORDER BY updated_at DESC,record_id LIMIT 20`,
-        )
-        .all(source.scopeId) as { record_id: string }[]
+      AND (kind<>'task' OR EXISTS (SELECT 1 FROM task_occurrences o WHERE o.task_id=r.record_id AND o.state='open' AND o.is_live=1))`;
+    const eligibleCount = (
+      this.db.prepare(`SELECT COUNT(*) AS count ${eligible}`).get(source.scopeId) as { count: number }
+    ).count;
+    const ids = (
+      this.db
+        .prepare(`SELECT record_id ${eligible} ORDER BY updated_at DESC,record_id LIMIT ?`)
+        .all(source.scopeId, mode === 'recent' ? 1000 : maximumDestinations) as { record_id: string }[]
     ).map((r) => r.record_id);
+    return { ids, mode, eligibleCount };
   }
 
   async suggest(
@@ -117,6 +142,7 @@ export class InboxFilingSuggestions {
     destinationIds: readonly string[] = [],
     now = Date.now(),
     expectedAttempt = 0,
+    discovery?: Discovery,
   ) {
     requireHuman(context);
     if (!this.permission || !this.provider) throw new Rejection('filing_suggestions_disabled');
@@ -128,7 +154,7 @@ export class InboxFilingSuggestions {
     if (!this.permission.scopeIds.includes(source.scopeId)) throw new Rejection('scope_not_permitted');
     if (source.revision !== expectedRevision) throw new Rejection('revision_conflict');
     if (!source.text.trim() || source.text.length > 8000) throw new Rejection('suggestion_text_limit');
-    if (destinationIds.length > 20 || new Set(destinationIds).size !== destinationIds.length)
+    if (destinationIds.length > maximumDestinations || new Set(destinationIds).size !== destinationIds.length)
       throw new Rejection('suggestion_context_limit');
     if (destinationIds.length && !this.permission.destinationTitles)
       throw new Rejection('destination_context_not_permitted');
@@ -136,6 +162,7 @@ export class InboxFilingSuggestions {
       advice: { kind: 'category', category },
       label: category,
     }));
+    let titleCharacters = 0;
     for (const id of destinationIds) {
       // Secure destinations are omitted, never exported or allowed to poison the source attempt.
       this.records.get(context, id);
@@ -143,11 +170,20 @@ export class InboxFilingSuggestions {
       const target = this.target(context, id, source.scopeId);
       const title = target.content.title ?? target.content.name;
       if (typeof title !== 'string') throw new Rejection('suggestion_title_limit');
+      const label = `${destinationLabels[target.kind]}: ${title}`.slice(0, 200);
+      if (titleCharacters + label.length > maximumTitleCharacters) break;
+      titleCharacters += label.length;
       options.push({
         advice: { kind: 'existing', recordId: id, revision: target.revision },
-        label: `${destinationLabels[target.kind]}: ${title}`.slice(0, 200),
+        label,
       });
     }
+    const coverage: FilingAdviceContext | undefined = discovery && {
+      mode: discovery.mode,
+      eligibleCount: discovery.eligibleCount,
+      includedCount: options.length - 3,
+      limited: options.length - 3 < discovery.eligibleCount,
+    };
     const claimed = immediate(this.db, () => {
       const previous = this.db
         .prepare('SELECT * FROM inbox_filing_suggestions WHERE inbox_id=?')
@@ -156,12 +192,17 @@ export class InboxFilingSuggestions {
         if (previous.attempt !== expectedAttempt) return false;
         if (previous.state === 'attempted' && now - previous.attempted_at < 60_000)
           throw new Rejection('suggestion_still_running');
-        if (previous.state === 'complete' && this.review(context, inboxId)?.state !== 'stale') return false;
+        if (
+          previous.state === 'complete' &&
+          discovery?.mode !== 'all' &&
+          this.review(context, inboxId)?.state !== 'stale'
+        )
+          return false;
         this.db
           .prepare(
-            `UPDATE inbox_filing_suggestions SET source_revision=?,scope_id=?,state='attempted',attempt=attempt+1,choices_json='[]',attempted_at=? WHERE inbox_id=?`,
+            `UPDATE inbox_filing_suggestions SET source_revision=?,scope_id=?,state='attempted',attempt=attempt+1,choices_json='[]',attempted_at=?,context_json=? WHERE inbox_id=?`,
           )
-          .run(source.revision, source.scopeId, now, inboxId);
+          .run(source.revision, source.scopeId, now, coverage ? JSON.stringify(coverage) : null, inboxId);
         return true;
       }
       if (expectedAttempt !== 0) throw new Rejection('suggestion_attempt_conflict');
@@ -169,9 +210,10 @@ export class InboxFilingSuggestions {
         this.db
           .prepare(
             `INSERT OR IGNORE INTO inbox_filing_suggestions
-       (inbox_id,source_revision,scope_id,state,attempted_at) VALUES (?,?,?,'attempted',?)`,
+       (inbox_id,source_revision,scope_id,state,attempted_at,context_json) VALUES (?,?,?,'attempted',?,?)`,
           )
-          .run(inboxId, source.revision, source.scopeId, now).changes > 0
+          .run(inboxId, source.revision, source.scopeId, now, coverage ? JSON.stringify(coverage) : null)
+          .changes > 0
       );
     });
     if (!claimed) return this.review(context, inboxId);
@@ -201,7 +243,7 @@ export class InboxFilingSuggestions {
         response.length > 3 ||
         new Set(response).size !== response.length ||
         response.some(
-          (key) => typeof key !== 'string' || !/^(0|[1-9][0-9]?)$/.test(key) || !options[Number(key)],
+          (key) => typeof key !== 'string' || !/^(0|[1-9][0-9]{0,4})$/.test(key) || !options[Number(key)],
         )
       )
         throw new Error('Invalid provider result');

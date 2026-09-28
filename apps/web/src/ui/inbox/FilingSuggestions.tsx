@@ -36,6 +36,7 @@ export function FilingSuggestions({
           state: entry.filingAdvice.state,
           attempt: entry.filingAdvice.attempt,
           choices: entry.filingAdvice.choices ?? [],
+          ...(entry.filingAdvice.context ? { context: entry.filingAdvice.context } : {}),
         }
       : null;
   const [review, setReview] = useState(cached),
@@ -77,7 +78,7 @@ export function FilingSuggestions({
       current = false;
     };
   }, [client, entry.inboxId, entry.revision, state.online, compact, expanded]);
-  async function request(refreshOnly = false) {
+  async function request(refreshOnly = false, broader = false) {
     if (lock.current || disabled || !state.online) return;
     lock.current = true;
     setBusy(true);
@@ -106,10 +107,15 @@ export function FilingSuggestions({
         setExpanded(true);
         return;
       }
-      if (result.review?.state === 'complete') return;
+      if (broader && !config.destinationTitles) {
+        setError('Allow destination titles in Settings to search more destinations.');
+        return;
+      }
+      if (result.review?.state === 'complete' && !broader) return;
       const response = await client.filingAdvice(entry.inboxId, {
         expectedRevision: entry.revision,
         expectedAttempt: result.review?.attempt ?? 0,
+        ...(broader ? { search: 'all' as const } : {}),
       });
       if (alive.current) setReview(response.review);
       await client.refresh();
@@ -164,6 +170,25 @@ export function FilingSuggestions({
       )}
       <details open={expanded} onToggle={(e) => setExpanded(e.currentTarget.open)}>
         <summary>More options</summary>
+        <button
+          type="button"
+          disabled={blocked || secure === true || review?.state === 'attempted'}
+          onClick={() => void request(false, true)}
+        >
+          Think harder
+        </button>
+        <p className="fine">Try again with all eligible destination titles that fit the context limit.</p>
+        {review?.context && (
+          <p className="fine">
+            {review.context.mode === 'all' ? 'Broader search' : 'Recent destinations'}:{' '}
+            {review.context.includedCount.toLocaleString()} of {review.context.eligibleCount.toLocaleString()}{' '}
+            eligible titles included.
+            {review.context.limited &&
+              (review.context.mode === 'all'
+                ? ' The context limit was reached; some titles were omitted.'
+                : ' Think harder searches beyond the recent set.')}
+          </p>
+        )}
         {secure && <p>Secure notes are excluded from suggestions.</p>}
         <button type="button" onClick={onSettings}>
           Manage note suggestions in Settings

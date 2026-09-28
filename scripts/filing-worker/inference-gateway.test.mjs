@@ -29,7 +29,7 @@ test('gateway reconstructs context and schema, discarding CLI tools, history, in
   assert.equal(clean.tool_choice, 'none');
   assert.deepEqual(clean.input, wire().input);
   assert.equal(JSON.stringify(clean).includes('private'), false);
-  assert.deepEqual(clean.text.format.schema.properties.keys.items.enum, ['0', '1', '2']);
+  assert.equal(clean.text.format.schema.properties.keys.items.pattern, '^(0|[1-9][0-9]{0,4})$');
   assert.throws(() => modelRequest({ ...wire(), model: 'different-model' }));
   const invalid = wire();
   invalid.input[0].content.push({ type: 'input_image' });
@@ -40,6 +40,20 @@ test('gateway withholds tool calls, unknown events and incomplete responses', ()
   assert.throws(() => validateStream(completion([{ type: 'function_call', name: 'shell' }])));
   assert.throws(() => validateStream('data: {"type":"response.function_call_arguments.delta"}\n\n'));
   assert.throws(() => validateStream('data: {"type":"response.in_progress"}\n\n'));
+});
+
+test('gateway accepts 1000 destinations without a schema enum and rejects unbounded aggregate context', () => {
+  const request = wire();
+  const choices = Array.from({ length: 1003 }, (_, i) => ({ key: String(i), label: `Project ${i}` }));
+  request.input[0].content[0].text = JSON.stringify({ ...note, choices });
+  const clean = modelRequest(request);
+  assert.equal(clean.text.format.schema.properties.keys.items.enum, undefined);
+  assert.equal(JSON.parse(clean.input[0].content[0].text).choices.length, 1003);
+  request.input[0].content[0].text = JSON.stringify({
+    ...note,
+    choices: Array.from({ length: 1201 }, (_, i) => ({ key: String(i), label: 'x'.repeat(200) })),
+  });
+  assert.throws(() => modelRequest(request));
 });
 test('HTTP boundary fixes upstream destination, strips headers and never relays provider errors', async () => {
   let calls = 0;

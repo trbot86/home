@@ -29,6 +29,25 @@ test('wire input strips extra context and replaces untrusted instructions; enfor
   assert.deepEqual(choiceKeys({ keys: ['1'] }, input), ['1']);
 });
 
+test('large title contexts and four-digit choice keys pass, while aggregate overflow and invented choices fail', () => {
+  const choices = Array.from({ length: 1004 }, (_, i) => ({ key: String(i), label: `Project ${i}` }));
+  const clean = boundedInput({ ...input, choices });
+  assert.deepEqual(choiceKeys({ keys: ['1003'] }, clean), ['1003']);
+  assert.throws(() => choiceKeys({ keys: ['1004'] }, clean));
+  assert.throws(() =>
+    boundedInput({
+      ...input,
+      choices: Array.from({ length: 1201 }, (_, i) => ({ key: String(i), label: 'x'.repeat(200) })),
+    }),
+  );
+  assert.throws(() =>
+    boundedInput({
+      ...input,
+      choices: Array.from({ length: 10004 }, (_, i) => ({ key: String(i), label: 'x' })),
+    }),
+  );
+});
+
 test('subprocess accepts bounded final output without inheriting credentials or printing stderr', async () => {
   const previous = process.env['FILING_TEST_SECRET'];
   process.env['FILING_TEST_SECRET'] = 'synthetic-only';
@@ -117,7 +136,7 @@ test('dedicated runner uses an ephemeral constrained CLI, choice schema, clean e
         assert.ok(args.includes('model_providers.filing.supports_websockets=false'));
         assert.ok(args.includes('model_providers.filing.request_max_retries=0'));
         const schema = JSON.parse(await readFile(join(cwd, 'response.schema.json'), 'utf8'));
-        assert.deepEqual(schema.properties.keys.items.enum, ['0', '1', '2']);
+        assert.equal(schema.properties.keys.items.pattern, '^(0|[1-9][0-9]{0,4})$');
         return '{"keys":["1"]}';
       },
     );

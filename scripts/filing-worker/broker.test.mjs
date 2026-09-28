@@ -38,3 +38,44 @@ test('broker requires its private token, bounds concurrency, and cancels a disco
     await new Promise((r) => server.close(r));
   }
 });
+
+test('broker carries larger title contexts and four-digit keys with bounded input', async () => {
+  const token = randomBytes(32).toString('base64url');
+  let calls = 0;
+  const server = createBroker({ token }, async (_config, payload) => {
+    calls++;
+    assert(JSON.parse(payload).input.choices.length === 1003);
+    return JSON.stringify({ keys: ['1002'] });
+  });
+  server.listen(0, 'localhost');
+  await once(server, 'listening');
+  try {
+    const url = `http://localhost:${server.address().port}/filing`;
+    const options = {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        version: 1,
+        model: 'gpt-5.6-luna',
+        effort: 'low',
+        input: {
+          text: 'synthetic',
+          choices: Array.from({ length: 1003 }, (_, i) => ({
+            key: String(i),
+            label: 'Synthetic project '.repeat(7),
+          })),
+        },
+      }),
+    };
+    assert(options.body.length > 65536);
+    const response = await fetch(url, options);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { keys: ['1002'] });
+    const overflow = await fetch(url, { ...options, body: 'x'.repeat(2 * 1024 * 1024 + 1) });
+    assert.equal(overflow.status, 503);
+    assert.equal(calls, 1);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

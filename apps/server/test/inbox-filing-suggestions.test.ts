@@ -415,6 +415,7 @@ test('automatic worker discovers scoped destinations, processes one item per tic
       count: 1,
       attempt: 1,
       choices: [{ kind: 'existing', recordId: target, revision: 1 }],
+      context: { mode: 'recent', eligibleCount: 1, includedCount: 1, limited: false },
     });
     f.db.prepare('UPDATE records SET revision=revision+1 WHERE record_id=?').run(second.inboxId);
     assert.equal(await worker.tick(), false);
@@ -728,7 +729,7 @@ test('manual discovery includes bounded permitted titles and excludes other scop
     });
     assert.equal(result.statusCode, 200);
     assert.equal(result.json().review.state, 'complete');
-    assert.equal(received!.choices.length, 23);
+    assert.equal(received!.choices.length, 28);
     assert.ok(received!.choices.slice(3).every((c) => c.label.startsWith('Project: Allowed destination')));
     await f.api('/api/filing-advice/settings', {
       expectedRevision: 1,
@@ -740,6 +741,135 @@ test('manual discovery includes bounded permitted titles and excludes other scop
       received!.choices.map((c) => c.label),
       ['tasks', 'shopping', 'projects'],
     );
+  } finally {
+    await f.close();
+  }
+});
+
+test('recent discovery offers 1000 titles; explicit broader search includes older destinations and deduplicates retries', async () => {
+  const inputs: FilingAdviceInput[] = [];
+  const f = await fixture(async (input) => {
+    inputs.push(input);
+    return [input.choices.find((c) => c.label === 'Project: Older perfect match')?.key ?? '1'];
+  });
+  try {
+    const old = f.project(f.shared, 'Older perfect match');
+    f.db.prepare('UPDATE records SET updated_at=0 WHERE record_id=?').run(old);
+    for (let i = 0; i < 1000; i++) f.project(f.shared, `Recent destination ${i}`);
+    const note = f.note();
+    await f.api('/api/filing-advice/settings', {
+      expectedRevision: 0,
+      preferences: { enabled: true, automatic: false, destinationTitles: true, scopeIds: [f.shared] },
+    });
+    const path = `/api/inbox/${note.inboxId}/filing-advice`;
+    const recent = (await f.api(path, { expectedRevision: 1, expectedAttempt: 0 })).json().review;
+    assert.equal(inputs[0]!.choices.length, 1003);
+    assert.deepEqual(recent.context, {
+      mode: 'recent',
+      eligibleCount: 1001,
+      includedCount: 1000,
+      limited: true,
+    });
+    const request = { expectedRevision: 1, expectedAttempt: 1, search: 'all' };
+    const broader = (await f.api(path, request)).json().review;
+    assert.equal(inputs[1]!.choices.length, 1004);
+    assert.deepEqual(broader.choices, [{ kind: 'existing', recordId: old, revision: 1 }]);
+    assert.deepEqual(broader.context, {
+      mode: 'all',
+      eligibleCount: 1001,
+      includedCount: 1001,
+      limited: false,
+    });
+    assert.deepEqual((await f.api(path, request)).json().review, broader);
+    assert.equal(inputs.length, 2);
+    assert.equal(f.service.inbox.get(f.a, note.inboxId).filedAt, null);
+  } finally {
+    await f.close();
+  }
+});
+
+test('broader context is bounded and reports omitted titles honestly', async () => {
+  const f = await fixture();
+  try {
+    for (let i = 0; i < 1205; i++) f.project(f.shared, `${i} ` + 'Long title '.repeat(25));
+    const note = f.note();
+    const service = f.advice(async (input) => {
+      assert(input.choices.reduce((n, c) => n + c.label.length, 0) <= 240024);
+      return ['1'];
+    }, true);
+    const selection = service.discover(f.a, note.inboxId, 'all');
+    const result = await service.suggest(f.a, note.inboxId, 1, selection.ids, Date.now(), 0, selection);
+    assert.deepEqual(result?.context, {
+      mode: 'all',
+      eligibleCount: 1205,
+      includedCount: 1200,
+      limited: true,
+    });
+  } finally {
+    await f.close();
+  }
+});
+
+test('completed and cancelled tasks are excluded; a recurring task with another open occurrence remains eligible', async () => {
+  const f = await fixture();
+  try {
+    const tasks = ['open', 'completed', 'cancelled', 'recurring'].map((title) => {
+      const recordId = randomUUID(),
+        occurrenceId = randomUUID();
+      assert.equal(
+        f.run('CreateTask', {
+          recordId,
+          occurrenceId,
+          scopeId: f.shared,
+          title,
+          instructions: '',
+          context: 'home',
+          defaultAssigneeId: null,
+          defaultPriority: 1,
+          recurrence:
+            title === 'recurring'
+              ? { version: 1, mode: 'after_completion', count: 1, unit: 'days', timeZone: 'UTC' }
+              : null,
+          assigneeId: null,
+          priority: 1,
+          deadlineDate: null,
+          targetDate: null,
+          reviewDate: null,
+        }).status,
+        'Applied',
+      );
+      return { recordId, occurrenceId };
+    });
+    const complete = (index: number, recurring = false) => {
+      const result = f.run('CompleteTaskOccurrence', {
+        recordId: tasks[index]!.occurrenceId,
+        expectedRevision: 1,
+        expectedTaskRevision: 1,
+        completionId: randomUUID(),
+        nextOccurrenceId: recurring ? randomUUID() : null,
+        completedAt: f.now(),
+        performedByPersonId: f.a.personId,
+        note: '',
+      });
+      assert.equal(result.status, 'Applied', JSON.stringify(result));
+    };
+    complete(1);
+    complete(3, true);
+    assert.equal(
+      f.run('DeleteTask', {
+        recordId: tasks[2]!.recordId,
+        expectedRevision: 1,
+        occurrence: { recordId: tasks[2]!.occurrenceId, expectedRevision: 1 },
+      }).status,
+      'Applied',
+    );
+    const n = f.note(),
+      s = f.advice(async () => ['3'], true);
+    const ids = s.discover(f.a, n.inboxId).ids;
+    assert.deepEqual(new Set(ids), new Set([tasks[0]!.recordId, tasks[3]!.recordId]));
+    await s.suggest(f.a, n.inboxId, 1, [tasks[0]!.recordId]);
+    complete(0);
+    assert.equal(s.review(f.a, n.inboxId)?.state, 'stale');
   } finally {
     await f.close();
   }

@@ -79,18 +79,25 @@ export function registerFilingAdviceRoutes(
       const preferences = settings(context);
       if (!provider) throw new Rejection('filing_provider_not_configured');
       if (!preferences.enabled) throw new Rejection('filing_suggestions_disabled');
+      if (request.body.search === 'all' && (!preferences.destinationTitles || request.body.destinationIds))
+        throw new Rejection('broader_search_requires_destination_titles');
       const service = new InboxFilingSuggestions(db, inbox, records, provider, preferences, () => {
         // Reauthenticate before publishing an asynchronous result, including consent revocation.
         authenticate(request);
         return settings(context).revision === preferences.revision;
       });
+      const discovery =
+        request.body.destinationIds === undefined
+          ? service.discover(context, request.params.id, request.body.search ?? 'recent')
+          : undefined;
       const work = service.suggest(
         context,
         request.params.id,
         request.body.expectedRevision,
-        request.body.destinationIds ?? service.discover(context, request.params.id),
+        request.body.destinationIds ?? discovery!.ids,
         now(),
         request.body.expectedAttempt,
+        discovery,
       );
       pending.add(work);
       try {

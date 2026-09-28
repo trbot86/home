@@ -107,7 +107,7 @@ export function createBroker(config, run = dockerJob) {
       let bytes = Buffer.alloc(0);
       for await (const chunk of req) {
         bytes = Buffer.concat([bytes, chunk]);
-        if (bytes.length > 65536) throw Error();
+        if (bytes.length > 2 * 1024 * 1024) throw Error();
       }
       const request = JSON.parse(bytes.toString('utf8'));
       if (request.version !== 1 || request.model !== 'gpt-5.6-luna' || request.effort !== 'low')
@@ -117,7 +117,7 @@ export function createBroker(config, run = dockerJob) {
       if (
         !Array.isArray(value.keys) ||
         value.keys.length > 3 ||
-        value.keys.some((k) => typeof k !== 'string' || !/^\d{1,2}$/.test(k))
+        value.keys.some((k) => typeof k !== 'string' || !/^(0|[1-9][0-9]{0,4})$/.test(k))
       )
         throw Error();
       res

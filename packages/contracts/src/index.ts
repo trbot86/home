@@ -195,6 +195,7 @@ export type InboxEntry = InboxFiling & {
     count: number;
     attempt?: number;
     choices?: import('./filing-advice.js').FilingAdvice[];
+    context?: import('./filing-advice.js').FilingAdviceContext;
   };
   inboxId: string;
   scopeId: string;

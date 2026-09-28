@@ -200,6 +200,37 @@ test('quick filing preserves a modified saved filing draft', async ({ page }) =>
   expect(note.filedAt).toBeNull();
 });
 
+test('Think harder requests broader context explicitly and coverage survives reload without another send', async ({
+  page,
+}) => {
+  await login(page);
+  await configure(page, true);
+  const card = await capture(page, 'Synthetic broader advice capture');
+  await card.getByRole('button', { name: 'Suggest filing', exact: true }).click();
+  await expect(card.locator('[aria-label="Suggested destinations"] button').first()).toBeVisible();
+  await card.getByText('More options', { exact: true }).click();
+  await expect(card.getByText(/Recent destinations:/)).toBeVisible();
+  let broaderPosts = 0;
+  page.on('request', (request) => {
+    if (
+      request.method() === 'POST' &&
+      request.url().endsWith('/filing-advice') &&
+      request.postDataJSON().search === 'all'
+    )
+      broaderPosts++;
+  });
+  await card.getByRole('button', { name: 'Think harder', exact: true }).click();
+  await expect(card.getByText(/Broader search:/)).toBeVisible();
+  const note = (await snapshot(page)).entries.find((e: any) => e.text === 'Synthetic broader advice capture');
+  expect(note.filingAdvice.attempt).toBe(2);
+  expect(note.filingAdvice.context.mode).toBe('all');
+  expect(note.filedAt).toBeNull();
+  await page.reload();
+  await card.getByText('More options', { exact: true }).click();
+  await expect(card.getByText(/Broader search:/)).toBeVisible();
+  expect(broaderPosts).toBe(1);
+});
+
 test('automatic suggestions arrive as direct actions without opening a dialog', async ({ page }) => {
   await login(page);
   await configure(page, true, true);

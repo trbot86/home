@@ -16,10 +16,11 @@ export function boundedInput(value: unknown): FilingAdviceInput {
     v.text.length > 8000 ||
     !Array.isArray(v.choices) ||
     v.choices.length < 3 ||
-    v.choices.length > 23 ||
+    v.choices.length > 10003 ||
     v.choices.some((c, i) => !c || c.key !== String(i) || typeof c.label !== 'string' || c.label.length > 200)
   )
     throw failure();
+  if (v.choices.reduce((total, c) => total + c.label.length, 0) > 240024) throw failure();
   // Rebuild the wire object: never forward arbitrary properties or caller instructions.
   return {
     instruction: filingInstruction,

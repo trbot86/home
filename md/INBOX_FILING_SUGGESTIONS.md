@@ -20,7 +20,7 @@ whether automatic processing is allowed. All defaults are off. No provider is
 connected by default in the production entry point. Saving consent alone cannot send data.
 
 The Filing suggestions control on a note contains only its results and request or
-retry button. More options holds refresh and the Settings link. Destination titles
+retry button. More options holds Think harder, refresh and the Settings link. Destination titles
 are selected automatically within the saved permissions; there is no per-note
 context checklist. The filing dialog's Settings link saves the unfinished draft
 before navigation. Changing profiles loads that profile's permissions.
@@ -30,15 +30,35 @@ profile and installation on each device; they do not store note contents.
 Automatic mode discovers both existing and new unfiled inbox entries in permitted
 scopes. The server polls every three seconds after the previous attempt finishes,
 with one item per tick and no overlapping automatic dispatch. It discovers at
-most 20 recently updated destinations with exactly the source visibility when
+most 1,000 recently updated destinations with exactly the source visibility when
 title context is permitted. It does not enumerate other private scopes. Manual
 requests now use the same bounded discovery when destination IDs are omitted.
+Tasks need an open, live occurrence: completed/cancelled one-off tasks are excluded,
+while recurring tasks with a next open occurrence remain eligible. Saved advice
+also becomes stale when its suggested task no longer has an open occurrence.
+
+Think harder makes an explicit new attempt with `search: "all"`, even after a
+successful result. It broadens discovery beyond the most recent 1,000. All eligible
+titles are included when they fit; hard ceilings are 10,000 destinations and
+240,000 title characters in total, with the existing 200-character per-label cap.
+Selection stays newest-first if a ceiling is reached. The attempt stores coverage
+mode, total eligible count, included count and whether coverage was limited, never
+the exported titles. More options displays these counts and calls out omissions.
+Repeated delivery of the same expected-attempt request cannot dispatch again;
+automatic processing never broadens or retries an already attempted note.
+
 The API still accepts an explicit list of up to 20 IDs, or an empty list for
 category-only requests. The provider sees only the
 source text (at most 8,000 JavaScript characters), category choices and permitted
 destination titles with type labels, truncated to 200 characters. Complete titles stay in app data.
 Photos, captions, page bodies, source metadata, history, other inbox entries,
 record IDs, credentials and database access are not given to the provider.
+The isolated transport accepts at most 2 MiB of request bytes (the gateway allows
+4 MiB for the CLI envelope). The adapter and gateway independently enforce title
+count and character limits. The output schema uses bounded numeric-string keys
+rather than a large enum: [Structured Outputs limits enum values to 1,000](https://developers.openai.com/api/docs/guides/structured-outputs#limitations-on-enum-size).
+The worker and server still reject keys absent from the offered choices, duplicates,
+or more than three results. No tools or database access are added to the model.
 
 Automatic consent is bound to the session that saved it, using only its credential
 identifier, never its secret. Logout, expiry, account/client disablement or consent
@@ -198,6 +218,8 @@ Server migrations 029 and 030 are additive. Production upgrades must use the exi
 verified-backup upgrade command. Advice metadata travels with normal inbox refresh
 on both clients, so a saved result appears without editing its note. The normal
 open-app sync interval is 15 seconds.
+Migration 031 adds nullable coverage metadata to existing attempts; old results,
+attempt numbers, records and receipts remain intact.
 
 ## Focused verification
 

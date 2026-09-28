@@ -23,7 +23,7 @@ try {
   let bytes = Buffer.alloc(0);
   for await (const chunk of process.stdin) {
     bytes = Buffer.concat([bytes, chunk]);
-    if (bytes.length > 65536) throw Error();
+    if (bytes.length > 2 * 1024 * 1024) throw Error();
   }
   const response = await fetch(url, {
     method: 'POST',

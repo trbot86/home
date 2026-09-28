@@ -74,18 +74,6 @@ export class FilingAdviceWorker {
           )
           .get(scopeId) as { id: string; revision: number } | undefined;
         if (!candidate) continue;
-        const destinationIds = consent.destinationTitles
-          ? (
-              this.db
-                .prepare(
-                  `SELECT record_id FROM records
-          WHERE record_id NOT IN (SELECT record_id FROM secure_records)
-          AND scope_id=? AND deleted_at IS NULL AND kind IN ('project','project_page','shopping_list','task')
-          ORDER BY updated_at DESC,record_id LIMIT 20`,
-                )
-                .all(scopeId) as { record_id: string }[]
-            ).map((r) => r.record_id)
-          : [];
         const service = new InboxFilingSuggestions(
           this.db,
           this.inbox,
@@ -98,7 +86,16 @@ export class FilingAdviceWorker {
             installation(this.db).recovery_mode === 'normal',
         );
         try {
-          await service.suggest(context, candidate.id, candidate.revision, destinationIds, this.now());
+          const discovery = service.discover(context, candidate.id);
+          await service.suggest(
+            context,
+            candidate.id,
+            candidate.revision,
+            discovery.ids,
+            this.now(),
+            0,
+            discovery,
+          );
         } catch (error) {
           if (!(error instanceof Rejection)) throw error;
           // A bounded-input rejection must not starve later items or cause repeated automatic attempts.

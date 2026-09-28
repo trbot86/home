@@ -20,12 +20,13 @@ export function modelRequest(body) {
     value.text.length > 8000 ||
     !Array.isArray(value.choices) ||
     value.choices.length < 3 ||
-    value.choices.length > 23 ||
+    value.choices.length > 10003 ||
     value.choices.some(
       (c, i) => !c || c.key !== String(i) || typeof c.label !== 'string' || c.label.length > 200,
     )
   )
     throw Error();
+  if (value.choices.reduce((total, c) => total + c.label.length, 0) > 240024) throw Error();
   const input = { text: value.text, choices: value.choices.map(({ key, label }) => ({ key, label })) };
   return {
     model: 'gpt-5.6-luna',
@@ -50,7 +51,7 @@ export function modelRequest(body) {
             keys: {
               type: 'array',
               maxItems: 3,
-              items: { type: 'string', enum: input.choices.map((c) => c.key) },
+              items: { type: 'string', pattern: '^(0|[1-9][0-9]{0,4})$' },
             },
           },
         },
@@ -128,7 +129,7 @@ export function inferenceHandler(send = fetch) {
         res.writeHead(403).end();
         return;
       }
-      const request = modelRequest(JSON.parse(await boundedBody(req, 262144)));
+      const request = modelRequest(JSON.parse(await boundedBody(req, 4 * 1024 * 1024)));
       const job = req.headers['x-filing-job'];
       if (typeof job !== 'string' || !/^[a-f0-9-]{36}$/.test(job)) {
         res.writeHead(403).end();

@@ -9,11 +9,18 @@ export const FilingAdvicePreferences = object({
 });
 export type FilingAdvicePreferences = Static<typeof FilingAdvicePreferences>;
 export type FilingAdviceSettings = FilingAdvicePreferences & { configured: boolean; revision: number };
+export type FilingAdviceContext = {
+  mode: 'recent' | 'all';
+  eligibleCount: number;
+  includedCount: number;
+  limited: boolean;
+};
 export const FilingAdviceRequest = object({
   expectedRevision: Revision,
   expectedAttempt: Type.Integer({ minimum: 0 }),
   // Omitted discovers bounded, permitted same-scope destinations. [] requests categories only.
   destinationIds: Type.Optional(Type.Array(Id, { maxItems: 20, uniqueItems: true })),
+  search: Type.Optional(Type.Union([Type.Literal('recent'), Type.Literal('all')])),
 });
 export type FilingAdviceRequest = Static<typeof FilingAdviceRequest>;
 export type FilingAdvice =
@@ -23,4 +30,5 @@ export type FilingAdviceReview = {
   state: 'attempted' | 'complete' | 'failed' | 'stale';
   attempt: number;
   choices: FilingAdvice[];
+  context?: FilingAdviceContext;
 };

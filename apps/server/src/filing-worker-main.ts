@@ -16,7 +16,7 @@ try {
     for await (const chunk of process.stdin) {
       const bytes = Buffer.from(chunk);
       size += bytes.length;
-      if (size > 65536) throw new Error();
+      if (size > 2 * 1024 * 1024) throw new Error();
       chunks.push(bytes);
     }
     const result = await runFilingCodex(JSON.parse(Buffer.concat(chunks).toString('utf8')), {

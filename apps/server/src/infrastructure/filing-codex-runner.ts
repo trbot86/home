@@ -38,7 +38,7 @@ export async function runFilingCodex(
           keys: {
             type: 'array',
             maxItems: 3,
-            items: { type: 'string', enum: input.choices.map((c) => c.key) },
+            items: { type: 'string', pattern: '^(0|[1-9][0-9]{0,4})$' },
           },
         },
       }),
