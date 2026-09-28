@@ -65,6 +65,21 @@ test('dirty and unfamiliar ignored data pin checkouts instead of being discarded
   assert.equal(await readFile(join(second, 'precious.sqlite'), 'utf8'), 'retained');
 });
 
+test('recycling handles dependency paths beyond the Windows legacy limit', async (t) => {
+  const f = await fixture(t, 1);
+  git(f.repository, 'config', 'core.longpaths', 'false');
+  const first = await f.pool.acquire('suggestion-long');
+  const nested = join(first, 'node_modules', ...Array(8).fill('long-dependency-directory'));
+  await mkdir(nested, { recursive: true });
+  const cached = join(nested, 'cache.bin');
+  assert.ok(cached.length > 260);
+  await writeFile(cached, 'reproducible');
+  const next = await f.pool.acquire('suggestion-next');
+  assert.equal(await readFile(join(next, 'source.txt'), 'utf8'), 'original');
+  assert.deepEqual(await readdir(join(f.stateRoot, 'worktrees')), ['suggestion-next']);
+  assert.equal(git(f.repository, 'config', 'core.longpaths'), 'false');
+});
+
 test('an uncertain launch pins even a clean checkout until publication', async (t) => {
   const f = await fixture(t, 1);
   const first = await f.pool.acquire('suggestion-a');

@@ -5,7 +5,9 @@ import { resolve, join, dirname } from 'node:path';
 import { readJson, writeJson } from './journal.mjs';
 const exec = promisify(execFile);
 const git = async (cwd, ...args) =>
-  (await exec('git', args, { cwd, windowsHide: true, maxBuffer: 8 * 1024 * 1024 })).stdout.trim();
+  // Dependency trees routinely exceed Windows' legacy path limit. Apply this to
+  // inspection and removal alike, without changing the user's global Git config.
+  (await exec('git', ['-c', 'core.longpaths=true', ...args], { cwd, windowsHide: true, maxBuffer: 8 * 1024 * 1024 })).stdout.trim();
 const samePath = (a, b) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
 const safeId = (id) => {
   if (!/^[a-zA-Z0-9_-]{8,80}$/.test(id)) throw new Error('Invalid suggestion identity');
