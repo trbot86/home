@@ -251,6 +251,11 @@
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
+.revisit-date-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
 .task-form .dialog-footer {
   padding: 20px 28px;
   border-top: 1px solid var(--line);

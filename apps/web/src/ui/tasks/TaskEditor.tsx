@@ -13,6 +13,7 @@ import { RecordDialog } from '../RecordDialog.js';
 import { useSavedForm } from '../useSavedForm.js';
 import { priorityNames, type TaskRun } from './shared.js';
 import type { TaskTemplate } from './task-template.js';
+import { RevisitDate } from './RevisitDate.js';
 export function TaskEditor({
   client,
   state,
@@ -411,7 +412,12 @@ export function TaskEditor({
               </div>
               <div className="task-form-row">
                 {field('targetDate', 'Flexible target', 'date')}
-                {field('reviewDate', 'Revisit on', 'date')}
+                <RevisitDate
+                  value={form.reviewDate}
+                  targetDate={form.targetDate}
+                  timeZone={state.tasks.timeZone}
+                  onChange={(value) => buffer.field('reviewDate', value)}
+                />
               </div>
               {field('deadlineDate', 'Actual deadline (optional)', 'date')}
               <p className="fine">

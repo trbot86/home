@@ -13,7 +13,10 @@ async function createTask(
   configure?: (dialog: ReturnType<Page['getByRole']>) => Promise<void>,
 ) {
   await page.getByRole('button', { name: 'New task', exact: true }).click();
-  await page.getByRole('dialog').getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
+  await page
+    .getByRole('dialog')
+    .getByLabel('Who can see this', { exact: true })
+    .selectOption({ label: 'Shared' });
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Task title', { exact: true }).fill(title);
   if (configure) await configure(dialog);
@@ -94,7 +97,10 @@ test('task editor buffers, uncertain creation, private tasks and offline viewing
 }) => {
   await openTasks(page);
   await page.getByRole('button', { name: 'New task', exact: true }).click();
-  await page.getByRole('dialog').getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
+  await page
+    .getByRole('dialog')
+    .getByLabel('Who can see this', { exact: true })
+    .selectOption({ label: 'Shared' });
   await page.getByLabel('Task title', { exact: true }).fill('Research a surprise weekend');
   await page.getByLabel('Instructions', { exact: true }).fill('Keep these unfinished details');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
@@ -134,7 +140,10 @@ test('task editor buffers, uncertain creation, private tasks and offline viewing
   });
   await page.getByRole('button', { name: 'Tasks', exact: true }).click();
   await page.getByRole('button', { name: 'New task', exact: true }).click();
-  await page.getByRole('dialog').getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
+  await page
+    .getByRole('dialog')
+    .getByLabel('Who can see this', { exact: true })
+    .selectOption({ label: 'Shared' });
   await expect(page.getByLabel('Task title', { exact: true })).toHaveValue('Research a surprise weekend');
   await expect(page.getByLabel('Instructions', { exact: true })).toHaveValue('Keep these unfinished details');
   await page.getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Just me' });
@@ -173,4 +182,70 @@ test('task editor buffers, uncertain creation, private tasks and offline viewing
   await expect(card).toContainText('Keep these unfinished details');
   await expect(card.getByRole('button', { name: 'Plan', exact: true })).toBeDisabled();
   await context.setOffline(false);
+});
+
+test('revisit picker starts at the target without saving provisional dates', async ({ page }) => {
+  await openTasks(page);
+  await page.setViewportSize({ width: 320, height: 900 });
+  const card = await createTask(page, 'Plan a target-relative revisit', async (dialog) => {
+    const revisit = dialog.getByRole('button', { name: 'Revisit on Choose date', exact: true });
+    await dialog.getByLabel('Flexible target', { exact: true }).fill('2028-02-29');
+    await revisit.click();
+    const selection = dialog.getByLabel('Revisit date selection', { exact: true });
+    await expect(selection).toHaveValue('2028-02-29');
+    await selection.fill('2028-03-04');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(revisit).toBeFocused();
+    await revisit.click();
+    await expect(selection).toHaveValue('2028-02-29');
+    await selection.press('Escape');
+    await expect(dialog).toBeVisible();
+    await expect(revisit).toBeFocused();
+    // Closing and restoring the unfinished editor must not save the preview.
+    await revisit.click();
+    await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
+    await page.getByRole('button', { name: 'New task', exact: true }).click();
+    await expect(revisit).toBeVisible();
+    // Saving with the picker open must also leave the review date blank.
+    await revisit.click();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: '.cache/revisit-picker.png' });
+  });
+  await card.locator('summary').click();
+  await card.getByRole('button', { name: 'Plan', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const selection = dialog.getByLabel('Revisit date selection', { exact: true });
+  await dialog.getByRole('button', { name: 'Revisit on Choose date', exact: true }).click();
+  await expect(selection).toHaveValue('2028-02-29');
+  await dialog.getByRole('button', { name: 'Use date', exact: true }).click();
+  await dialog.getByLabel('Flexible target', { exact: true }).fill('2029-01-01');
+  await dialog.getByRole('button', { name: 'Revisit on Feb 29, 2028', exact: true }).click();
+  await expect(selection).toHaveValue('2028-02-29');
+  await selection.fill('2028-03-01');
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await card.getByRole('button', { name: 'Plan', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Revisit on Feb 29, 2028', exact: true }).click();
+  await expect(selection).toHaveValue('2028-02-29');
+  await selection.fill('2028-03-02');
+  await dialog.getByRole('button', { name: 'Use date', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await card.getByRole('button', { name: 'Plan', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Revisit on Mar 2, 2028', exact: true }).click();
+  await expect(selection).toHaveValue('2028-03-02');
+  await dialog.getByRole('button', { name: 'Clear', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await card.getByRole('button', { name: 'Plan', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Revisit on Choose date', exact: true }).click();
+  await expect(selection).toHaveValue('2029-01-01');
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await dialog.getByLabel('Flexible target', { exact: true }).fill('');
+  await dialog.getByRole('button', { name: 'Revisit on Choose date', exact: true }).click();
+  await expect(selection).toHaveValue(/^\d{4}-\d{2}-\d{2}$/);
+  await selection.fill('');
+  await dialog.getByRole('button', { name: 'Use date', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Revisit on Choose date', exact: true })).toBeVisible();
 });
