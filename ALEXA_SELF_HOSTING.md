@@ -83,6 +83,30 @@ is enabled; changes to Amazon's signing requirements need a code review.
 
 ## Local build and private configuration
 
+The `capture-admin` entry point provisions a capture-only credential using an
+existing administrator's password. Run it locally in the **current server image**
+with networking disabled, `CAPTURE_PROVISION_ENABLED=1`, the existing `DATA_ROOT`,
+and an absolute `CAPTURE_CREDENTIAL_OUTPUT` path in private storage. Supply JSON on
+stdin containing `expectedInstallationId`, `expectedServerEpoch`, `username`,
+`password`, `displayName`, and an explicit future `expiresAt` in epoch milliseconds.
+Never put credentials in command arguments or logs. It requires the current schema,
+matching installation/epoch, normal recovery state and an administrator login;
+it neither bootstraps nor migrates. It refuses an existing output file or active
+integration label. The short-lived administrative login is revoked before exit.
+The output file is created mode 0600 and contains the integration credential and
+binding metadata. Do not mount that administrative input or password into the
+receiver. Record the integration's expiry and rotate/revoke it explicitly through
+the administrative integration service. If provisioning is interrupted, inspect
+the actor and output before retrying; do not blindly create a second actor.
+
+Before live capture activation, the app's deployment path must manage the capture
+helper as a companion: stop it before backup/upgrade/restore, and recreate it with
+the new app image after a successful upgrade, retaining its socket volume and
+installation binding. Resume the old helper only when rollback leaves the old
+schema intact. A restore requires explicit epoch review before resuming capture.
+Keep capture disabled if its image/schema cannot be verified. Coordinate this
+with any deployment already in progress; do not independently replace the app.
+
 From the repository root:
 
 ```powershell
