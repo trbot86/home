@@ -106,6 +106,8 @@ installation binding. Resume the old helper only when rollback leaves the old
 schema intact. A restore requires explicit epoch review before resuming capture.
 Keep capture disabled if its image/schema cannot be verified. Coordinate this
 with any deployment already in progress; do not independently replace the app.
+The reusable host wrapper, ownership contract, activation ordering and tests are
+documented in [Capture companion lifecycle](ops/CAPTURE_COMPANION.md).
 
 From the repository root:
 

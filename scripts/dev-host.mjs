@@ -4,6 +4,11 @@ import { mkdir, readFile, writeFile, copyFile, stat } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { randomBytes, createHash } from 'node:crypto';
 import { acquireLock } from './suggestion-bridge/journal.mjs';
+import {
+  readCaptureDescriptor,
+  withCaptureCompanionUpgrade,
+  stopCaptureCompanion,
+} from './capture-companion.mjs';
 
 const exec = promisify(execFile);
 const workspace = resolve(import.meta.dirname, '..');
@@ -208,6 +213,17 @@ async function upgrade() {
   }
 }
 async function upgradeLocked() {
+  return withCaptureCompanionUpgrade({
+    descriptor: await readCaptureDescriptor(join(root, 'capture-companion.json')),
+    state: await requireState(),
+    workspace,
+    targetImage: image,
+    inspect,
+    docker,
+    upgrade: upgradeAppLocked,
+  });
+}
+async function upgradeAppLocked() {
   const state = await requireState();
   const existing = await inspect('container', container);
   if (existing) requireOwned(existing);
@@ -264,11 +280,21 @@ async function main() {
     await publishClient(await requireState());
     console.log('Refreshed the private Android download.');
   } else if (action === 'stop') {
-    await requireState();
-    const existing = await inspect('container', container);
-    if (existing) {
-      requireOwned(existing);
-      console.log(await compose('stop'));
+    const unlock = await acquireLock(join(root, 'upgrade.lock'));
+    try {
+      const state = await requireState();
+      const existing = await inspect('container', container);
+      if (existing) requireOwned(existing);
+      await stopCaptureCompanion({
+        descriptor: await readCaptureDescriptor(join(root, 'capture-companion.json')),
+        state,
+        workspace,
+        inspect,
+        docker,
+      });
+      if (existing) console.log(await compose('stop'));
+    } finally {
+      await unlock();
     }
   } else if (action === 'status') {
     const state = await requireState();
