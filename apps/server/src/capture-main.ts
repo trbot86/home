@@ -22,6 +22,11 @@ if (installation(db).installation_id !== expected) {
   await app.close();
   throw new Error('Wrong household data volume: installation identity does not match');
 }
+const expectedEpoch = process.env['CAPTURE_EXPECTED_SERVER_EPOCH'];
+if (expectedEpoch && installation(db).recovery_epoch !== expectedEpoch) {
+  await app.close();
+  throw new Error('Capture epoch changed: review the restored household before reconnecting');
+}
 if (socketPath) {
   // The parent directory is a dedicated socket volume shared only with the receiver.
   // Both processes use the same unprivileged UID. No database/media mount is shared with it.
