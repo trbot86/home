@@ -15,6 +15,7 @@ export function SuggestionReleasePanel({
   onError: (e: unknown) => void;
   compact?: boolean;
 }) {
+  const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const work = state.suggestions.work.filter((w) => w.suggestionId === id);
   const all = state.suggestions.releases || [];
@@ -25,7 +26,21 @@ export function SuggestionReleasePanel({
       );
   const ready = work[0]?.state === 'ready';
   if (id && (suggestionCompleted(state.suggestions, id) || (!release && !ready))) return null;
-  if (!id && !release) return null;
+  const seen = new Set<string>();
+  const candidates = state.suggestions.work.filter((w) => {
+    if (seen.has(w.suggestionId)) return false;
+    seen.add(w.suggestionId);
+    return (
+      w.state === 'ready' &&
+      w.runId &&
+      !suggestionCompleted(state.suggestions, w.suggestionId) &&
+      state.entries.some((e) => e.inboxId === w.suggestionId && e.deletedAt === null) &&
+      !all.some((r) => r.runId === w.runId && r.state === 'released')
+    );
+  });
+  const chosen = candidates.filter((w) => selected.includes(w.runId!));
+  const selectedScope = state.entries.find((e) => e.inboxId === chosen[0]?.suggestionId)?.scopeId;
+  if (!id && !release && !candidates.length) return null;
   const members =
     release?.members || (release ? [{ suggestionId: release.suggestionId, runId: release.runId }] : []);
   async function action(kind: CommandKind, args: unknown) {
@@ -39,6 +54,7 @@ export function SuggestionReleasePanel({
         state.session.serverEpoch,
       );
       if (result.status === 'Rejected') throw new Error(result.code.replaceAll('_', ' '));
+      setSelected([]);
       await client.refresh();
     } catch (e) {
       onError(e);
@@ -51,7 +67,63 @@ export function SuggestionReleasePanel({
     ['queued', 'preparing', 'prepared', 'deploy_queued', 'deploying', 'uncertain'].includes(r.state),
   );
   return (
-    <section className={`suggestion-release${id ? '' : ' suggestion-update-batch'}`} aria-label="Suggestion release">
+    <section
+      className={`suggestion-release${id ? '' : ' suggestion-update-batch'}`}
+      aria-label="Suggestion release"
+    >
+      {!id && !active && candidates.length > 0 && (
+        <>
+          <h3>Ready for update</h3>
+          <p>
+            Choose suggestions to combine. Prepare selected integrates them and runs release tests; Deploy
+            update appears when they pass.
+          </p>
+          <div className="suggestion-release-choices">
+            {candidates.map((w) => {
+              const entry = state.entries.find((e) => e.inboxId === w.suggestionId)!;
+              const previous = all.find((r) => r.runId === w.runId);
+              return (
+                <label key={w.runId}>
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(w.runId!)}
+                    disabled={
+                      disabled ||
+                      (!selected.includes(w.runId!) &&
+                        (chosen.length >= 20 ||
+                          (selectedScope !== undefined && entry.scopeId !== selectedScope)))
+                    }
+                    onChange={(e) =>
+                      setSelected((current) =>
+                        e.target.checked ? [...current, w.runId!] : current.filter((r) => r !== w.runId),
+                      )
+                    }
+                  />
+                  <span>
+                    {entry.text}
+                    {previous?.state === 'failed' && <small>{previous.summary}</small>}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <p className="fine">
+            Select up to 20 suggestions with the same visibility. Failed checks can be retried here.
+          </p>
+          <button
+            className="primary"
+            disabled={disabled || !chosen.length}
+            onClick={() =>
+              void action('PrepareSuggestionBatch', {
+                releaseId: crypto.randomUUID(),
+                members: chosen.map((w) => ({ suggestionId: w.suggestionId, runId: w.runId! })),
+              })
+            }
+          >
+            Prepare selected ({chosen.length})
+          </button>
+        </>
+      )}
       {!id && release && (
         <>
           <h3>
@@ -123,8 +195,8 @@ export function SuggestionReleasePanel({
       )}
       {!compact && !release && (
         <p className="fine">
-          Implementation is ready. The host will include it in an update and run the combined release checks
-          automatically.
+          Implementation is ready. Select it in the App suggestions list to prepare and test a combined
+          update.
         </p>
       )}
     </section>

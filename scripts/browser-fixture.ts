@@ -196,11 +196,6 @@ const control = createServer((request, response) => {
       if (!releaseFixture) throw new Error();
       const epoch = installation(db).recovery_epoch,
         agent = releaseFixture.agent;
-      // Test-only clock aging: no real host or live database is connected here.
-      db.prepare("UPDATE suggestion_runs SET updated_at=? WHERE agent_id=? AND state='ready'").run(
-        Date.now() - 31_000,
-        agent.agentId,
-      );
       let job = suggestionRelease.pending(agent, epoch)!;
       if (!job.members?.some((m) => m.suggestionId === releaseFixture!.suggestionId)) throw new Error();
       job = suggestionRelease.update(agent, {

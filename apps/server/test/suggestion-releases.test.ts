@@ -172,7 +172,7 @@ async function finish(
   });
   return { suggestionId, runId: run.runId };
 }
-test('automatic batches settle, freeze membership, validate every source and defer later work', async () => {
+test('selected batches freeze membership, validate every source and leave other work unselected', async () => {
   const f = await suggestionFixture();
   try {
     const agent = authenticateSuggestionAgent(
@@ -185,6 +185,14 @@ test('automatic batches settle, freeze membership, validate every source and def
     const second = await finish(f, agent);
     assert.equal(releases.pending(agent, 'fixture-epoch'), null);
     f.setTime(f.now() + 30_000);
+    assert.equal(releases.pending(agent, 'fixture-epoch'), null, 'polling never chooses for the user');
+    assert.equal(
+      f.run('PrepareSuggestionBatch', { releaseId: randomUUID(), members: [first, first] }).status,
+      'Rejected',
+    );
+    const request = f.envelope({ releaseId: randomUUID(), members: [first, second] });
+    assert.equal(f.service.writes.execute(f.a, 'PrepareSuggestionBatch', request).status, 'Applied');
+    assert.equal(f.service.writes.execute(f.a, 'PrepareSuggestionBatch', request).status, 'Applied');
     let job = releases.pending(agent, 'fixture-epoch')!;
     assert.deepEqual(job.members, [first, second]);
     assert.equal(
@@ -230,6 +238,15 @@ test('automatic batches settle, freeze membership, validate every source and def
     job = update('deploying');
     job = update('released');
     f.setTime(f.now() + 30_000);
+    assert.equal(releases.pending(agent, 'fixture-epoch'), null);
+    assert.equal(
+      f.run('PrepareSuggestionBatch', { releaseId: randomUUID(), members: [first] }).status,
+      'Rejected',
+    );
+    assert.equal(
+      f.run('PrepareSuggestionBatch', { releaseId: randomUUID(), members: [late] }).status,
+      'Applied',
+    );
     assert.deepEqual(releases.pending(agent, 'fixture-epoch')!.members, [late]);
     assert.deepEqual(f.db.pragma('foreign_key_check'), []);
   } finally {
@@ -248,6 +265,17 @@ test('batches keep private scopes separate and failed inputs do not retry in a l
     f.setTime(f.now() + 1);
     const sharedItem = await finish(f, agent);
     f.setTime(f.now() + 30_000);
+    assert.equal(
+      f.run('PrepareSuggestionBatch', { releaseId: randomUUID(), members: [privateItem, sharedItem] }).status,
+      'Rejected',
+    );
+    assert.throws(() =>
+      f.run('PrepareSuggestionBatch', { releaseId: randomUUID(), members: [privateItem] }, f.b),
+    );
+    assert.equal(
+      f.run('PrepareSuggestionBatch', { releaseId: randomUUID(), members: [privateItem] }).status,
+      'Applied',
+    );
     let job = releases.pending(agent, 'fixture-epoch')!;
     assert.deepEqual(job.members, [privateItem]);
     assert.equal(f.features.suggestions.snapshot(f.b).releases!.length, 0);
@@ -259,6 +287,11 @@ test('batches keep private scopes separate and failed inputs do not retry in a l
       state: 'failed',
       summary: 'Needs integration repair',
     });
+    assert.equal(releases.pending(agent, 'fixture-epoch'), null);
+    assert.equal(
+      f.run('PrepareSuggestionBatch', { releaseId: randomUUID(), members: [sharedItem] }).status,
+      'Applied',
+    );
     const next = releases.pending(agent, 'fixture-epoch')!;
     assert.deepEqual(next.members, [sharedItem]);
     assert.equal(f.run('CancelSuggestionRelease', { releaseId: next.releaseId }).status, 'Applied');
