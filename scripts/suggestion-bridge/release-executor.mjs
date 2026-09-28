@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdir, readFile, realpath, lstat, appendFile } from 'node:fs/promises';
-import { resolve, join, dirname } from 'node:path';
+import { resolve, join, dirname, delimiter } from 'node:path';
 import { createHash } from 'node:crypto';
 import { readJson, writeJson } from './journal.mjs';
 const exec = promisify(execFile);
@@ -32,6 +32,9 @@ export class ReleaseExecutor {
     this.cwd = join(this.root, 'workspace');
     this.branch = 'codex/release-' + job.releaseId;
     this.env = { ...process.env, npm_config_store_dir: join(config.stateRoot, 'package-store') };
+    const pathKey = Object.keys(this.env).find((k) => k.toLowerCase() === 'path') || 'PATH';
+    this.env[pathKey] = dirname(process.execPath) + delimiter + (this.env[pathKey] || '');
+    this.env.CI = 'true';
   }
   async run(file, args, cwd = this.repo, env = this.env) {
     try {
@@ -206,9 +209,14 @@ export class ReleaseExecutor {
       throw new ReleaseCheckError('The release host needs its package-manager path configured.');
     const pnpm = (...args) => this.run(process.execPath, [this.config.pnpmEntry, ...args], this.cwd);
     await pnpm('install', '--frozen-lockfile');
-    await pnpm('typecheck');
+    await pnpm('-r', 'typecheck');
     await this.run(process.execPath, ['scripts/check-boundaries.mjs'], this.cwd);
-    await pnpm('android:assets');
+    await pnpm('--filter', '@our-place/web', 'build');
+    await this.run(
+      process.execPath,
+      ['node_modules/@capacitor/cli/bin/capacitor', 'sync', 'android'],
+      this.cwd,
+    );
     // Use the shared SDK, Gradle cache and original signing identity, never copies per suggestion.
     const host = await readJson(join(this.repo, '.local/phone-trial/host.json'));
     await this.run('powershell.exe', [
