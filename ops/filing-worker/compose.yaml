@@ -1,0 +1,77 @@
+name: our-place-filing
+services:
+  auth-egress:
+    image: our-place-filing-auth-egress:local
+    build:
+      context: ../../.local/filing-worker/build
+      dockerfile: Proxy.Dockerfile
+    read_only: true
+    user: '1000:1000'
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 32
+    mem_limit: 128m
+    cpus: 0.5
+    restart: unless-stopped
+    logging:
+      driver: none
+    networks: [isolated, auth-outbound]
+  network-guard:
+    image: our-place-filing-network-guard:local
+    build:
+      context: ../../.local/filing-worker/build
+      dockerfile: Guard.Dockerfile
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 32
+    mem_limit: 128m
+    restart: unless-stopped
+    dns: [127.0.0.1]
+    tmpfs: ['/tmp:rw,noexec,nosuid,nodev,size=1048576']
+    depends_on: [auth-egress]
+    healthcheck:
+      test: [CMD, node, -e, "require('fs').accessSync('/tmp/ready')"]
+      interval: 2s
+      timeout: 1s
+      retries: 15
+    logging:
+      driver: none
+    networks: [isolated]
+  worker:
+    image: our-place-filing-worker:local
+    build:
+      context: ../../.local/filing-worker/build
+      dockerfile: Dockerfile
+    profiles: [manual]
+    read_only: true
+    user: '1000:1000'
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 96
+    mem_limit: 512m
+    cpus: 1
+    network_mode: service:network-guard
+    depends_on:
+      network-guard:
+        condition: service_healthy
+    environment:
+      HTTP_PROXY: http://auth-egress:3128
+      HTTPS_PROXY: http://auth-egress:3128
+      ALL_PROXY: http://auth-egress:3128
+      NO_PROXY: ''
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=67108864,uid=1000,gid=1000,mode=0700
+      - /work:rw,noexec,nosuid,nodev,size=1048576,uid=1000,gid=1000,mode=0700
+    volumes:
+      - worker-auth:/auth
+    logging:
+      driver: none
+networks:
+  isolated:
+    internal: true
+  auth-outbound: {}
+volumes:
+  worker-auth: {}

@@ -1,0 +1,12 @@
+import { lookup } from 'node:dns/promises';
+import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+const { address } = await lookup('auth-egress', { family: 4 });
+const rule = (...args) => execFileSync('/usr/sbin/iptables', args, { stdio: 'ignore' });
+rule('-P', 'OUTPUT', 'DROP');
+rule('-A', 'OUTPUT', '-m', 'conntrack', '--ctstate', 'ESTABLISHED,RELATED', '-j', 'ACCEPT');
+rule('-A', 'OUTPUT', '-o', 'lo', '-j', 'ACCEPT');
+rule('-A', 'OUTPUT', '-d', address, '-p', 'tcp', '--dport', '3128', '-j', 'ACCEPT');
+execFileSync('/usr/sbin/ip6tables', ['-P', 'OUTPUT', 'DROP'], { stdio: 'ignore' });
+writeFileSync('/tmp/ready', 'ready');
+setInterval(() => {}, 60_000);

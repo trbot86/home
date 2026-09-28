@@ -85,6 +85,10 @@ frozen request bytes and hashes; it does not recreate the local database.
 
 ## Dedicated Codex worker
 
+The separate authentication boundary and fresh-login procedure are now available
+in [FILING_WORKER_SETUP.md](FILING_WORKER_SETUP.md). Inference and production
+activation remain disconnected pending the post-login checks documented there.
+
 The server adapter and standalone `filing-worker-main` entry point implement a
 dedicated Codex worker transport. Host activation is absent. Tests use synthetic
 data and substitute the model subprocess; they do not authenticate or send model
