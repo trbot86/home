@@ -26,6 +26,7 @@ export function reviewPaths(paths, sourceCommit, approvals = []) {
         p,
       ) ||
       /^[A-Z_]+\.md$/.test(p) ||
+      /^md\/(?:[\w-]+\/)*[\w.-]+\.md$/.test(p) ||
       approvals.some(
         (a) =>
           a.sourceCommit === sourceCommit &&
@@ -161,7 +162,8 @@ export class ReleaseExecutor {
   async prepare() {
     const baseCommit = await this.cleanBase(),
       previousImageId = await this.liveImage();
-    const sources = [];
+    const sources = [],
+      included = new Set();
     for (const member of this.job.members || [this.job]) {
       const publication = await readJson(join(this.config.stateRoot, 'runs', member.runId, 'published.json'));
       if (!publication)
@@ -170,10 +172,13 @@ export class ReleaseExecutor {
         );
       const sourceCommit = await this.git('rev-parse', 'refs/heads/codex/suggestion-' + member.suggestionId);
       const mergeBase = await this.git('merge-base', baseCommit, sourceCommit);
+      // Source integration and deployment are separate: an exact ancestor can
+      // still be awaiting release. Keep it pinned in the tested manifest.
+      if (mergeBase === sourceCommit) included.add(sourceCommit);
       const changed = (await this.git('diff', '--name-only', mergeBase, sourceCommit))
         .split('\n')
         .filter(Boolean);
-      if (!changed.length)
+      if (!changed.length && !included.has(sourceCommit))
         throw new ReleaseCheckError(
           'A suggestion has no new committed source changes. The batch needs review.',
         );
@@ -194,7 +199,7 @@ export class ReleaseExecutor {
         await this.git('merge-base', '--is-ancestor', input, candidate);
     }
     await this.workspace(candidate || baseCommit);
-    for (const source of candidate ? [] : sources) {
+    for (const source of candidate ? [] : sources.filter((s) => !included.has(s.sourceCommit))) {
       try {
         await this.treeGit('merge', '--no-ff', '--no-edit', source.sourceCommit);
       } catch {

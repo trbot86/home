@@ -1,7 +1,7 @@
 # Recipes, cooking and recipe shopping groups
 
 Food is deployed on the web and in the private Android download. Product requirements
-remain in PLANNING.md and the connected schema in DATA_MODEL.md. Migrations 001–014
+remain in md/PLANNING.md and the connected schema in DATA_MODEL.md. Migrations 001–014
 are immutable. The implementation checkpoints below record their original evidence;
 the release section records the subsequent live upgrade.
 

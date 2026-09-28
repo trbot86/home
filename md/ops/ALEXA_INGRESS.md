@@ -67,7 +67,7 @@ production receiver on loopback port 3000 in the guarded namespace. Its private
 configuration directory is mounted read-only; no capture socket is mounted yet.
 
 Create `.local/alexa/receiver-config/receiver.json` using the strict format in
-`ALEXA_SELF_HOSTING.md`. For initial account setup, use the actual skill ID, a
+`md/ALEXA_SELF_HOSTING.md`. For initial account setup, use the actual skill ID, a
 random non-Amazon placeholder account ID, an unlinked epoch, an unprovisioned
 random token, and the future socket path `/sockets/capture.sock`. This gives the
 receiver no capture authority. Do not add an allow-all account mode or log request

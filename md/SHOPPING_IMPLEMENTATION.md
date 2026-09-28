@@ -1,6 +1,6 @@
 # Shopping and restocking implementation
 
-This implemented feature slice follows DATA_MODEL.md and PLANNING.md. Keep existing server
+This implemented feature slice follows md/DATA_MODEL.md and PLANNING.md. Keep existing server
 records read-only offline; local inbox capture remains available while disconnected.
 Do not reopen this decision as a new offline editing protocol.
 

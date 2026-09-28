@@ -123,7 +123,7 @@ At deployment, use a read-only filesystem, no added capabilities, no-new-privile
 and bounded memory/process resources. Do not attach it to the household app's
 ordinary Docker network. The kernel network boundary has passed a rehearsal on
 the deployment host. An enrollment-only Compose configuration is now available
-in `ops/alexa-ingress.compose.yaml`; follow `ops/ALEXA_INGRESS.md` to review the
+in `ops/alexa-ingress.compose.yaml`; follow `md/ops/ALEXA_INGRESS.md` to review the
 tailnet policy and enroll the dedicated identity. It starts only the guard and
 Tailscale daemon, with no receiver, public service or household connection.
 

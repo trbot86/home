@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const reportPath = path.join(root, 'CODE_STATS.md');
+const reportPath = path.join(root, 'md/CODE_STATS.md');
 const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], {
   cwd: root,
   encoding: 'utf8',
@@ -47,7 +47,7 @@ try {
   ].join('\n');
   if (!existsSync(reportPath) || readFileSync(reportPath, 'utf8') !== report)
     writeFileSync(reportPath, report);
-  console.log(`CODE_STATS.md refreshed: ${counts.SUM.nFiles} files, ${counts.SUM.code} code lines.`);
+  console.log(`md/CODE_STATS.md refreshed: ${counts.SUM.nFiles} files, ${counts.SUM.code} code lines.`);
 } finally {
   rmSync(temp, { recursive: true, force: true });
 }

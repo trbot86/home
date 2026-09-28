@@ -1,7 +1,7 @@
 # Tasks, actual completion and personal overview
 
 Implemented and deployed 2026-09-26, following the Shopping release. This follows
-DATA_MODEL.md and APPLICATION_CONTRACTS.md; it does not replace their wider plan.
+md/DATA_MODEL.md and md/APPLICATION_CONTRACTS.md; it does not replace their wider plan.
 No additional household input is needed for the bounded work below.
 
 ## Release evidence

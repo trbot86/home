@@ -33,5 +33,5 @@ Install updates over the existing phone app; do not uninstall or clear data.
    for a shopping group. Cached recipes and groups remain readable offline.
 
 Emulator tests cannot establish manufacturer-specific microphone, lock-screen,
-gesture or power-management behavior. See BUILD_PROGRESS.md for implementation
+gesture or power-management behavior. See md/BUILD_PROGRESS.md for implementation
 status; private release evidence remains local.

@@ -35,6 +35,6 @@ camera/gallery handoff was also exercised with synthetic emulator images.
 
 Maintenance assets/service records, recipes/cooking records and project pages
 also reuse this editor and repository. Shopping products and purchase receipts
-are deployed; see SHOPPING_PHOTOS_IMPLEMENTATION.md for verification and limits.
+are deployed; see md/SHOPPING_PHOTOS_IMPLEMENTATION.md for verification and limits.
 PDF/document attachments, moving a rejected photo draft into Inbox, and changes
 to storage retention are outside this slice.

@@ -172,73 +172,92 @@ test('release runner reconciles lost acknowledgements and never relaunches an in
   }
 });
 
-test('batch preparation pins all inputs and runs the broad checks once after integration', async () => {
-  const root = await temp();
-  try {
-    const members = [0, 1].map(() => ({ suggestionId: randomUUID(), runId: randomUUID() }));
-    const config = { repository: root, stateRoot: join(root, 'state'), pnpmEntry: 'test-pnpm' };
-    const events = [];
-    class BatchExecutor extends ReleaseExecutor {
-      async cleanBase() {
-        return 'a'.repeat(40);
+for (const mode of ['new', 'mixed', 'included', 'empty'])
+  test(`batch preparation pins inputs and runs broad checks: ${mode}`, async () => {
+    const root = await temp();
+    try {
+      const members = [0, 1].map(() => ({ suggestionId: randomUUID(), runId: randomUUID() }));
+      const config = { repository: root, stateRoot: join(root, 'state'), pnpmEntry: 'test-pnpm' };
+      const events = [];
+      class BatchExecutor extends ReleaseExecutor {
+        async cleanBase() {
+          return 'a'.repeat(40);
+        }
+        async liveImage() {
+          return 'sha256:' + 'e'.repeat(64);
+        }
+        async workspace() {
+          events.push('workspace');
+        }
+        async git(...args) {
+          if (args[0] === 'rev-parse')
+            return args[1].endsWith(members[0].suggestionId) ? 'b'.repeat(40) : 'c'.repeat(40);
+          if (args[0] === 'merge-base')
+            return mode === 'included' || (mode === 'mixed' && args[2] === 'b'.repeat(40))
+              ? args[2]
+              : 'a'.repeat(40);
+          if (args[0] === 'diff')
+            return args[2] === args[3] || mode === 'empty' ? '' : 'apps/web/src/ui/example.tsx';
+          throw new Error('Unexpected git ' + args.join(' '));
+        }
+        async treeGit(...args) {
+          events.push(args.join(' '));
+          return args[0] === 'rev-parse' ? 'd'.repeat(40) : '';
+        }
+        async docker(...args) {
+          events.push('docker ' + args[0]);
+          return args[0] === 'image' ? 'sha256:' + 'f'.repeat(64) : '';
+        }
+        async pruneImages() {}
+        async run(_file, args) {
+          events.push(args.join(' '));
+          return '';
+        }
       }
-      async liveImage() {
-        return 'sha256:' + 'e'.repeat(64);
+      const executor = new BatchExecutor(
+        config,
+        { releaseId: randomUUID(), ...members[0], members },
+        join(root, 'log'),
+      );
+      for (const m of members)
+        await writeJson(join(config.stateRoot, 'runs', m.runId, 'published.json'), { published: true });
+      await writeJson(join(root, '.local/phone-trial/host.json'), { origin: 'http://localhost' });
+      const apk = join(executor.cwd, 'apps/android/app/build/outputs/apk/debug/app-debug.apk');
+      await mkdir(join(apk, '..'), { recursive: true });
+      await writeFile(apk, 'fixture-apk');
+      if (mode === 'empty') {
+        await assert.rejects(executor.prepare(), /no new committed source changes/);
+        assert.equal(events.includes('docker build'), false);
+        return;
       }
-      async workspace() {
-        events.push('workspace');
-      }
-      async git(...args) {
-        if (args[0] === 'rev-parse')
-          return args[1].endsWith(members[0].suggestionId) ? 'b'.repeat(40) : 'c'.repeat(40);
-        if (args[0] === 'merge-base') return 'a'.repeat(40);
-        if (args[0] === 'diff') return 'apps/web/src/ui/example.tsx';
-        throw new Error('Unexpected git ' + args.join(' '));
-      }
-      async treeGit(...args) {
-        events.push(args.join(' '));
-        return args[0] === 'rev-parse' ? 'd'.repeat(40) : '';
-      }
-      async docker(...args) {
-        events.push('docker ' + args[0]);
-        return args[0] === 'image' ? 'sha256:' + 'f'.repeat(64) : '';
-      }
-      async pruneImages() {}
-      async run(_file, args) {
-        events.push(args.join(' '));
-        return '';
-      }
+      const result = await executor.prepare();
+      assert.deepEqual(
+        result.sources,
+        members.map((m, i) => ({ ...m, sourceCommit: (i ? 'c' : 'b').repeat(40) })),
+      );
+      assert.equal(events.filter((e) => e === 'docker build').length, 1);
+      assert.equal(
+        events.filter((e) => e.startsWith('merge --no-ff')).length,
+        mode === 'included' ? 0 : mode === 'mixed' ? 1 : 2,
+      );
+      if (mode !== 'included')
+        assert.ok(
+          events.indexOf('merge --no-ff --no-edit ' + 'c'.repeat(40)) < events.indexOf('docker build'),
+        );
+      assert.equal(events.filter((e) => e === 'node_modules/@playwright/test/cli.js test').length, 1);
+      assert.equal(result.apkSha256, hash('fixture-apk'));
+    } finally {
+      await cleanup(root);
     }
-    const executor = new BatchExecutor(
-      config,
-      { releaseId: randomUUID(), ...members[0], members },
-      join(root, 'log'),
-    );
-    for (const m of members)
-      await writeJson(join(config.stateRoot, 'runs', m.runId, 'published.json'), { published: true });
-    await writeJson(join(root, '.local/phone-trial/host.json'), { origin: 'http://localhost' });
-    const apk = join(executor.cwd, 'apps/android/app/build/outputs/apk/debug/app-debug.apk');
-    await mkdir(join(apk, '..'), { recursive: true });
-    await writeFile(apk, 'fixture-apk');
-    const result = await executor.prepare();
-    assert.deepEqual(
-      result.sources,
-      members.map((m, i) => ({ ...m, sourceCommit: (i ? 'c' : 'b').repeat(40) })),
-    );
-    assert.equal(events.filter((e) => e === 'docker build').length, 1);
-    assert.ok(events.indexOf('merge --no-ff --no-edit ' + 'c'.repeat(40)) < events.indexOf('docker build'));
-    assert.equal(events.filter((e) => e === 'node_modules/@playwright/test/cli.js test').length, 1);
-    assert.equal(result.apkSha256, hash('fixture-apk'));
-  } finally {
-    await cleanup(root);
-  }
-});
+  });
 
 test('host review exceptions are limited to the exact committed source and paths', () => {
   const commit = 'a'.repeat(40),
     paths = ['apps/web/package.json'];
   const approvals = [{ sourceCommit: commit, paths }];
   assert.equal(reviewPaths(['apps/web/test/example.test.tsx']), true);
+  assert.equal(reviewPaths(['md/INBOX_FILING_SUGGESTIONS.md', 'md/decisions/0001-example.md']), true);
+  assert.equal(reviewPaths(['md/../scripts/dev-host.mjs']), false);
   assert.equal(reviewPaths(paths), false);
   assert.equal(reviewPaths(paths, commit, approvals), true);
   assert.equal(reviewPaths(paths, 'b'.repeat(40), approvals), false);

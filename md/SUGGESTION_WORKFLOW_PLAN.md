@@ -1,7 +1,7 @@
 # Suggestion discussions and agent work
 
 Status: implemented with a serial development-host runner. Operational setup and
-recovery are documented in SUGGESTION_BRIDGE.md; release evidence is recorded in
+recovery are documented in md/SUGGESTION_BRIDGE.md; release evidence is recorded in
 BUILD_PROGRESS.md. The household app is the authoritative place to
 follow this work. A separate visible Codex desktop task is optional, not an
 acceptance requirement. An agent session can be resumed or replaced while the

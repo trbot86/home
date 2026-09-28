@@ -1,6 +1,6 @@
 # Household app — working planning notes
 
-Updated: 2026-09-26. Status: the first inbox/media/offline/history/backup slice is implemented and locally verified; the broader product below remains a plan. See [README.md](README.md) and [BUILD_PROGRESS.md](BUILD_PROGRESS.md) for what can be run and what has been tested. These notes preserve the conversation and distinguish agreed directions from proposed behaviours and build order. Self-hosting for two people with file-based media and SQLite is selected. The expected deployment is Docker on Windows with local NVMe and backups to the main PC. Actual installation settings, device behaviour and display hardware remain open.
+Updated: 2026-09-26. Status: the first inbox/media/offline/history/backup slice is implemented and locally verified; the broader product below remains a plan. See [README.md](../README.md) and [BUILD_PROGRESS.md](BUILD_PROGRESS.md) for what can be run and what has been tested. These notes preserve the conversation and distinguish agreed directions from proposed behaviours and build order. Self-hosting for two people with file-based media and SQLite is selected. The expected deployment is Docker on Windows with local NVMe and backups to the main PC. Actual installation settings, device behaviour and display hardware remain open.
 
 ## What the household wants
 

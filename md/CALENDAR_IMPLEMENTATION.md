@@ -1,7 +1,7 @@
 # Calendar integration
 
 Projects and optional maintenance ideas are deployed. Calendar integration follows
-the ownership and privacy boundaries in DATA_MODEL.md, section 12. The first
+the ownership and privacy boundaries in md/DATA_MODEL.md, section 12. The first
 calendar release provides a read-only agenda; household event editing remains a
 separate decision. No Google account, OAuth
 client, token or live calendar connection has been configured.

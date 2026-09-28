@@ -69,7 +69,7 @@ profile and editor text; a separate native trial retained a photo reply across
 process termination and synchronized it once to the other profile. A restore
 from the secondary backup into an isolated Linux volume preserved 51 existing
 tables and two media files through schema 022. Live release metadata remains in
-ignored `.local/suggestion-discussion-*` files. See SUGGESTION_BRIDGE.md for host
+ignored `.local/suggestion-discussion-*` files. See md/SUGGESTION_BRIDGE.md for host
 setup, conservative recovery and the current start/result reporting granularity.
 
 Fixed-calendar recurrence has a design checkpoint and tested calendar arithmetic
@@ -100,7 +100,7 @@ See ACTIVITY_IMPLEMENTATION.md.
 Inbox filing is deployed on the web and private Android download. Inbox notes can
 create or link tasks, shopping items and project pages while retaining the source
 and its photos. Migrations 001 through 021 are published and immutable. See
-INBOX_FILING_IMPLEMENTATION.md for transaction and retention details.
+md/INBOX_FILING_IMPLEMENTATION.md for transaction and retention details.
 
 Personal agenda customisation is deployed: section order, counts and visibility,
 Home/Work defaults, recipe and project panels, durable editor drafts and private
@@ -109,7 +109,7 @@ preference sync. See AGENDA_LAYOUT_IMPLEMENTATION.md.
 The Android task widget is deployed in the private download. It reuses the
 server's authorised task projection, supports per-widget views and opens the
 existing completion/date controls. It requires no database migration. See
-TASK_WIDGET_IMPLEMENTATION.md for the contract and completed verification.
+md/TASK_WIDGET_IMPLEMENTATION.md for the contract and completed verification.
 
 The separate Alexa task's capture backend is integrated. Integration actors are
 distinct from people, and the separate listener can only capture shared inbox
@@ -199,7 +199,7 @@ are unchanged by pins. The checkpoints below led to the complete Food release.
 
 Verification includes 23 browser flows, ten Android unit tests, native Food flows,
 in-place APK preservation and a real public recipe import into a disposable database.
-See RECIPE_IMPLEMENTATION.md for exact coverage and limitations. Cooking tasks are
+See md/RECIPE_IMPLEMENTATION.md for exact coverage and limitations. Cooking tasks are
 now connected through migration 013, with atomic meal/completion/recurrence history,
 guarded undo and shared date controls. The Linux build passes all 135 tests across
 server, contract and voice packages. Ingredient shopping groups now add a durable
@@ -271,7 +271,7 @@ passes 172 tests with one platform-specific skip on Windows.
 Account connection, token storage, routes, scheduling and calendar UI are not yet
 wired. The live maintenance-ideas release and private APK remain unchanged, with
 schema 001–016. The first-release choice between a read-only agenda and household
-event editing is still awaiting user input. See CALENDAR_IMPLEMENTATION.md for
+event editing is still awaiting user input. See md/CALENDAR_IMPLEMENTATION.md for
 the implemented boundaries and remaining integration work.
 
 ## Calendar authorization checkpoint (2026-09-27; not deployed)
@@ -375,7 +375,7 @@ source-photo navigation, Android Back and offline draft/cache checks.
 
 A fresh secondary-backup restore into a disposable Docker volume preserves fifty
 retained tables and two media files while applying migration021. The live household
-has not yet been upgraded at this checkpoint. See INBOX_FILING_IMPLEMENTATION.md
+has not yet been upgraded at this checkpoint. See md/INBOX_FILING_IMPLEMENTATION.md
 for transaction, compatibility and retention details.
 
 ## Inbox filing release (2026-09-27)
@@ -421,7 +421,7 @@ pass. The production Linux image passes all 221 package tests. The emulator
 update preserves the previous profile, caches, photo captures and unfinished
 text. Second-profile downloaded photos remain visible with the test server off.
 No server schema or native database migration is required. See
-ACTIVITY_IMPLEMENTATION.md for privacy and offline-media boundaries.
+md/ACTIVITY_IMPLEMENTATION.md for privacy and offline-media boundaries.
 
 ## Recently done release (2026-09-27)
 
@@ -441,7 +441,7 @@ installation/recovery identity are preserved; database integrity and foreign-key
 checks pass. The fresh pre-deployment online backup is verified at the secondary
 destination. The served web assets and APK match the tested artifacts. Live
 checks opened Shopping and the product editor without saving synthetic content.
-See SHOPPING_PHOTOS_IMPLEMENTATION.md for compatibility and test evidence.
+See md/SHOPPING_PHOTOS_IMPLEMENTATION.md for compatibility and test evidence.
 
 ## Screenshot paste and image drop release (2026-09-27)
 
@@ -474,8 +474,8 @@ unit tests and five bridge recovery tests. A real isolated Codex run completed a
 question-and-answer round after bridge restart. The dedicated Android emulator
 preserved data through an in-place update and verified an offline photo reply
 across process restart, synchronization and viewing from the other profile.
-Physical phone installation remains a user step. See SUGGESTION_BRIDGE.md and
-SUGGESTION_WORKFLOW_PLAN.md for the execution and recovery boundaries.
+Physical phone installation remains a user step. See md/SUGGESTION_BRIDGE.md and
+md/SUGGESTION_WORKFLOW_PLAN.md for the execution and recovery boundaries.
 
 ## Suggestion worker permissions and storage correction (2026-09-27)
 

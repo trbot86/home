@@ -1,6 +1,6 @@
 # Household app — Windows deployment and backups
 
-Date: 2026-09-26. Status: image and Compose template implemented; isolated local Docker replacement/restore rehearsal passed. This is not an installation on the household host. See [README.md](README.md) for current commands. The user expects a Windows machine already running Jellyfin/Seerr/arr applications, with local NVMe storage (probably the boot drive). Online exports into a dedicated Windows folder plus remote protection supplied by the host's backup system remain the intended arrangement. The actual remote host, filesystem bridge, HTTPS route and backup system have not been inspected. These choices refine [A13](decisions/0003-file-media-and-container-storage.md).
+Date: 2026-09-26. Status: image and Compose template implemented; isolated local Docker replacement/restore rehearsal passed. This is not an installation on the household host. See [README.md](../README.md) for current commands. The user expects a Windows machine already running Jellyfin/Seerr/arr applications, with local NVMe storage (probably the boot drive). Online exports into a dedicated Windows folder plus remote protection supplied by the host's backup system remain the intended arrangement. The actual remote host, filesystem bridge, HTTPS route and backup system have not been inspected. These choices refine [A13](decisions/0003-file-media-and-container-storage.md).
 
 ## 1. Recommended storage arrangement
 

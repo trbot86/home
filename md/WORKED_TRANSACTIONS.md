@@ -1,6 +1,6 @@
 # Household app — worked database transactions
 
-Date: 2026-09-26. Status: proposed workflows for reviewing [the connected model](DATA_MODEL.md) and [architecture](ARCHITECTURE.md). IDs and dates below are illustrative. This is design, not a running application. SQL constraint checks are recorded separately in [the probe](design_checks/registry_constraints.py).
+Date: 2026-09-26. Status: proposed workflows for reviewing [the connected model](DATA_MODEL.md) and [architecture](ARCHITECTURE.md). IDs and dates below are illustrative. This is design, not a running application. SQL constraint checks are recorded separately in [the probe](../design_checks/registry_constraints.py).
 
 See [APPLICATION_CONTRACTS.md](APPLICATION_CONTRACTS.md) for typed command/outcome shapes and the subsequent refinements to rejection finality, no-op handling and redo links.
 

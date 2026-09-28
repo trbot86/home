@@ -1,6 +1,6 @@
 # Maintenance records and reusable photo attachments
 
-Implemented after the Tasks and reusable-attachment releases. Follow DATA_MODEL.md
+Implemented after the Tasks and reusable-attachment releases. Follow md/DATA_MODEL.md
 and retain the existing live household. Migration008 adds Home; migration007 is
 reserved for the integration actor model. Deployment status is in BUILD_PROGRESS.md.
 

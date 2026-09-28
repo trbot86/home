@@ -2,7 +2,7 @@
 
 A self-hosted household app for two people. Deployed features include a shared/private inbox, separate app suggestions, photos, durable offline capture, shopping and restock lists, tasks and recurring chores, maintenance assets and service logs, visual recipe collections, nested project boards, personal overviews, completion/purchase history, guarded undo/redo, storage reporting and online backup/restore. Agenda and Google Calendar settings are implemented; external calendars require host configuration and account consent. The Tailscale household is in real use; follow AGENTS.md to preserve its data during development.
 
-The temporary Docker phone trial on this PC is live over private Tailscale HTTPS. It uses the mockup's dark green theme and a password-free profile picker: choose yourself once, then switch from the profile dropdown. Private items are hidden from the other profile; anyone with network access can deliberately select either profile. See [PHONE_TRIAL.md](PHONE_TRIAL.md) for the addresses and controls and [the access decision](decisions/0004-trusted-network-profiles.md) for the model.
+The temporary Docker phone trial on this PC is live over private Tailscale HTTPS. It uses the mockup's dark green theme and a password-free profile picker: choose yourself once, then switch from the profile dropdown. Private items are hidden from the other profile; anyone with network access can deliberately select either profile. See [PHONE_TRIAL.md](md/PHONE_TRIAL.md) for the addresses and controls and [the access decision](md/decisions/0004-trusted-network-profiles.md) for the model.
 
 ## Try the local demo
 
@@ -26,7 +26,7 @@ The software keyboard may consume the first Back to dismiss itself.
 On desktop, paste a screenshot into the capture box or drop image files there.
 The same gestures work in **Photos & receipts**, including with a caption focused.
 Photos stay in the local draft until you save; ordinary text paste keeps working.
-See [screenshot paste and image drop](PHOTO_TRANSFER_IMPLEMENTATION.md).
+See [screenshot paste and image drop](md/PHOTO_TRANSFER_IMPLEMENTATION.md).
 
 Use **File** on an inbox note to create a task, shopping item or project page,
 or link to something already saved. Unfiled, Filed and All notes keep the original
@@ -34,7 +34,7 @@ capture searchable, with its photos and destination links. New items retain the
 note's visibility. **Back to inbox** retains its links; **Unlink** keeps the
 destination itself. Filing supports guarded undo, durable unfinished forms and
 Ctrl+Enter. Offline drafts are editable; filing waits for connection. See
-[inbox filing](INBOX_FILING_IMPLEMENTATION.md) for transaction and retention details.
+[inbox filing](md/INBOX_FILING_IMPLEMENTATION.md) for transaction and retention details.
 
 Shopping supports named shared/private lists for groceries, household purchases,
 wants and gifts. Add quantities and notes, move items between lists of the same
@@ -50,7 +50,7 @@ labels. Items added with **Need this** show those reference photos. Purchased
 items have separate **Receipt photos** and **Purchase history** actions; receipts
 also appear in Recently done. Captions, ordering, undo and private gift visibility
 use the existing photo editor. A new restock keeps product photos without copying
-an earlier receipt. See [shopping photos](SHOPPING_PHOTOS_IMPLEMENTATION.md).
+an earlier receipt. See [shopping photos](md/SHOPPING_PHOTOS_IMPLEMENTATION.md).
 
 Tasks support shared/private Home and Work views, assignees, priorities and
 separate deadline, flexible target and review dates. **Move a date** offers a
@@ -64,7 +64,7 @@ Add **Our place tasks** from the Android launcher's widget picker. It supports
 Home/Work filtering, row limits and optional private tasks, with cached reading
 and shortcuts to completion/date controls. Resize it to fit your home screen.
 It hides task content when you switch profiles. The widget is available in the
-private Android download; see [task widget implementation](TASK_WIDGET_IMPLEMENTATION.md).
+private Android download; see [task widget implementation](md/TASK_WIDGET_IMPLEMENTATION.md).
 
 **Recently done** combines completed tasks, purchases, cooking and maintenance,
 ordered by when they happened and attributed to the recorded performer. Linked
@@ -72,7 +72,7 @@ cooking/maintenance actions appear once. Filter by person, Home/Work, kind or
 text; private activity requires opting into your own records. Notes, photos,
 history and source links keep the details close. Offline metadata and notes remain
 readable; Android also retains a bounded cache of viewed photos. See
-[activity implementation](ACTIVITY_IMPLEMENTATION.md).
+[activity implementation](md/ACTIVITY_IMPLEMENTATION.md).
 
 From an asset in Home, **Browse maintenance ideas** offers optional starting points
 with source guidance. Customize a task before saving; its dates and recurrence
@@ -90,7 +90,7 @@ checklist to create a named shopping group with a recipe link and retained sourc
 text. Groups start collapsed; renaming, moving items and removing a group while
 keeping its items support guarded undo. Quantities are never guessed or combined.
 Food and shopping groups are deployed on the web and in the private Android download. See
-[recipe implementation](RECIPE_IMPLEMENTATION.md) for verification and limits.
+[recipe implementation](md/RECIPE_IMPLEMENTATION.md) for verification and limits.
 
 Projects offer shared/private boards, nested pages, photos, ordered text and web
 links, and reference cards that open existing household records. Keep next-action
@@ -98,7 +98,7 @@ pins separate from reference material and reorder them without editing their
 targets. Move pages, archive boards, inspect history, or restore selected deleted
 pages with revision-checked undo. Unfinished editors survive closing and reopening;
 cached pages and previously viewed images remain readable offline. See
-[Projects implementation](PROJECTS_IMPLEMENTATION.md) for verification and limits.
+[Projects implementation](md/PROJECTS_IMPLEMENTATION.md) for verification and limits.
 
 To develop with live reload, bootstrap the default development data first with `pnpm --filter @our-place/server bootstrap` using JSON on stdin (format below), then `pnpm dev`. The web development server proxies `/api` to the local server. The prebuilt demo is the quickest first review.
 
@@ -172,6 +172,6 @@ Mount an isolated empty test volume at `/data` for the first rehearsal. Verify t
 
 Windows direct development uses `--development` for operations because it cannot establish Linux directory-fsync semantics. Production never silently downgrades those checks. Copying exports to the configured the secondary disk drive and restoring from that copy have been verified; Windows VSS integration and host power-loss behavior have not been validated.
 
-See [BUILD_PROGRESS.md](BUILD_PROGRESS.md) for measured results and limits, [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the bounded slice, and [PLANNING.md](PLANNING.md) for future household features.
+See [BUILD_PROGRESS.md](md/BUILD_PROGRESS.md) for measured results and limits, [IMPLEMENTATION_PLAN.md](md/IMPLEMENTATION_PLAN.md) for the bounded slice, and [PLANNING.md](md/PLANNING.md) for future household features.
 
-[Code statistics (cloc)](CODE_STATS.md)
+[Code statistics (cloc)](md/CODE_STATS.md)

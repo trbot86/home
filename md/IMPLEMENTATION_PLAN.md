@@ -1,6 +1,6 @@
 # Household app — first implementation slice
 
-Date: 2026-09-26. Status: **first slice implemented and locally verified; actual-phone and household-host review next**, following [stack selection](STACK_SELECTION.md). This document preserves the build sequence; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) records completed evidence and remaining limits, and [README.md](README.md) gives run instructions. The first slice proves the shared foundations using real text-plus-photo inbox capture on desktop and Android.
+Date: 2026-09-26. Status: **first slice implemented and locally verified; actual-phone and household-host review next**, following [stack selection](STACK_SELECTION.md). This document preserves the build sequence; [BUILD_PROGRESS.md](BUILD_PROGRESS.md) records completed evidence and remaining limits, and [README.md](../README.md) gives run instructions. The first slice proves the shared foundations using real text-plus-photo inbox capture on desktop and Android.
 
 ## 1. Bounded outcome
 
@@ -151,7 +151,7 @@ Run container replacement with existing data, schema upgrade from a prior fixtur
 | Backup restore | Database and live referenced media agree; copied files are usable in the running restored app. |
 | Online backup and concurrent work | Snapshot-derived manifest stays complete during edits/uploads/deletes; all physical collection paths respect the hold, failed runs release it safely, and partial exports are never accepted. |
 
-Use real SQLite/temp directories for transaction/file tests, a fault-injecting transport for dropped replies, browser automation for forms/layout/keyboard and native instrumentation/emulator/device checks for process/camera/worker behaviour. Unit tests alone cannot prove Android lifecycle or filesystem durability. Reuse the existing [constraint probe](design_checks/registry_constraints.py) as design evidence, not as a substitute for runtime tests.
+Use real SQLite/temp directories for transaction/file tests, a fault-injecting transport for dropped replies, browser automation for forms/layout/keyboard and native instrumentation/emulator/device checks for process/camera/worker behaviour. Unit tests alone cannot prove Android lifecycle or filesystem durability. Reuse the existing [constraint probe](../design_checks/registry_constraints.py) as design evidence, not as a substitute for runtime tests.
 
 ## 6. Operations and backup proposal
 
