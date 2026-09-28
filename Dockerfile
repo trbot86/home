@@ -14,7 +14,7 @@ WORKDIR /app
 ENV NODE_ENV=production DATA_ROOT=/data BACKUP_ROOT=/backups HOST=0.0.0.0 PORT=3000 TZ=America/Toronto
 RUN mkdir /data /backups && chown node:node /data /backups
 COPY --from=build --chown=node:node /runtime ./apps/server
-RUN chmod 0555 /app/apps/server/filing-client.mjs
+RUN sed -i 's/\r$//' /app/apps/server/filing-client.mjs && chmod 0555 /app/apps/server/filing-client.mjs
 COPY --from=build --chown=node:node /app/apps/web/dist ./apps/web/dist
 USER node
 EXPOSE 3000
