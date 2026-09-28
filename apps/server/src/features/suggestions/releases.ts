@@ -82,6 +82,12 @@ export class SuggestionReleases {
         .get(id)
     )
       throw new Rejection('suggestion_not_active');
+    if (
+      this.db
+        .prepare('SELECT 1 FROM suggestion_workflows WHERE suggestion_id=? AND completed_at IS NOT NULL')
+        .get(id)
+    )
+      throw new Rejection('reopen_suggestion_before_release');
     const latest = this.db
       .prepare(
         'SELECT run_id,state FROM suggestion_runs WHERE suggestion_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1',

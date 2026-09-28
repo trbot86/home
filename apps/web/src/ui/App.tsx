@@ -1,6 +1,7 @@
 import { Photo } from './Photo.js';
 import { EntryDialog } from './EntryDialog.js';
-import { suggestionStatus } from './suggestions/status.js';
+import { suggestionCompleted, suggestionStatus } from './suggestions/status.js';
+import { SuggestionCompletionButton } from './suggestions/SuggestionCompletionButton.js';
 import { SuggestionCardUpdate, suggestionUnread } from './suggestions/SuggestionCardUpdate.js';
 import { SuggestionReleasePanel } from './suggestions/SuggestionReleasePanel.js';
 import { Storage } from './Storage.js';
@@ -110,6 +111,7 @@ export function App({ client }: { client: ClientPlatform }) {
   const [limit, setLimit] = useState(24);
   const [sort, setSort] = useState('newest');
   const [inboxFilter, setInboxFilter] = useState('unfiled');
+  const [suggestionFilter, setSuggestionFilter] = useState<'active' | 'completed'>('active');
   const [filingId, setFilingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<{
@@ -367,6 +369,7 @@ export function App({ client }: { client: ClientPlatform }) {
         setSelected(null);
         setFilingId(null);
         setInboxFilter('unfiled');
+        setSuggestionFilter('active');
         setRecipeTarget(null);
         setLinkedTarget(null);
         setWidgetTarget(null);
@@ -411,6 +414,7 @@ export function App({ client }: { client: ClientPlatform }) {
       setScope('all');
       setSearch('');
       setView(nextView);
+      setSuggestionFilter('active');
       setRecipeTarget(null);
       setLinkedTarget(null);
     } catch (error) {
@@ -429,6 +433,7 @@ export function App({ client }: { client: ClientPlatform }) {
       await saveDraft(text);
       await client.submitDraft(draft.draftId);
       setInboxFilter('unfiled');
+      setSuggestionFilter('active');
       const next = await client.createDraft(captureScope, categoryOf(draft));
       setDraft(next);
       setText('');
@@ -519,6 +524,8 @@ export function App({ client }: { client: ClientPlatform }) {
       (entry) =>
         (view === 'trash' ? entry.deletedAt !== null : entry.deletedAt === null) &&
         (view === 'trash' || categoryOf(entry) === category) &&
+        (view !== 'suggestions' ||
+          suggestionCompleted(state.suggestions, entry.inboxId) === (suggestionFilter === 'completed')) &&
         (view !== 'inbox' ||
           inboxFilter === 'all' ||
           (filingOf(entry).filedAt !== null) === (inboxFilter === 'filed')) &&
@@ -708,7 +715,14 @@ export function App({ client }: { client: ClientPlatform }) {
                 <Icon name="plus" />
                 App suggestions
                 <span className="nav-count">
-                  {state.entries.filter((e) => !e.deletedAt && categoryOf(e) === 'app_suggestion').length}
+                  {
+                    state.entries.filter(
+                      (e) =>
+                        !e.deletedAt &&
+                        categoryOf(e) === 'app_suggestion' &&
+                        !suggestionCompleted(state.suggestions, e.inboxId),
+                    ).length
+                  }
                 </span>
               </button>
               <ProfileControl
@@ -1153,6 +1167,23 @@ export function App({ client }: { client: ClientPlatform }) {
                       ))}
                     </div>
                   )}
+                  {view === 'suggestions' && (
+                    <div className="tabs" aria-label="Suggestion status filter">
+                      {(['active', 'completed'] as const).map((value) => (
+                        <button
+                          key={value}
+                          className={suggestionFilter === value ? 'active' : ''}
+                          aria-pressed={suggestionFilter === value}
+                          onClick={() => {
+                            setSuggestionFilter(value);
+                            setLimit(24);
+                          }}
+                        >
+                          {value === 'active' ? 'Active' : 'Completed'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="list-controls">
                     <div className="tabs" aria-label="Visibility filter">
                       <button className={scope === 'all' ? 'active' : ''} onClick={() => setScope('all')}>
@@ -1203,7 +1234,9 @@ export function App({ client }: { client: ClientPlatform }) {
                           : view === 'trash'
                             ? 'Nothing in the bin.'
                             : view === 'suggestions'
-                              ? 'Room for your next idea.'
+                              ? suggestionFilter === 'completed'
+                                ? 'No completed suggestions yet.'
+                                : 'Room for your next idea.'
                               : inboxFilter === 'filed'
                                 ? 'No filed notes here yet.'
                                 : 'A little space for whatever comes next.'}
@@ -1214,7 +1247,9 @@ export function App({ client }: { client: ClientPlatform }) {
                           : view === 'trash'
                             ? 'Entries you delete will appear here.'
                             : view === 'suggestions'
-                              ? 'Save an improvement above. It stays separate from your household inbox.'
+                              ? suggestionFilter === 'completed'
+                                ? 'Suggestions you mark completed will appear here, with their discussions.'
+                                : 'Save an improvement above. It stays separate from your household inbox.'
                               : inboxFilter === 'filed'
                                 ? 'File a note into a task, shopping item or project. Its original capture stays here.'
                                 : 'Capture anything above, then file it when you’re ready.'}
@@ -1308,6 +1343,14 @@ export function App({ client }: { client: ClientPlatform }) {
                             />
                             <CaptureSources recordId={entry.inboxId} state={state} />
                             <div className="entry-actions">
+                              {view === 'suggestions' && (
+                                <SuggestionCompletionButton
+                                  client={client}
+                                  state={state}
+                                  id={entry.inboxId}
+                                  onError={showError}
+                                />
+                              )}
                               {view !== 'trash' && categoryOf(entry) === 'inbox' && (
                                 <button
                                   disabled={state.pendingEdits.includes(entry.inboxId)}

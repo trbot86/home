@@ -1,5 +1,11 @@
 import type { SuggestionSnapshot } from '@our-place/contracts';
+export function suggestionCompleted(snapshot: SuggestionSnapshot, id: string): boolean {
+  return snapshot.workflows.some(
+    (w) => w.suggestionId === id && w.deletedAt === null && w.completedAt != null,
+  );
+}
 export function suggestionStatus(snapshot: SuggestionSnapshot, id: string): string {
+  if (suggestionCompleted(snapshot, id)) return 'Completed';
   const latest = snapshot.work.find((w) => w.suggestionId === id);
   const release = snapshot.releases?.find((r) => r.suggestionId === id && r.runId === latest?.runId);
   if (release && !['cancelled'].includes(release.state))
