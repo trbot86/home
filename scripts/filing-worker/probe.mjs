@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import net from 'node:net';
 import http from 'node:http';
+import tls from 'node:tls';
 import { Resolver } from 'node:dns/promises';
 assert.equal(process.getuid(), 1000);
+const ca = fs.readFileSync('/etc/ssl/certs/ca-certificates.crt');
 for (const path of ['/data', '/backups', '/var/run/docker.sock', '/app', '/root/.codex'])
   assert.equal(fs.existsSync(path), false, `Unexpected accessible path: ${path}`);
 assert.throws(() => fs.writeFileSync('/forbidden', 'probe'));
@@ -34,8 +36,18 @@ for (const [target, expected] of [
     const req = http.request({ hostname: proxy.hostname, port: proxy.port, method: 'CONNECT', path: target });
     req.setTimeout(8000, () => req.destroy(Error('proxy timeout')));
     req.on('connect', (res, socket) => {
-      socket.destroy();
-      resolve(res.statusCode);
+      if (res.statusCode !== 200) {
+        socket.destroy();
+        resolve(res.statusCode);
+        return;
+      }
+      const secure = tls.connect({ socket, servername: 'auth.openai.com', ca });
+      secure.setTimeout(8000, () => secure.destroy(Error('TLS timeout')));
+      secure.on('error', reject);
+      secure.once('secureConnect', () => {
+        secure.destroy();
+        resolve(res.statusCode);
+      });
     });
     req.on('error', reject);
     req.end();

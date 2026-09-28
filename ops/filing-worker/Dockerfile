@@ -1,4 +1,6 @@
 FROM node:24.14.0-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 RUN npm install --global @openai/codex@0.126.0-alpha.8 && npm cache clean --force \
     && mkdir /auth /work && chown node:node /auth /work
 COPY worker.mjs /opt/filing/worker.mjs
