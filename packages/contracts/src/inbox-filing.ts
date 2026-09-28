@@ -2,6 +2,7 @@ import { Type, type Static } from '@sinclair/typebox';
 import { Id, Instant, Revision, object } from './primitives.js';
 import { taskCommands } from './tasks.js';
 import { shoppingCommands } from './shopping.js';
+import { recipeCommands } from './recipes.js';
 import { projectCommands } from './projects.js';
 
 export const InboxDestination = object({ recordId: Id, filedAt: Instant });
@@ -18,6 +19,7 @@ export function filingOf(entry: InboxFiling) {
 }
 export const FilingDestination = Type.Union([
   object({ kind: Type.Literal('existing'), recordId: Id }),
+  object({ kind: Type.Literal('CreateRecipe'), arguments: recipeCommands.CreateRecipe }),
   object({ kind: Type.Literal('CreateTask'), arguments: taskCommands.CreateTask }),
   object({ kind: Type.Literal('AddShoppingEntry'), arguments: shoppingCommands.AddShoppingEntry }),
   object({ kind: Type.Literal('CreateProjectPage'), arguments: projectCommands.CreateProjectPage }),

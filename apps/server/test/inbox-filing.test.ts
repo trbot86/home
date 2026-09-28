@@ -5,6 +5,7 @@ import { copyFile, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   filingOf,
+  emptyRecipeFields,
   type Attachment,
   type CommandKind,
   type CommandOutcome,
@@ -542,6 +543,47 @@ test('old retained history, receipts and capture bytes survive the additive fili
     }
     assert.equal(f.db.pragma('foreign_keys', { simple: true }), 1);
     assert.deepEqual(f.db.pragma('foreign_key_check'), []);
+  } finally {
+    await f.close();
+  }
+});
+
+test('recipe filing preserves private capture, replays once and atomically undoes creation', async () => {
+  const f = await fixture();
+  try {
+    const note = f.note(f.privateScope, [], 'Soup idea\nUse the handwritten notes.');
+    const destination = {
+      kind: 'CreateRecipe',
+      arguments: {
+        ...emptyRecipeFields(),
+        recordId: randomUUID(),
+        scopeId: f.privateScope,
+        title: 'Soup idea',
+        description: note.text,
+        collectionIds: [],
+      },
+    };
+    rejected(
+      f.file(note, { ...destination, arguments: { ...destination.arguments, scopeId: f.shared } }),
+      'filing_requires_same_visibility',
+    );
+    const request = f.envelope({ inboxId: note.inboxId, expectedRevision: note.revision, destination });
+    const result = applied(f.service.writes.execute(f.a, 'FileInboxEntry', request));
+    assert.deepEqual(f.service.writes.execute(f.a, 'FileInboxEntry', request), { ...result, replayed: true });
+    const record = f.features.records.get(f.a, destination.arguments.recordId);
+    assert.equal(record.content.description, note.text);
+    assert.deepEqual(record.content.ingredients, []);
+    assert.deepEqual(record.content.steps, []);
+    assert.equal(record.content.scopeId, note.scopeId);
+    assert.throws(() => f.features.records.get(f.b, destination.arguments.recordId));
+    assert.throws(() => f.service.history.list(f.b, note.inboxId));
+    assert.deepEqual(f.get(note.inboxId).attachments, note.attachments);
+    assert.equal(f.get(note.inboxId).text, note.text);
+    const undo = applied(f.run('UndoChangeSet', { changeSetId: result.changeSetId }));
+    assert.deepEqual(filingOf(f.get(note.inboxId)), { filedAt: null, destinations: [] });
+    assert.notEqual(f.features.records.get(f.a, record.recordId).content.deletedAt, null);
+    applied(f.run('RedoChangeSet', { changeSetId: undo.changeSetId }));
+    assert.equal(f.features.records.get(f.a, record.recordId).content.deletedAt, null);
   } finally {
     await f.close();
   }

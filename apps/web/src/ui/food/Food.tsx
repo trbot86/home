@@ -1,3 +1,4 @@
+import { CaptureSources } from '../inbox/FilingLinks.js';
 import { useEffect, useRef, useState } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
 import type { CommandKind, Recipe, RecipeRecord } from '@our-place/contracts';
@@ -363,6 +364,7 @@ export function Food({
                 <AttachmentGallery client={client} attachments={recipe.attachments} />
               </div>
             )}
+            <CaptureSources recordId={recipe.recordId} state={state} />
             {recipe.sourceUrl && (
               <p className="food-source">
                 <LinkedText client={client} text={recipe.sourceUrl} />

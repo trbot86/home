@@ -57,13 +57,13 @@ for (const width of [390, 1440]) {
     await page.getByLabel('What’s on your mind?').fill(`Padding check ${width}`);
     await page.getByRole('button', { name: 'Save to inbox', exact: true }).click();
     const card = page.locator('.entry-card').filter({ hasText: `Padding check ${width}` });
-    await card.getByRole('button', { name: 'Edit', exact: true }).click();
+    await card.getByRole('button', { name: 'Open note', exact: true }).click();
     await dialog.getByLabel('Entry text').fill('Keep this entry edit');
     await checkPadding(page);
     await expect(dialog.getByLabel('Entry text')).toHaveValue('Keep this entry edit');
     await page.mouse.click(2, 2);
     await expect(dialog).toHaveCount(0);
-    await card.getByRole('button', { name: 'Edit', exact: true }).click();
+    await card.getByRole('button', { name: 'Open note', exact: true }).click();
     await expect(dialog.getByLabel('Entry text')).toHaveValue('Keep this entry edit');
     await page.getByRole('button', { name: 'Close entry', exact: true }).click();
     await expect(dialog).toHaveCount(0);
