@@ -2,12 +2,19 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdir, readdir, lstat, realpath } from 'node:fs/promises';
 import { resolve, join, dirname } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { readJson, writeJson } from './journal.mjs';
 const exec = promisify(execFile);
 const git = async (cwd, ...args) =>
   // Dependency trees routinely exceed Windows' legacy path limit. Apply this to
   // inspection and removal alike, without changing the user's global Git config.
-  (await exec('git', ['-c', 'core.longpaths=true', ...args], { cwd, windowsHide: true, maxBuffer: 8 * 1024 * 1024 })).stdout.trim();
+  (
+    await exec('git', ['-c', 'core.longpaths=true', ...args], {
+      cwd,
+      windowsHide: true,
+      maxBuffer: 8 * 1024 * 1024,
+    })
+  ).stdout.trim();
 const samePath = (a, b) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
 const safeId = (id) => {
   if (!/^[a-zA-Z0-9_-]{8,80}$/.test(id)) throw new Error('Invalid suggestion identity');
@@ -89,37 +96,51 @@ export class SuggestionWorktrees {
   async acquire(id) {
     safeId(id);
     await mkdir(this.root, { recursive: true });
-    const directory = join(this.root, id),
-      branch = 'codex/suggestion-' + id;
-    if (
-      !(await lstat(directory).catch((e) => {
-        if (e.code === 'ENOENT') return null;
-        throw e;
-      }))
-    ) {
-      const entries = await readdir(this.root, { withFileTypes: true });
+    const branch = 'codex/suggestion-' + id;
+    const entries = await readdir(this.root, { withFileTypes: true });
+    const slots = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !/^[a-zA-Z0-9_-]{8,80}$/.test(entry.name)) continue;
+      const directory = join(this.root, entry.name);
+      const current = await git(directory, 'symbolic-ref', '--short', 'HEAD');
+      if (!current.startsWith('codex/suggestion-')) throw new Error('Worktree identity mismatch');
+      const currentId = safeId(current.slice('codex/suggestion-'.length));
+      await this.verify(directory, currentId);
+      if (currentId === id) return directory;
+      slots.push({ directory, currentId });
+    }
+    const exists = await git(this.config.repository, 'branch', '--list', branch);
+    if (entries.length >= this.limit) {
       const protectedPaths = await this.protectedDirectories();
-      let retained = entries.length;
-      for (const entry of entries) {
-        if (retained < this.limit) break;
-        if (!entry.isDirectory() || !/^[a-zA-Z0-9_-]{8,80}$/.test(entry.name)) continue;
-        const candidate = join(this.root, entry.name);
-        if (!(await this.recyclable(candidate, entry.name, protectedPaths))) continue;
-        // Save the exact branch tip before deleting only this validated, clean checkout.
-        await writeJson(join(this.config.stateRoot, 'retained-branches', entry.name + '.json'), {
-          branch: 'codex/suggestion-' + entry.name,
-          revision: await git(candidate, 'rev-parse', 'HEAD'),
+      for (const { directory, currentId } of slots) {
+        if (!(await this.recyclable(directory, currentId, protectedPaths))) continue;
+        await writeJson(join(this.config.stateRoot, 'retained-branches', currentId + '.json'), {
+          branch: 'codex/suggestion-' + currentId,
+          revision: await git(directory, 'rev-parse', 'HEAD'),
           recycledAt: Date.now(),
         });
-        await this.verify(candidate, entry.name);
-        await git(this.config.repository, 'worktree', 'remove', '--force', candidate);
-        retained--;
+        // Reuse the physical slot and caches. Git handles tracked files only;
+        // Windows dependency junctions and open cache files are never deleted.
+        // Refuse any target source file that would overwrite an ignored file.
+        await this.verify(directory, currentId);
+        if (exists) await git(directory, 'checkout', '--no-overwrite-ignore', branch);
+        else
+          await git(
+            directory,
+            'checkout',
+            '--no-overwrite-ignore',
+            '-b',
+            branch,
+            await git(this.config.repository, 'rev-parse', 'HEAD'),
+          );
+        await this.verify(directory, id);
+        return directory;
       }
-      if (retained >= this.limit) throw new WorktreeCapacityError();
-      const exists = await git(this.config.repository, 'branch', '--list', branch);
-      if (exists) await git(this.config.repository, 'worktree', 'add', directory, branch);
-      else await git(this.config.repository, 'worktree', 'add', '-b', branch, directory, 'HEAD');
+      throw new WorktreeCapacityError();
     }
+    const directory = join(this.root, 'slot-' + randomUUID());
+    if (exists) await git(this.config.repository, 'worktree', 'add', directory, branch);
+    else await git(this.config.repository, 'worktree', 'add', '-b', branch, directory, 'HEAD');
     await this.verify(directory, id);
     return directory;
   }

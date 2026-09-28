@@ -76,7 +76,9 @@ test('recycling handles dependency paths beyond the Windows legacy limit', async
   await writeFile(cached, 'reproducible');
   const next = await f.pool.acquire('suggestion-next');
   assert.equal(await readFile(join(next, 'source.txt'), 'utf8'), 'original');
-  assert.deepEqual(await readdir(join(f.stateRoot, 'worktrees')), ['suggestion-next']);
+  assert.equal(next, first);
+  assert.equal(await readFile(cached, 'utf8'), 'reproducible');
+  assert.equal((await readdir(join(f.stateRoot, 'worktrees'))).length, 1);
   assert.equal(git(f.repository, 'config', 'core.longpaths'), 'false');
 });
 
@@ -99,4 +101,52 @@ test('foreign branches and traversal cannot become deletion targets', async (t) 
   git(first, 'checkout', '-b', 'unrelated-work');
   await assert.rejects(f.pool.acquire('suggestion-b'), /identity mismatch/);
   assert.equal(await realpath(first), resolve(first));
+});
+
+test('reused slots start new branches from current repository HEAD and survive pool restart', async (t) => {
+  const f = await fixture(t, 1);
+  const first = await f.pool.acquire('suggestion-old');
+  await writeFile(join(f.repository, 'source.txt'), 'latest integrated source');
+  git(f.repository, 'add', '.');
+  git(
+    f.repository,
+    '-c',
+    'user.name=Test',
+    '-c',
+    'user.email=test@example.invalid',
+    'commit',
+    '-m',
+    'New base',
+  );
+  const next = await f.pool.acquire('suggestion-new');
+  assert.equal(next, first);
+  assert.equal(await readFile(join(next, 'source.txt'), 'utf8'), 'latest integrated source');
+  assert.equal(await new SuggestionWorktrees(f.config).acquire('suggestion-new'), next);
+  assert.equal(
+    await readFile(join(await f.pool.acquire('suggestion-old'), 'source.txt'), 'utf8'),
+    'original',
+  );
+});
+
+test('branch reuse refuses to overwrite ignored cache files with target source', async (t) => {
+  const f = await fixture(t, 1);
+  const first = await f.pool.acquire('suggestion-old');
+  await mkdir(join(first, 'node_modules'), { recursive: true });
+  await writeFile(join(first, 'node_modules', 'collision.txt'), 'keep cache');
+  await mkdir(join(f.repository, 'node_modules'), { recursive: true });
+  await writeFile(join(f.repository, 'node_modules', 'collision.txt'), 'target source');
+  git(f.repository, 'add', '-f', 'node_modules/collision.txt');
+  git(
+    f.repository,
+    '-c',
+    'user.name=Test',
+    '-c',
+    'user.email=test@example.invalid',
+    'commit',
+    '-m',
+    'Collision fixture',
+  );
+  await assert.rejects(f.pool.acquire('suggestion-new'), /overwritten/);
+  assert.equal(await readFile(join(first, 'node_modules', 'collision.txt'), 'utf8'), 'keep cache');
+  assert.equal(git(first, 'symbolic-ref', '--short', 'HEAD'), 'codex/suggestion-suggestion-old');
 });
