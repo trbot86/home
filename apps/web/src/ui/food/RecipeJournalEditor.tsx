@@ -1,3 +1,4 @@
+import { ShareRecord } from '../ShareRecord.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
 import type { Recipe, RecipeAdjustment, RecipeCookingRecord } from '@our-place/contracts';
@@ -136,6 +137,15 @@ export function RecipeJournalEditor({
         void buffer.flush().then(close).catch(onError);
       }}
     >
+      {record && (
+        <ShareRecord
+          client={client}
+          state={state}
+          recordId={record.recordId}
+          scopeId={record.scopeId}
+          close={close}
+        />
+      )}
       <form
         className="task-form"
         onSubmit={(e) => {

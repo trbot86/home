@@ -1,3 +1,4 @@
+import { ShareRecord } from '../ShareRecord.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { CommandKind, ShoppingList, ShoppingRecord } from '@our-place/contracts';
@@ -194,6 +195,15 @@ export function ShoppingEditor({
       title={`${record ? 'Edit' : 'New'} ${mode === 'restock' ? 'restock product' : mode === 'list' ? 'list' : mode === 'group' ? 'group' : 'shopping item'}`}
       close={close}
     >
+      {record && (
+        <ShareRecord
+          client={client}
+          state={state}
+          recordId={record.recordId}
+          scopeId={record.scopeId}
+          close={close}
+        />
+      )}
       <form
         className="shopping-form"
         onSubmit={(event) => {

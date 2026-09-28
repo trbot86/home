@@ -1,3 +1,4 @@
+import { ShareRecord } from '../ShareRecord.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type {
@@ -250,6 +251,15 @@ export function TaskEditor({
       className="task-dialog"
       close={closeSaved}
     >
+      {record && (
+        <ShareRecord
+          client={client}
+          state={state}
+          recordId={record.recordId}
+          scopeId={record.scopeId}
+          close={close}
+        />
+      )}
       <form
         className="task-form"
         onSubmit={(event) => {

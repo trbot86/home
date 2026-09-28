@@ -38,6 +38,7 @@ const labels: Record<string, string> = {
   RestoreMaintenanceRecord: 'Service entry restored',
   CompleteTaskOccurrence: 'Task completion and service recorded',
   SetRecordAttachments: 'Photos updated',
+  ShareRecords: 'Shared with household',
   UndoChangeSet: 'Change undone',
   RedoChangeSet: 'Change redone',
 };

@@ -71,6 +71,7 @@ export function TaskHistory({
       DeleteTask: 'Task deleted',
       RestoreTask: 'Task restored',
       SetRecordAttachments: 'Photos updated',
+      ShareRecords: 'Shared with household',
       UndoChangeSet: 'Change undone',
       RedoChangeSet: 'Change redone',
     })[kind] ?? 'Changed';
