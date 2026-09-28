@@ -512,3 +512,22 @@ cross-profile visibility, privacy, history, reload and offline replies. The Linu
 release image passes its full package suite, and the Android build and unit tests
 pass. The update is published through the normal guarded host upgrade and APK
 download process.
+
+## Live suggestion steering release (2026-09-28)
+
+Source revision `7c6ebe3` is live. Ordinary discussion comments steer a supporting
+active agent without queuing another round; idle comments remain saved context.
+Explicit follow-up requests still queue a later round. Delivery is recorded
+separately from the frozen input version, and late or uncertain comments hold
+automatic release. The discussion shows delivery status, and Ctrl+Enter steers
+while a supporting run is active. Photos retain scoped, digest-verified delivery.
+
+Validation passed 251 Linux package tests, 22 bridge tests, six suggestion browser
+flows and 15 Android unit tests. A real Astra-medium turn accepted an in-flight
+correction and used it in its final answer. The verified secondary backup restored
+into an isolated volume and preserved all 62 existing tables and three media files.
+The guarded upgrade applied migration027; both profiles' 55 domain records,
+installation identity and recovery epoch were preserved. Live database integrity,
+foreign keys, responsive web layout, exact published APK bytes, signing identity
+and bridge health pass. The Alexa helper uses the upgraded app image and its
+capture boundary remains verified. Physical phone installation remains a user step.
