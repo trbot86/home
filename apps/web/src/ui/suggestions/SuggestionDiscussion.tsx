@@ -143,7 +143,9 @@ export function SuggestionDiscussion({
             'No development update yet. Add details here or request work when you’re ready.'}
         </p>
         {workflow?.status === 'ready' && (
-          <p className="fine">Ready for review does not mean an update has been released.</p>
+          <p className="fine">
+            Implemented changes enter the next update automatically. The update is tested before deployment.
+          </p>
         )}
         {queued.length > 0 && (
           <div className="notice">

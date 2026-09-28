@@ -15,9 +15,9 @@ export function suggestionStatus(snapshot: SuggestionSnapshot, id: string): stri
       prepared: 'Ready to deploy',
       deploy_queued: 'Deployment queued',
       deploying: 'Deploying',
-      released: 'Released',
+      released: 'Deployed',
       failed: 'Release needs attention',
-      cancelled: 'Ready for review',
+      cancelled: 'Waiting for update',
       uncertain: 'Release needs attention',
     }[release.state];
   const work = snapshot.work.filter((w) => w.suggestionId === id);
@@ -36,7 +36,7 @@ export function suggestionStatus(snapshot: SuggestionSnapshot, id: string): stri
     queued: 'Queued',
     working: 'Working',
     needs_input: 'Needs your input',
-    ready: 'Ready for review',
-    released: 'Released',
+    ready: 'Waiting for update',
+    released: 'Deployed',
   }[status];
 }

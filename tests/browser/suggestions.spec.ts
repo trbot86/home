@@ -17,7 +17,7 @@ test('completed suggestions stay behind their filter, retain discussion offline 
   const filter = page.locator('[aria-label="Suggestion status filter"]');
   const navCount = page.getByRole('button', { name: 'App suggestions', exact: true }).locator('.nav-count');
   const initialCount = Number(await navCount.innerText());
-  await expect(card.getByText('Ready for review', { exact: true })).toBeVisible();
+  await expect(card.getByText('Waiting for update', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Mark completed', exact: true }).click();
   await expect(card).toHaveCount(0);
   await expect(navCount).toHaveText(String(initialCount - 1));
@@ -55,7 +55,7 @@ test('completed suggestions stay behind their filter, retain discussion offline 
   await expect(card).toHaveCount(0);
   await filter.getByRole('button', { name: 'Active', exact: true }).click();
   await expect(card).toHaveCount(1);
-  await expect(card.getByText('Ready for review', { exact: true })).toBeVisible();
+  await expect(card.getByText('Waiting for update', { exact: true })).toBeVisible();
   await expect(navCount).toHaveText(String(initialCount));
   await card.locator('.entry-text').click();
   await discussion.getByRole('button', { name: 'Mark completed', exact: true }).click();
@@ -108,7 +108,7 @@ test('obsolete questions leave the active list and remain in discussion history'
   await expect(page.getByText('Marked this question as no longer relevant.', { exact: true })).toBeVisible();
 });
 
-test('release controls on the card prepare first and deploy only the tested candidate', async ({
+test('one batch panel automatically prepares several suggestions and deploys only the tested candidate', async ({
   page,
   request,
 }) => {
@@ -116,29 +116,38 @@ test('release controls on the card prepare first and deploy only the tested cand
   const seed = await request.post('http://127.0.0.1:4174/suggestion-ready', { headers });
   expect(seed.ok()).toBe(true);
   const { text } = await seed.json();
+  const second = await request.post('http://127.0.0.1:4174/suggestion-ready-same-agent', { headers });
+  expect(second.ok()).toBe(true);
+  const secondText = (await second.json()).text;
   await page.goto('/');
   await page.getByRole('button', { name: 'Alex', exact: true }).click();
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
   const card = page.locator('.entry-card').filter({ hasText: text });
-  await card.getByRole('button', { name: 'Prepare release', exact: true }).click();
-  await expect(card.getByText('Preparing release', { exact: true })).toBeVisible();
-  await expect(card.getByRole('button', { name: 'Deploy tested release' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Prepare release', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Deploy update' })).toHaveCount(0);
   expect((await request.post('http://127.0.0.1:4174/prepare-synthetic-release', { headers })).ok()).toBe(
     true,
   );
   await page.getByRole('button', { name: 'Refresh and sync' }).click();
   await expect(card.getByText('Ready to deploy', { exact: true })).toBeVisible();
+  const panel = page.getByRole('region', { name: 'Suggestion release', exact: true });
+  await expect(panel.getByRole('heading')).toContainText('2 suggestions');
+  await expect(panel).toContainText(text);
+  await expect(panel).toContainText(secondText);
+  await expect(page.getByRole('button', { name: 'Deploy update', exact: true })).toHaveCount(1);
   await page.setViewportSize({ width: 360, height: 820 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await card.screenshot({ path: 'test-results/suggestion-release-card-phone.png' });
+  await panel.screenshot({ path: 'test-results/suggestion-release-batch-phone.png' });
   await page.reload();
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
-  await card.getByRole('button', { name: 'Deploy tested release', exact: true }).click();
+  await panel.getByRole('button', { name: 'Deploy update', exact: true }).click();
   await expect(card.getByText('Deployment queued', { exact: true })).toBeVisible();
-  await expect(card.getByRole('button', { name: 'Deploy tested release' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Deploy update' })).toHaveCount(0);
   // No host worker is connected to this isolated fixture. Cancel the still-queued deployment.
-  await card.getByRole('button', { name: 'Cancel release', exact: true }).click();
-  await expect(card.getByRole('button', { name: 'Prepare release', exact: true })).toBeVisible();
+  await panel.getByRole('button', { name: 'Cancel release', exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await card.locator('.entry-text').click();
+  await expect(page.getByRole('button', { name: 'Retry update checks', exact: true })).toBeVisible();
 });
 
 test('suggestion discussion saves an offline reply once without turning it into an inbox entry', async ({

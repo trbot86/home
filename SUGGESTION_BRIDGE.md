@@ -61,26 +61,44 @@ worker authority remains separate.
 
 ## Integration and release
 
-An agent can implement, test and commit changes in its worktree. It must leave
-deployment, merging and pushing to the host release coordinator. Ready for review means
-the coding round finished; it does not claim a web deployment or Android update.
-Retain the branch for review and future follow-ups. Check its source diff,
-tests and public-source audit before integration, then follow AGENTS.md's live
-backup, migration and Android preservation rules.
+Implementation agents default to `gpt-6-astra` with medium reasoning. Ignored host
+configuration can override `implementationModel` and `implementationReasoningEffort`.
+The choice is recorded in each durable launch specification; existing runs retain
+their settings. These defaults do not change the user's global Codex preferences.
+Agents run focused tests for the behavior they changed and report what ran and
+what is deferred. They still audit public source before committing. Broad regression
+suites and complete distribution builds run once against the integrated release.
 
-Suggestion cards and discussions offer **Prepare release**, then **Deploy tested
-release**. Preparation merges the committed suggestion into the current clean
-development branch in one separate release checkout. It audits source, builds
-and tests the Docker image, runs type/boundary/browser checks, and builds/tests
-Android with the shared SDK/cache and existing signing identity. Changes to host
-or build controls require developer review. No live files are mounted in tests.
-The saved manifest pins source/base/candidate commits, image identities and the
-APK hash. Deploy approval names that manifest. Changes to the base source, live
-image, prepared source or APK invalidate it. Deployment uses the existing guarded
-backup/upgrade command, publishes the Android update, fast-forwards the clean
-development checkout and verifies secondary backup replication. Git pushing
-remains a developer action. Phones install the update from the existing private
-download page; deployment does not force an installation.
+Finished suggestions enter an update automatically after a 30-second quiet period
+(maximum two minutes from the oldest eligible completion). A batch contains up to
+20 suggestions from one visibility scope. Private and shared suggestions are never
+mixed. The authenticated host schedules batches; merely opening the list has no
+scheduling side effects. An unfinished coding round is not interrupted.
+
+The App suggestions list shows one **Update ready** panel with its included
+suggestions and one **Deploy update** button. Preparation merges each committed
+suggestion into one separate release checkout. It audits source, builds and tests
+the Docker image, runs type/boundary/browser checks, and builds/tests Android with
+the shared SDK/cache and existing signing identity. Host or build control changes
+still need developer review. No live files are mounted in tests.
+
+Membership freezes when preparation starts. Later completions enter the next
+batch after the current update is deployed or cancelled. The manifest pins every
+included suggestion/run/source commit, the base and candidate commits, image
+identities and APK hash. Deployment approval names that exact manifest. Changes
+to the source, live image or prepared artifacts invalidate it. Deployment uses the
+existing guarded backup/upgrade command, publishes the Android update, fast-forwards
+the clean development checkout and verifies secondary backup replication. Git
+pushing remains a developer action. Phones install the update from the existing
+private download page; deployment does not force installation. Deployed suggestions
+remain visible until a person marks them completed.
+
+A preparation failure holds the batch with its diagnostic summary; it never causes
+an automatic retry loop. **Retry update checks** in an included suggestion's
+discussion retries the entire batch after the cause is addressed. Requesting a new
+coding round produces a new eligible run. Merge conflicts currently hold the whole
+batch: the coordinator does not assume that remaining suggestions are independent
+or silently omit changes. Cancelled batches also require an explicit retry.
 
 Enable the host coordinator with ignored configuration `releasesEnabled: true`
 and `pnpmEntry` pointing to the installed package manager's JavaScript entry.
@@ -128,8 +146,8 @@ before establishing new authority. Revoked credentials also stop the bridge.
 
 The first runner is serial on this development host. It reports a start milestone
 and a structured result; it does not stream individual tools or private reasoning.
-Coding sessions never deploy. Release preparation and deployment each require
-their corresponding explicit in-app action; active work is not forcibly interrupted.
+Coding sessions never deploy. Preparation is automatic; deployment requires
+the explicit in-app action. Active work is not forcibly interrupted.
 Local pending/rejected reply photos remain protected by the existing outbox.
 
 At most three suggestion worktrees are retained by default (`maxWorktrees`,

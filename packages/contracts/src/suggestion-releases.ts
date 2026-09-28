@@ -2,9 +2,14 @@ import { Type, type Static } from '@sinclair/typebox';
 import { Id, Instant, object } from './primitives.js';
 const hash = Type.String({ pattern: '^[a-f0-9]{64}$' });
 const commit = Type.String({ pattern: '^[a-f0-9]{40}$' });
+export const SuggestionReleaseMember = object({ suggestionId: Id, runId: Id });
+export type SuggestionReleaseMember = Static<typeof SuggestionReleaseMember>;
 export const SuggestionReleaseManifest = object({
   baseCommit: commit,
   sourceCommit: commit,
+  sources: Type.Optional(
+    Type.Array(object({ suggestionId: Id, runId: Id, sourceCommit: commit }), { minItems: 1, maxItems: 20 }),
+  ),
   candidateCommit: commit,
   imageId: Type.String({ pattern: '^sha256:[a-f0-9]{64}$' }),
   previousImageId: Type.String({ pattern: '^sha256:[a-f0-9]{64}$' }),
@@ -27,6 +32,7 @@ export type SuggestionRelease = {
   releaseId: string;
   suggestionId: string;
   runId: string;
+  members?: SuggestionReleaseMember[];
   state: SuggestionReleaseState;
   revision: number;
   summary: string;
@@ -39,6 +45,7 @@ export const suggestionReleaseCommands = {
   PrepareSuggestionRelease: object({ releaseId: Id, suggestionId: Id, runId: Id }),
   DeploySuggestionRelease: object({ releaseId: Id, manifestDigest: hash }),
   CancelSuggestionRelease: object({ releaseId: Id }),
+  RetrySuggestionRelease: object({ releaseId: Id, replacementReleaseId: Id }),
 } as const;
 export const SuggestionReleaseUpdate = object({
   expectedServerEpoch: Id,

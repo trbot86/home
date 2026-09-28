@@ -1184,6 +1184,9 @@ export function App({ client }: { client: ClientPlatform }) {
                       ))}
                     </div>
                   )}
+                  {view === 'suggestions' && (
+                    <SuggestionReleasePanel client={client} state={state} onError={showError} />
+                  )}
                   <div className="list-controls">
                     <div className="tabs" aria-label="Visibility filter">
                       <button className={scope === 'all' ? 'active' : ''} onClick={() => setScope('all')}>
@@ -1317,15 +1320,6 @@ export function App({ client }: { client: ClientPlatform }) {
                                 snapshot={state.suggestions}
                                 id={entry.inboxId}
                                 open={() => setSelected({ id: entry.inboxId, history: false })}
-                              />
-                            )}
-                            {categoryOf(entry) === 'app_suggestion' && view !== 'trash' && (
-                              <SuggestionReleasePanel
-                                client={client}
-                                state={state}
-                                id={entry.inboxId}
-                                onError={showError}
-                                compact
                               />
                             )}
                             <FilingLinks

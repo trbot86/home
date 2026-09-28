@@ -4,12 +4,14 @@ import { readFile } from 'node:fs/promises';
 export function threadParameters(spec) {
   return {
     cwd: spec.cwd,
+    model: spec.model ?? 'gpt-6-astra',
     approvalPolicy: 'on-request',
     approvalsReviewer: 'auto_review',
     sandbox: 'workspace-write',
     experimentalRawEvents: false,
     persistExtendedHistory: false,
     config: {
+      model_reasoning_effort: spec.reasoningEffort ?? 'medium',
       'sandbox_workspace_write.writable_roots': [spec.packageStore],
       'sandbox_workspace_write.network_access': false,
       ...(process.platform === 'win32' ? { 'windows.sandbox': 'elevated' } : {}),
@@ -142,6 +144,8 @@ export async function runCodexTurn(spec, record, spawnProcess = spawn) {
       approvalPolicy: thread.approvalPolicy,
       approvalsReviewer: thread.approvalsReviewer,
       sandbox: thread.sandbox,
+      model: thread.model,
+      reasoningEffort: thread.reasoningEffort,
     });
     if (
       thread.approvalPolicy !== 'on-request' ||
@@ -149,8 +153,14 @@ export async function runCodexTurn(spec, record, spawnProcess = spawn) {
       thread.sandbox?.type !== 'workspaceWrite'
     )
       throw new Error('Codex did not grant the requested writable workspace and automatic review');
+    if (
+      thread.model !== (spec.model ?? 'gpt-6-astra') ||
+      thread.reasoningEffort !== (spec.reasoningEffort ?? 'medium')
+    )
+      throw new Error('Codex did not select the requested implementation model and reasoning effort');
     await request('turn/start', {
       threadId: sessionId,
+      effort: spec.reasoningEffort ?? 'medium',
       input: [{ type: 'text', text: await readFile(spec.promptPath, 'utf8'), text_elements: [] }],
       outputSchema: JSON.parse(await readFile(spec.schema, 'utf8')),
     });

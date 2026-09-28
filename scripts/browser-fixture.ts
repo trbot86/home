@@ -188,8 +188,13 @@ const control = createServer((request, response) => {
       if (!releaseFixture) throw new Error();
       const epoch = installation(db).recovery_epoch,
         agent = releaseFixture.agent;
+      // Test-only clock aging: no real host or live database is connected here.
+      db.prepare("UPDATE suggestion_runs SET updated_at=? WHERE agent_id=? AND state='ready'").run(
+        Date.now() - 31_000,
+        agent.agentId,
+      );
       let job = suggestionRelease.pending(agent, epoch)!;
-      if (job.suggestionId !== releaseFixture.suggestionId) throw new Error();
+      if (!job.members?.some((m) => m.suggestionId === releaseFixture!.suggestionId)) throw new Error();
       job = suggestionRelease.update(agent, {
         releaseId: job.releaseId,
         expectedServerEpoch: epoch,
@@ -206,6 +211,7 @@ const control = createServer((request, response) => {
         manifest: {
           baseCommit: 'a'.repeat(40),
           sourceCommit: 'b'.repeat(40),
+          sources: job.members!.map((m) => ({ ...m, sourceCommit: 'b'.repeat(40) })),
           candidateCommit: 'c'.repeat(40),
           imageId: 'sha256:' + 'd'.repeat(64),
           previousImageId: 'sha256:' + 'e'.repeat(64),
@@ -220,7 +226,11 @@ const control = createServer((request, response) => {
     }
     return;
   }
-  if (request.url === '/suggestion-question' || request.url === '/suggestion-ready') {
+  if (
+    request.url === '/suggestion-question' ||
+    request.url === '/suggestion-ready' ||
+    request.url === '/suggestion-ready-same-agent'
+  ) {
     try {
       const login = access.selectProfile('alex', 'browser'),
         actor = access.authenticate(login.secret);
@@ -249,9 +259,12 @@ const control = createServer((request, response) => {
       });
       execute('RequestSuggestionWork', { recordId: randomUUID(), suggestionId });
       const credentials = provisionSuggestionAgent(db, 'Synthetic question agent', Date.now());
-      const agent = authenticateSuggestionAgent(db, credentials.secret),
+      const agent =
+          request.url === '/suggestion-ready-same-agent' && releaseFixture
+            ? releaseFixture.agent
+            : authenticateSuggestionAgent(db, credentials.secret),
         run = suggestionWork.claim(agent, randomUUID(), epoch).run!;
-      const ready = request.url === '/suggestion-ready';
+      const ready = request.url !== '/suggestion-question';
       if (ready) releaseFixture = { agent, suggestionId };
       suggestionWork.report(agent, run.leaseToken, {
         reportId: randomUUID(),

@@ -171,3 +171,65 @@ test('release runner reconciles lost acknowledgements and never relaunches an in
     await cleanup(root);
   }
 });
+
+test('batch preparation pins all inputs and runs the broad checks once after integration', async () => {
+  const root = await temp();
+  try {
+    const members = [0, 1].map(() => ({ suggestionId: randomUUID(), runId: randomUUID() }));
+    const config = { repository: root, stateRoot: join(root, 'state'), pnpmEntry: 'test-pnpm' };
+    const events = [];
+    class BatchExecutor extends ReleaseExecutor {
+      async cleanBase() {
+        return 'a'.repeat(40);
+      }
+      async liveImage() {
+        return 'sha256:' + 'e'.repeat(64);
+      }
+      async workspace() {
+        events.push('workspace');
+      }
+      async git(...args) {
+        if (args[0] === 'rev-parse')
+          return args[1].endsWith(members[0].suggestionId) ? 'b'.repeat(40) : 'c'.repeat(40);
+        if (args[0] === 'merge-base') return 'a'.repeat(40);
+        if (args[0] === 'diff') return 'apps/web/src/ui/example.tsx';
+        throw new Error('Unexpected git ' + args.join(' '));
+      }
+      async treeGit(...args) {
+        events.push(args.join(' '));
+        return args[0] === 'rev-parse' ? 'd'.repeat(40) : '';
+      }
+      async docker(...args) {
+        events.push('docker ' + args[0]);
+        return args[0] === 'image' ? 'sha256:' + 'f'.repeat(64) : '';
+      }
+      async pruneImages() {}
+      async run(_file, args) {
+        events.push(args.join(' '));
+        return '';
+      }
+    }
+    const executor = new BatchExecutor(
+      config,
+      { releaseId: randomUUID(), ...members[0], members },
+      join(root, 'log'),
+    );
+    for (const m of members)
+      await writeJson(join(config.stateRoot, 'runs', m.runId, 'published.json'), { published: true });
+    await writeJson(join(root, '.local/phone-trial/host.json'), { origin: 'http://localhost' });
+    const apk = join(executor.cwd, 'apps/android/app/build/outputs/apk/debug/app-debug.apk');
+    await mkdir(join(apk, '..'), { recursive: true });
+    await writeFile(apk, 'fixture-apk');
+    const result = await executor.prepare();
+    assert.deepEqual(
+      result.sources,
+      members.map((m, i) => ({ ...m, sourceCommit: (i ? 'c' : 'b').repeat(40) })),
+    );
+    assert.equal(events.filter((e) => e === 'docker build').length, 1);
+    assert.ok(events.indexOf('merge --no-ff --no-edit ' + 'c'.repeat(40)) < events.indexOf('docker build'));
+    assert.equal(events.filter((e) => e === 'node_modules/@playwright/test/cli.js test').length, 1);
+    assert.equal(result.apkSha256, hash('fixture-apk'));
+  } finally {
+    await cleanup(root);
+  }
+});

@@ -138,3 +138,17 @@
   font-size: 0.84rem;
   opacity: 0.9;
 }
+
+.suggestion-update-batch {
+  padding: 20px;
+  margin: 16px 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+}
+.suggestion-update-batch h3 {
+  margin: 0;
+}
+.suggestion-update-batch li {
+  overflow-wrap: anywhere;
+}

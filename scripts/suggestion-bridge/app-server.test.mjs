@@ -5,7 +5,7 @@ import { PassThrough } from 'node:stream';
 import { mkdtemp, writeFile, rm, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { runCodexTurn } from './app-server.mjs';
+import { runCodexTurn, threadParameters } from './app-server.mjs';
 
 async function fixture(t, { wrongPermissions = false, crash = false } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'suggestion-protocol-'));
@@ -46,6 +46,8 @@ async function fixture(t, { wrongPermissions = false, crash = false } = {}) {
             approvalPolicy: wrongPermissions ? 'never' : 'on-request',
             approvalsReviewer: 'auto_review',
             sandbox: { type: 'workspaceWrite' },
+            model: 'gpt-6-astra',
+            reasoningEffort: 'medium',
           },
         });
       if (m.method === 'turn/start') {
@@ -95,6 +97,8 @@ test('app-server verifies permissions and declines any unhandled approval reques
   assert.equal(start.approvalPolicy, 'on-request');
   assert.equal(start.approvalsReviewer, 'auto_review');
   assert.equal(start.sandbox, 'workspace-write');
+  assert.equal(start.model, 'gpt-6-astra');
+  assert.equal(requests.find((m) => m.method === 'turn/start').params.effort, 'medium');
   assert.deepEqual(requests.find((m) => m.id === 900).result, { decision: 'decline' });
 });
 test('permission downgrade fails before any agent turn', async (t) => {
@@ -107,4 +111,10 @@ test('app-server exit cannot be mistaken for completed work', async (t) => {
   const { result } = await fixture(t, { crash: true });
   assert.equal(result.exitCode, -1);
   assert.match(result.failure, /exited before/);
+});
+
+test('implementation defaults use Astra medium without changing global Codex preferences', () => {
+  const params = threadParameters({ cwd: 'synthetic', packageStore: 'cache' });
+  assert.equal(params.model, 'gpt-6-astra');
+  assert.equal(params.config.model_reasoning_effort, 'medium');
 });

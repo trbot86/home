@@ -10,7 +10,12 @@ const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 export class ReleaseCheckError extends Error {}
 // Release requests contain identifiers, never executable commands or filesystem paths.
 export function releaseIdentity(job) {
-  for (const value of [job.releaseId, job.suggestionId, job.runId])
+  for (const value of [
+    job.releaseId,
+    job.suggestionId,
+    job.runId,
+    ...(job.members || []).flatMap((m) => [m.suggestionId, m.runId]),
+  ])
     if (!/^[a-f0-9-]{36}$/.test(value)) throw new ReleaseCheckError('Invalid release identity.');
   return job;
 }
@@ -135,31 +140,38 @@ export class ReleaseExecutor {
   async prepare() {
     const baseCommit = await this.cleanBase(),
       previousImageId = await this.liveImage();
-    const publication = await readJson(join(this.config.stateRoot, 'runs', this.job.runId, 'published.json'));
-    if (!publication)
-      throw new ReleaseCheckError(
-        'The agent result has not yet been reconciled on this host. Try again after the work finishes.',
-      );
-    const sourceCommit = await this.git('rev-parse', 'refs/heads/codex/suggestion-' + this.job.suggestionId);
-    const mergeBase = await this.git('merge-base', baseCommit, sourceCommit);
-    const changed = (await this.git('diff', '--name-only', mergeBase, sourceCommit))
-      .split('\n')
-      .filter(Boolean);
-    if (!changed.length)
-      throw new ReleaseCheckError('This suggestion has no new committed source changes to deploy.');
-    if (!reviewPaths(changed))
-      throw new ReleaseCheckError(
-        'This suggestion changes build or host configuration. It needs coordinated developer review before release.',
-      );
+    const sources = [];
+    for (const member of this.job.members || [this.job]) {
+      const publication = await readJson(join(this.config.stateRoot, 'runs', member.runId, 'published.json'));
+      if (!publication)
+        throw new ReleaseCheckError(
+          'An agent result has not yet been reconciled on this host. Retry once the host has published it.',
+        );
+      const sourceCommit = await this.git('rev-parse', 'refs/heads/codex/suggestion-' + member.suggestionId);
+      const mergeBase = await this.git('merge-base', baseCommit, sourceCommit);
+      const changed = (await this.git('diff', '--name-only', mergeBase, sourceCommit))
+        .split('\n')
+        .filter(Boolean);
+      if (!changed.length)
+        throw new ReleaseCheckError(
+          'A suggestion has no new committed source changes. The batch needs review.',
+        );
+      if (!reviewPaths(changed))
+        throw new ReleaseCheckError(
+          'A suggestion changes build or host configuration. The batch needs coordinated developer review.',
+        );
+      sources.push({ suggestionId: member.suggestionId, runId: member.runId, sourceCommit });
+    }
     await this.workspace(baseCommit);
-    try {
-      await this.treeGit('merge', '--no-ff', '--no-edit', sourceCommit);
-    } catch {
-      // Git's own abort restores this newly-created, previously clean checkout.
-      await this.treeGit('merge', '--abort');
-      throw new ReleaseCheckError(
-        'This suggestion conflicts with newer app changes. Ask the agent to update it before preparing again.',
-      );
+    for (const source of sources) {
+      try {
+        await this.treeGit('merge', '--no-ff', '--no-edit', source.sourceCommit);
+      } catch {
+        await this.treeGit('merge', '--abort');
+        throw new ReleaseCheckError(
+          'A suggestion conflicts with another change in this update. The batch was held for integration repair; nothing was deployed.',
+        );
+      }
     }
     await this.run(
       process.execPath,
@@ -227,7 +239,8 @@ export class ReleaseExecutor {
       );
     return {
       baseCommit,
-      sourceCommit,
+      sourceCommit: sources[0].sourceCommit,
+      sources,
       candidateCommit,
       imageId,
       previousImageId,

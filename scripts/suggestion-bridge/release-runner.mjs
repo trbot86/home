@@ -31,7 +31,7 @@ export class ReleaseRunner {
         state: phase === 'prepare' ? 'preparing' : 'deploying',
         summary:
           phase === 'prepare'
-            ? 'Integrating this suggestion and running release checks.'
+            ? `Integrating ${job.members?.length ?? 1} suggestion(s) and running the combined release checks.`
             : 'Deploying the tested release; the server may reconnect briefly.',
       });
       return true;

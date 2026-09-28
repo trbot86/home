@@ -2,7 +2,6 @@ import { useState } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { CommandKind } from '@our-place/contracts';
 import { suggestionCompleted } from './status.js';
-
 export function SuggestionReleasePanel({
   client,
   state,
@@ -12,26 +11,33 @@ export function SuggestionReleasePanel({
 }: {
   client: ClientPlatform;
   state: ClientState;
-  id: string;
+  id?: string;
   onError: (e: unknown) => void;
   compact?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const work = state.suggestions.work.filter((w) => w.suggestionId === id);
-  const release = state.suggestions.releases?.find(
-    (r) => r.suggestionId === id && r.runId === work[0]?.runId,
-  );
-  const ready =
-    work[0]?.state === 'ready' && !work.some((w) => ['queued', 'running', 'uncertain'].includes(w.state));
-  if (suggestionCompleted(state.suggestions, id) || (!release && !ready)) return null;
-  const active = state.suggestions.releases?.some((r) =>
-    ['queued', 'preparing', 'prepared', 'deploy_queued', 'deploying', 'uncertain'].includes(r.state),
-  );
+  const all = state.suggestions.releases || [];
+  const release = id
+    ? all.find((r) => r.suggestionId === id && r.runId === work[0]?.runId)
+    : all.find((r) =>
+        ['queued', 'preparing', 'prepared', 'deploy_queued', 'deploying', 'uncertain'].includes(r.state),
+      );
+  const ready = work[0]?.state === 'ready';
+  if (id && (suggestionCompleted(state.suggestions, id) || (!release && !ready))) return null;
+  if (!id && !release) return null;
+  const members =
+    release?.members || (release ? [{ suggestionId: release.suggestionId, runId: release.runId }] : []);
   async function action(kind: CommandKind, args: unknown) {
     if (!state.session) return;
     setBusy(true);
     try {
-      const result = await client.command('suggestion-release-' + id, kind, args, state.session.serverEpoch);
+      const result = await client.command(
+        'suggestion-release-' + (release?.releaseId || id),
+        kind,
+        args,
+        state.session.serverEpoch,
+      );
       if (result.status === 'Rejected') throw new Error(result.code.replaceAll('_', ' '));
       await client.refresh();
     } catch (e) {
@@ -41,10 +47,28 @@ export function SuggestionReleasePanel({
     }
   }
   const disabled = busy || !state.online;
+  const active = all.some((r) =>
+    ['queued', 'preparing', 'prepared', 'deploy_queued', 'deploying', 'uncertain'].includes(r.state),
+  );
   return (
-    <section className="suggestion-release" aria-label="Suggestion release">
+    <section className={`suggestion-release${id ? '' : ' suggestion-update-batch'}`} aria-label="Suggestion release">
+      {!id && release && (
+        <>
+          <h3>
+            {release.state === 'prepared' ? 'Update ready' : 'App update'} · {members.length} suggestion
+            {members.length === 1 ? '' : 's'}
+          </h3>
+          <ul>
+            {members.map((m) => (
+              <li key={m.suggestionId}>
+                {state.entries.find((e) => e.inboxId === m.suggestionId)?.text || 'App suggestion'}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {!compact && release && <p>{release.summary}</p>}
-      {release?.state === 'prepared' && release.manifest && (
+      {!id && release?.state === 'prepared' && release.manifest && (
         <>
           <p className="fine">
             Tested release {release.manifest.candidateCommit.slice(0, 8)} · web and Android
@@ -69,11 +93,11 @@ export function SuggestionReleasePanel({
               })
             }
           >
-            Deploy tested release
+            Deploy update
           </button>
         </>
       )}
-      {release && ['queued', 'prepared', 'deploy_queued'].includes(release.state) && (
+      {!id && release && ['queued', 'prepared', 'deploy_queued'].includes(release.state) && (
         <button
           disabled={disabled}
           onClick={() => void action('CancelSuggestionRelease', { releaseId: release.releaseId })}
@@ -81,24 +105,26 @@ export function SuggestionReleasePanel({
           Cancel release
         </button>
       )}
-      {ready && !active && release?.state !== 'released' && (
+      {id && release && !active && ['failed', 'cancelled'].includes(release.state) && (
         <button
           disabled={disabled}
           onClick={() =>
-            void action('PrepareSuggestionRelease', {
-              releaseId: crypto.randomUUID(),
-              suggestionId: id,
-              runId: work[0]!.runId,
+            void action('RetrySuggestionRelease', {
+              releaseId: release.releaseId,
+              replacementReleaseId: crypto.randomUUID(),
             })
           }
         >
-          Prepare release
+          Retry update checks
         </button>
+      )}
+      {id && release?.state === 'prepared' && (
+        <p className="fine">Included in the tested update. Deploy it from the App suggestions list.</p>
       )}
       {!compact && !release && (
         <p className="fine">
-          Prepare integrates this suggestion and runs checks. The running app stays unchanged until you
-          deploy.
+          Implementation is ready. The host will include it in an update and run the combined release checks
+          automatically.
         </p>
       )}
     </section>
