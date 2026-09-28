@@ -50,7 +50,7 @@ revisions hide it. Failed/stale attempts can be explicitly retried. Nothing in
 this design guarantees that a remote model will avoid retention, disclosure or
 training; provider/account policy must be reviewed before connecting it.
 
-## Remaining activation decision
+## Provider boundary and remaining decision
 
 A real provider adapter and host activation are deliberately absent. The injected
 provider interface has no database/tool access; a future adapter must preserve
@@ -59,6 +59,59 @@ prompt/error logging. Selecting an account/model and authorizing real processing
 remain separate from this source change. The synthetic browser fixture is the
 only host in this change that configures a provider. No real household content is
 sent during tests. No daily bulk exporter or unrestricted Codex session is added.
+
+Data scope is a deferred runtime choice in Suggestion setup, not a prerequisite
+for developing the adapter with synthetic data. Keep the production provider
+disconnected until both host configuration and saved scope consent are present.
+
+The Codex app-server protocol offers structured output (`turn/start.outputSchema`),
+interruption (`turn/interrupt`) and ephemeral threads. These cover parts of the
+adapter contract, but do not by themselves establish a tool-free inference
+boundary. In the 0.126.0-alpha.8 generated experimental protocol, `dynamicTools`
+supplies tool definitions, rather than a global allow-list of built-in tools.
+`environments: []` disables environment access, not every integration. The thread
+start response reports permissions and instruction-source paths, but does not
+attest an empty effective tool inventory or the absence of inherited context.
+Reproduce this protocol inspection without starting a model request using:
+
+```
+codex app-server generate-ts --experimental --out .cache/codex-protocol
+```
+
+Inspect `v2/ThreadStartParams.ts`, `v2/ThreadStartResponse.ts`,
+`v2/TurnStartParams.ts` and `v2/ToolsV2.ts`. Generated files are disposable and
+must not be committed. This is a version-specific interface review, not proof
+that all Codex versions lack a suitable interface.
+
+The [app-server documentation](https://learn.chatgpt.com/docs/app-server)
+describes the request lifecycle. The
+[configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+provides individual tool and integration controls. The
+[security documentation](https://learn.chatgpt.com/docs/agent-approvals-security)
+explains that the command network sandbox does not govern MCP, connectors,
+browser tools or model/authentication traffic. Consequently a read-only sandbox,
+an empty dynamic-tool list and a prompt saying not to use tools are insufficient
+evidence for reusing a general-purpose authenticated app-server safely here.
+No existing app-server session or account configuration should be changed to
+try to make this adapter work.
+
+Choose the provider isolation approach before implementing its transport:
+
+- A dedicated Codex worker with its own explicitly authorized authentication and
+  independently enforced host isolation. Prove with synthetic adversarial input
+  that it cannot read household files, inherited memories, plugins or unrelated
+  services. Do not copy credentials from the desktop account. Source work can
+  precede activation, but host isolation and authentication require separate setup.
+- A direct inference API adapter with no tools supplied. This is a different
+  credential/billing path and requires an explicit provider choice; do not
+  silently substitute it for the requested Codex backend or enable billing.
+- Keep the provider disconnected.
+
+Whichever path is selected must retain the existing durable pre-dispatch claim,
+bounded choice-only output, timeout/cancellation, and explicit acceptance. Model
+and reasoning effort should be configurable; Luna with low effort is the proposed
+starting configuration, subject to availability through the selected provider.
+Do not infer account entitlement or data-retention policy from the model name.
 
 Schema 029 is additive. Production upgrades must use the existing verified-backup
 upgrade command. Android adds online bridge methods only; Room schema and frozen
