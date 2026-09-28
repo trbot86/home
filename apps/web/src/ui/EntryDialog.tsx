@@ -1,3 +1,4 @@
+import { ShareRecord } from './ShareRecord.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { CommandKind, HistoryEntry, InboxEntry } from '@our-place/contracts';
@@ -108,6 +109,13 @@ export function EntryDialog({
         if (e.target === e.currentTarget) close();
       }}
     >
+      <ShareRecord
+        client={client}
+        state={state}
+        recordId={entry.inboxId}
+        scopeId={entry.scopeId}
+        close={close}
+      />
       <div className="dialog-header">
         <div>
           <p className="eyebrow">Saved {date(entry.createdAt)}</p>
@@ -234,21 +242,23 @@ export function EntryDialog({
                   {index === 0 && <span className="scope-badge">Current</span>}
                 </div>
                 <p className="fine">
-                  {item.kind === 'CreateInboxEntry'
-                    ? 'Saved this entry'
-                    : item.kind === 'SetInboxEntryText'
-                      ? 'Changed the text'
-                      : item.kind === 'SetRecordAttachments'
-                        ? 'Updated photos'
-                        : item.kind === 'SetInboxEntryCategory'
-                          ? `Moved to ${item.version.category === 'app_suggestion' ? 'app suggestions' : 'inbox'}`
-                          : item.kind === 'DeleteInboxEntry'
-                            ? 'Moved to recently deleted'
-                            : item.kind === 'UndoChangeSet'
-                              ? 'Undid a change'
-                              : item.kind === 'RedoChangeSet'
-                                ? 'Redid a change'
-                                : 'Restored this entry'}
+                  {item.kind === 'ShareRecords'
+                    ? 'Shared with household'
+                    : item.kind === 'CreateInboxEntry'
+                      ? 'Saved this entry'
+                      : item.kind === 'SetInboxEntryText'
+                        ? 'Changed the text'
+                        : item.kind === 'SetRecordAttachments'
+                          ? 'Updated photos'
+                          : item.kind === 'SetInboxEntryCategory'
+                            ? `Moved to ${item.version.category === 'app_suggestion' ? 'app suggestions' : 'inbox'}`
+                            : item.kind === 'DeleteInboxEntry'
+                              ? 'Moved to recently deleted'
+                              : item.kind === 'UndoChangeSet'
+                                ? 'Undid a change'
+                                : item.kind === 'RedoChangeSet'
+                                  ? 'Redid a change'
+                                  : 'Restored this entry'}
                 </p>
                 <p className="historical-text">
                   <LinkedText client={client} text={item.version.text || 'Photo entry'} />

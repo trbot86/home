@@ -48,6 +48,7 @@ type NativeMethod =
   | 'history'
   | 'shoppingHistory'
   | 'recordHistory'
+  | 'sharingPreview'
   | 'recipeImport'
   | 'saveEditor'
   | 'readEditor'
@@ -198,6 +199,9 @@ export class AndroidClient implements ClientPlatform {
   }
   history(recordId: string): Promise<HistoryEntry[]> {
     return this.invoke('history', { recordId });
+  }
+  sharingPreview(recordId: string): Promise<import('@our-place/contracts').SharingPreview> {
+    return this.invoke('sharingPreview', { recordId });
   }
   recipeImport(importId: string): Promise<RecipeImportDetails> {
     return this.invoke('recipeImport', { importId });

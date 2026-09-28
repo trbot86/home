@@ -249,6 +249,7 @@ export class HistoryService {
     requireHuman(context);
     const rows = this.rows(id);
     const first = rows[0];
+    if (first?.operation_kind === 'ShareRecords') throw new Rejection('sharing_cannot_be_undone');
     if (!first || first.actor_person_id !== context.personId) throw new Rejection('unavailable');
     if (redo ? first.operation_kind !== 'UndoChangeSet' : first.operation_kind === 'UndoChangeSet')
       throw new Rejection('reversal_unavailable');
@@ -335,10 +336,15 @@ export class HistoryService {
       WHERE rc.record_id=? ORDER BY rc.after_revision DESC LIMIT 100`,
       )
       .all(id) as ChangeRow[];
+    const shared = !!this.db
+      .prepare(
+        "SELECT 1 FROM visibility_scopes s WHERE scope_id=? AND kind='shared' AND EXISTS(SELECT 1 FROM record_changes r JOIN change_sets c USING(change_set_id) WHERE r.record_id=? AND c.operation_kind='ShareRecords')",
+      )
+      .get(current.content.scopeId, id);
     let content = current.content;
     const entries: HistoryEntry<Version>[] = [];
     for (const row of rows) {
-      if (!this.access.canAccess(context, row.after_scope_id)) break;
+      if (!shared && !this.access.canAccess(context, row.after_scope_id)) break;
       entries.push({
         changeSetId: row.change_set_id,
         actor:
@@ -367,7 +373,7 @@ export class HistoryService {
         canUndo: this.eligible(context, row, current, false),
         canRedo: this.eligible(context, row, current, true),
       });
-      if (row.before_scope_id && !this.access.canAccess(context, row.before_scope_id)) break;
+      if (!shared && row.before_scope_id && !this.access.canAccess(context, row.before_scope_id)) break;
       content = this.records.validateContent(current.kind, applyBefore(content, decodeDelta(row)));
     }
     return entries;

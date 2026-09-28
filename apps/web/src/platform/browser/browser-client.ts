@@ -711,6 +711,9 @@ export class BrowserClient implements ClientPlatform {
     await this.refresh();
     return outcome;
   }
+  sharingPreview(id: string): Promise<import('@our-place/contracts').SharingPreview> {
+    return this.request(`/records/${encodeURIComponent(id)}/sharing`);
+  }
   async history(id: string): Promise<HistoryEntry[]> {
     return (await this.request<{ entries: HistoryEntry[] }>(`/inbox/${id}/history`)).entries;
   }

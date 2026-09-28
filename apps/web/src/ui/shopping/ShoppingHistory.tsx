@@ -58,23 +58,25 @@ export function ShoppingHistory({
                 <span>{date(item.recordedAt)}</span>
               </div>
               <p className="fine">
-                {item.kind === 'SetRecordAttachments'
-                  ? 'Updated photos'
-                  : item.kind === 'PurchaseShoppingEntry'
-                    ? 'Marked purchased'
-                    : item.kind === 'UndoChangeSet'
-                      ? 'Undid a change'
-                      : item.kind === 'RedoChangeSet'
-                        ? 'Redid a change'
-                        : item.kind.startsWith('Delete')
-                          ? 'Deleted'
-                          : item.kind.startsWith('Restore')
-                            ? 'Restored'
-                            : item.kind.startsWith('Update')
-                              ? 'Changed details'
-                              : item.kind === 'MoveShoppingEntry'
-                                ? 'Moved to another list'
-                                : 'Added'}
+                {item.kind === 'ShareRecords'
+                  ? 'Shared with household'
+                  : item.kind === 'SetRecordAttachments'
+                    ? 'Updated photos'
+                    : item.kind === 'PurchaseShoppingEntry'
+                      ? 'Marked purchased'
+                      : item.kind === 'UndoChangeSet'
+                        ? 'Undid a change'
+                        : item.kind === 'RedoChangeSet'
+                          ? 'Redid a change'
+                          : item.kind.startsWith('Delete')
+                            ? 'Deleted'
+                            : item.kind.startsWith('Restore')
+                              ? 'Restored'
+                              : item.kind.startsWith('Update')
+                                ? 'Changed details'
+                                : item.kind === 'MoveShoppingEntry'
+                                  ? 'Moved to another list'
+                                  : 'Added'}
               </p>
               <p className="historical-text">
                 {shoppingLabel(item.version)}

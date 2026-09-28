@@ -1,3 +1,4 @@
+import { ShareRecord } from '../ShareRecord.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { CommandKind, ShoppingList, ShoppingRecord } from '@our-place/contracts';
@@ -38,7 +39,9 @@ export function ShoppingEditor({
   const initial = (): Form => ({
     recordId: record?.recordId ?? crypto.randomUUID(),
     scopeId:
-      record?.scopeId ?? list?.scopeId ?? session.scopes.find((scope) => scope.kind === 'shared')!.scopeId,
+      record?.scopeId ??
+      (mode === 'entry' || mode === 'group' ? list?.scopeId : undefined) ??
+      session.scopes.find((scope) => scope.kind === 'private')!.scopeId,
     name: record && 'name' in record ? record.name : mode === 'list' ? 'Groceries' : '',
     label: record?.kind === 'shopping_entry' ? record.label : '',
     quantity: record && 'quantity' in record ? record.quantity : '',
@@ -192,6 +195,15 @@ export function ShoppingEditor({
       title={`${record ? 'Edit' : 'New'} ${mode === 'restock' ? 'restock product' : mode === 'list' ? 'list' : mode === 'group' ? 'group' : 'shopping item'}`}
       close={close}
     >
+      {record && (
+        <ShareRecord
+          client={client}
+          state={state}
+          recordId={record.recordId}
+          scopeId={record.scopeId}
+          close={close}
+        />
+      )}
       <form
         className="shopping-form"
         onSubmit={(event) => {

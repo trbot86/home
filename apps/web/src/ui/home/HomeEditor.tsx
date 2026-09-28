@@ -1,3 +1,4 @@
+import { ShareRecord } from '../ShareRecord.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
 import type { CommandKind, HomeAsset, MaintenanceRecord } from '@our-place/contracts';
@@ -30,7 +31,7 @@ export function HomeEditor({
     record = mode === 'asset' ? asset : service;
   const initial = () => ({
     recordId: record?.recordId ?? crypto.randomUUID(),
-    scopeId: asset?.scopeId ?? session.scopes.find((scope) => scope.kind === 'shared')!.scopeId,
+    scopeId: asset?.scopeId ?? session.scopes.find((scope) => scope.kind === 'private')!.scopeId,
     name: asset?.name ?? '',
     model: asset?.model ?? '',
     serial: asset?.serial ?? '',
@@ -187,6 +188,15 @@ export function HomeEditor({
         void buffer.flush().then(close).catch(onError);
       }}
     >
+      {record && (
+        <ShareRecord
+          client={client}
+          state={state}
+          recordId={record.recordId}
+          scopeId={record.scopeId}
+          close={close}
+        />
+      )}
       <form
         className="task-form"
         onSubmit={(event) => {

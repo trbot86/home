@@ -147,6 +147,7 @@ class ClientCore private constructor(val context: Context) {
     fun history(id: String): JSONArray = api.json("/inbox/$id/history", clientId = clientId()).getJSONArray("entries")
     fun suggestionMessages(id: String, before: Long): JSONArray { require(id.matches(Regex("[a-zA-Z0-9_-]{8,80}")) && before > 0); return api.json("/suggestions/$id/messages?before=$before", clientId = clientId()).getJSONArray("messages") }
     fun shoppingHistory(id: String): JSONArray = api.json("/shopping/$id/history", clientId = clientId()).getJSONArray("entries")
+    fun sharingPreview(id: String): JSONObject = api.json("/records/$id/sharing", clientId = clientId())
     fun recordHistory(id: String): JSONArray = api.json("/records/$id/history", clientId = clientId()).getJSONArray("entries")
     fun recipeImport(id: String): JSONObject = api.json("/recipe-imports/${java.net.URLEncoder.encode(id, "UTF-8")}", clientId = clientId())
     fun saveEditor(id: String, text: String, baseRevision: Int, serverEpoch: String) { dao.putValue(ValueRow("${clientId()}:editor:$id", JSONObject().put("text", text).put("baseRevision", baseRevision).put("serverEpoch", serverEpoch).toString())) }

@@ -74,7 +74,14 @@ export const AbandonRestoredOperation = object({
   originalKind: Type.String({ maxLength: 80 }),
   originalCommand: Type.Unknown(),
 });
+export type SharingPreview = {
+  recordId: string;
+  token: string;
+  notices: string[];
+  records: { recordId: string; revision: number; kind: string; title: string; deleted: boolean }[];
+};
 export const argumentSchemas = {
+  ShareRecords: object({ recordId: Id, token: Digest }),
   ...suggestionCommands,
   ...suggestionReleaseCommands,
   ...inboxFilingCommands,

@@ -1,3 +1,4 @@
+import { RecordSharing } from './application/record-sharing.js';
 import Fastify, { type FastifyRequest } from 'fastify';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
@@ -96,12 +97,14 @@ export async function buildApp(options: AppOptions) {
   const { inbox, shopping, shoppingGroups, home, tasks, recipes, projects, suggestions, records, filing } =
     createRecordFeatures(db, access, options.householdTimeZone);
   const history = new HistoryService(db, records, access);
+  const sharing = new RecordSharing(db, access, records);
   const recipeImports = new RecipeImports(db, recipes, history, records, now);
   const suggestionWork = new SuggestionAgentWork(db, suggestions, history, access, now);
   const suggestionRelease = new SuggestionReleases(db, access, now);
   const views = new ViewPreferences(db, access);
   const calendars = new CalendarsRepository(db, access, now);
   const writes = new WriteCoordinator(db, inbox, history, now, records, undefined, [
+    sharing.commands(),
     shopping.commands(),
     shoppingGroups.commands(),
     projects.commands(),
@@ -235,6 +238,9 @@ export async function buildApp(options: AppOptions) {
     reply.clearCookie('our_place_session', { path: '/' });
     return { signedOut: true };
   });
+  app.get<{ Params: { id: string } }>('/api/records/:id/sharing', async (request) =>
+    sharing.preview(authenticate(request), request.params.id),
+  );
   app.get('/api/session', async (request) => access.session(authenticate(request)));
   app.post('/api/recovery/abandon', async (request, reply) => {
     const context = authenticate(request);

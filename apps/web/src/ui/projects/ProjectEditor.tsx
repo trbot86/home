@@ -1,3 +1,4 @@
+import { ShareRecord } from '../ShareRecord.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
 import { isValid, PageBlocks, type PageBlock, type Project, type ProjectRecord } from '@our-place/contracts';
@@ -32,7 +33,7 @@ export function ProjectEditor({
     isPage = record?.kind === 'project_page' || !!project;
   const initial = () => ({
     recordId: record?.recordId ?? crypto.randomUUID(),
-    scopeId: record?.scopeId ?? project?.scopeId ?? session.scopes.find((s) => s.kind === 'shared')!.scopeId,
+    scopeId: record?.scopeId ?? project?.scopeId ?? session.scopes.find((s) => s.kind === 'private')!.scopeId,
     title: record?.title ?? '',
     description: record?.kind === 'project' ? record.description : '',
     blocks: JSON.stringify(record?.kind === 'project_page' ? record.blocks : []),
@@ -149,6 +150,15 @@ export function ProjectEditor({
       className="task-dialog project-editor"
       close={closeSaved}
     >
+      {record && (
+        <ShareRecord
+          client={client}
+          state={state}
+          recordId={record.recordId}
+          scopeId={record.scopeId}
+          close={close}
+        />
+      )}
       <form
         className="task-form"
         onSubmit={(event) => void submit(event)}

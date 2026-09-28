@@ -1,0 +1,17 @@
+-- Sharing preserves identities, history, bytes and immutable job grants.
+DROP TRIGGER worker_job_grant_immutable;
+CREATE TRIGGER worker_job_grant_immutable BEFORE UPDATE OF job_id,client_id,worker_id,target_record_id,expected_revision,expected_server_epoch,cause_change_set_id,scope_id ON worker_jobs
+WHEN OLD.job_id IS NOT NEW.job_id OR OLD.client_id IS NOT NEW.client_id OR OLD.worker_id IS NOT NEW.worker_id OR OLD.target_record_id IS NOT NEW.target_record_id OR OLD.expected_revision IS NOT NEW.expected_revision OR OLD.expected_server_epoch IS NOT NEW.expected_server_epoch OR OLD.cause_change_set_id IS NOT NEW.cause_change_set_id OR (OLD.scope_id IS NOT NEW.scope_id AND NOT EXISTS(SELECT 1 FROM records r JOIN visibility_scopes s ON s.scope_id=r.scope_id JOIN visibility_scopes old ON old.scope_id=OLD.scope_id WHERE r.record_id=NEW.target_record_id AND r.scope_id=NEW.scope_id AND s.kind='shared' AND old.kind='private'))
+BEGIN SELECT RAISE(ABORT,'identity is immutable outside explicit sharing'); END;
+DROP TRIGGER recipe_import_source_immutable;
+CREATE TRIGGER recipe_import_source_immutable BEFORE UPDATE OF job_id,recipe_id,source_url,requested_at,automatic_operation_id,scope_id ON recipe_imports
+WHEN OLD.job_id IS NOT NEW.job_id OR OLD.recipe_id IS NOT NEW.recipe_id OR OLD.source_url IS NOT NEW.source_url OR OLD.requested_at IS NOT NEW.requested_at OR OLD.automatic_operation_id IS NOT NEW.automatic_operation_id OR (OLD.scope_id IS NOT NEW.scope_id AND NOT EXISTS(SELECT 1 FROM records r JOIN visibility_scopes s ON s.scope_id=r.scope_id JOIN visibility_scopes old ON old.scope_id=OLD.scope_id WHERE r.record_id=NEW.recipe_id AND r.scope_id=NEW.scope_id AND s.kind='shared' AND old.kind='private'))
+BEGIN SELECT RAISE(ABORT,'identity is immutable outside explicit sharing'); END;
+DROP TRIGGER recipe_shopping_source_immutable;
+CREATE TRIGGER recipe_shopping_source_immutable BEFORE UPDATE OF source_id,entry_id,recipe_id,ingredient_id,recipe_revision,recipe_title,ingredient_text,quantity_snapshot,scope_id ON recipe_shopping_sources
+WHEN OLD.source_id IS NOT NEW.source_id OR OLD.entry_id IS NOT NEW.entry_id OR OLD.recipe_id IS NOT NEW.recipe_id OR OLD.ingredient_id IS NOT NEW.ingredient_id OR OLD.recipe_revision IS NOT NEW.recipe_revision OR OLD.recipe_title IS NOT NEW.recipe_title OR OLD.ingredient_text IS NOT NEW.ingredient_text OR OLD.quantity_snapshot IS NOT NEW.quantity_snapshot OR (OLD.scope_id IS NOT NEW.scope_id AND NOT EXISTS(SELECT 1 FROM records r JOIN visibility_scopes s ON s.scope_id=r.scope_id JOIN visibility_scopes old ON old.scope_id=OLD.scope_id WHERE r.record_id=NEW.entry_id AND r.scope_id=NEW.scope_id AND s.kind='shared' AND old.kind='private'))
+BEGIN SELECT RAISE(ABORT,'identity is immutable outside explicit sharing'); END;
+DROP TRIGGER saved_view_identity;
+CREATE TRIGGER saved_view_identity BEFORE UPDATE OF view_id,kind,context_record_id,scope_id ON saved_views
+WHEN OLD.view_id IS NOT NEW.view_id OR OLD.kind IS NOT NEW.kind OR OLD.context_record_id IS NOT NEW.context_record_id OR (OLD.scope_id IS NOT NEW.scope_id AND NOT EXISTS(SELECT 1 FROM records r JOIN visibility_scopes s ON s.scope_id=r.scope_id JOIN visibility_scopes old ON old.scope_id=OLD.scope_id WHERE r.record_id=NEW.context_record_id AND r.scope_id=NEW.scope_id AND s.kind='shared' AND old.kind='private'))
+BEGIN SELECT RAISE(ABORT,'identity is immutable outside explicit sharing'); END;

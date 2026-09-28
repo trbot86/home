@@ -327,9 +327,9 @@ export function App({ client }: { client: ClientPlatform }) {
     }
     if (draft || initialiseLock.current) return;
     initialiseLock.current = true;
-    const shared = state.session.scopes.find((s) => s.kind === 'shared')!.scopeId;
+    const privateScope = state.session.scopes.find((s) => s.kind === 'private')!.scopeId;
     const existing = unfinishedDraft(state.drafts, category);
-    void (existing ? Promise.resolve(existing) : client.createDraft(shared, category))
+    void (existing ? Promise.resolve(existing) : client.createDraft(privateScope, category))
       .then((value) => {
         setDraft(value);
         setText(value.text);
@@ -418,7 +418,7 @@ export function App({ client }: { client: ClientPlatform }) {
           const next =
             existing ??
             (await client.createDraft(
-              state.session.scopes.find((s) => s.kind === 'shared')!.scopeId,
+              state.session.scopes.find((s) => s.kind === 'private')!.scopeId,
               nextCategory,
             ));
           setDraft(next);
@@ -449,8 +449,12 @@ export function App({ client }: { client: ClientPlatform }) {
       await client.submitDraft(draft.draftId);
       setInboxFilter('unfiled');
       setSuggestionFilter('active');
-      const next = await client.createDraft(captureScope, categoryOf(draft));
+      const next = await client.createDraft(
+        state.session!.scopes.find((scope) => scope.kind === 'private')!.scopeId,
+        categoryOf(draft),
+      );
       setDraft(next);
+      setCaptureScope(next.scopeId);
       setText('');
       setError('');
     } catch (error) {

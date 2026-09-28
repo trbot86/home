@@ -123,6 +123,7 @@ export interface ClientPlatform {
     args: unknown,
     expectedServerEpoch: string,
   ): Promise<CommandOutcome>;
+  sharingPreview(recordId: string): Promise<import('@our-place/contracts').SharingPreview>;
   history(recordId: string): Promise<HistoryEntry[]>;
   shoppingHistory(recordId: string): Promise<HistoryEntry<ShoppingRecord>[]>;
   recordHistory<Version>(recordId: string): Promise<HistoryEntry<Version>[]>;

@@ -86,6 +86,7 @@ export function ProjectHistory({
                 <span>{dateWithYear(entry.recordedAt)}</span>
               </div>
               <p className="fine">
+                {entry.kind === 'ShareRecords' ? 'Shared with household · ' : ''}
                 Version {entry.afterRevision}
                 {entry.version.deletedAt !== null ? ' · Removed' : ''}
               </p>

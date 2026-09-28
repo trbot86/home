@@ -1,3 +1,4 @@
+import { ShareRecord } from '../ShareRecord.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type {
@@ -49,7 +50,7 @@ export function TaskEditor({
       task?.scopeId ??
       asset?.scopeId ??
       recipe?.scopeId ??
-      session.scopes.find((scope) => scope.kind === 'shared')!.scopeId,
+      session.scopes.find((scope) => scope.kind === 'private')!.scopeId,
     title: task?.title ?? template?.title ?? (recipe ? `Make ${recipe.title}`.slice(0, 300) : ''),
     instructions: task?.instructions ?? template?.instructions ?? '',
     context: task?.context ?? 'home',
@@ -250,6 +251,15 @@ export function TaskEditor({
       className="task-dialog"
       close={closeSaved}
     >
+      {record && (
+        <ShareRecord
+          client={client}
+          state={state}
+          recordId={record.recordId}
+          scopeId={record.scopeId}
+          close={close}
+        />
+      )}
       <form
         className="task-form"
         onSubmit={(event) => {
