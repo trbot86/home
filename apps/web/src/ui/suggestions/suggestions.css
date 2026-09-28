@@ -80,3 +80,61 @@
     padding: 0.8rem;
   }
 }
+.entry-card.has-suggestion-update {
+  border-color: var(--green);
+}
+.entry-card.suggestion-card .entry-meta {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+.entry-card.suggestion-card .entry-meta .scope-badge {
+  white-space: nowrap;
+}
+.suggestion-release {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.suggestion-release p,
+.suggestion-release ul {
+  flex-basis: 100%;
+  margin: 0.25rem 0;
+}
+.suggestion-release button {
+  min-height: 42px;
+  white-space: normal;
+}
+.suggestion-unread {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--green);
+  font-size: 0.75rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.suggestion-card-update {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  padding: 0.6rem 0;
+  margin-bottom: 0.25rem;
+}
+.suggestion-card-update-label {
+  font-size: 0.68rem;
+  opacity: 0.7;
+}
+.suggestion-card-update-text {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.84rem;
+  opacity: 0.9;
+}

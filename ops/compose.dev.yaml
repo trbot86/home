@@ -1,7 +1,7 @@
 name: our-place-dev
 services:
   household:
-    image: our-place:development
+    image: ${OUR_PLACE_IMAGE:-our-place:development}
     container_name: our-place-dev
     labels:
       com.our-place.role: phone-trial

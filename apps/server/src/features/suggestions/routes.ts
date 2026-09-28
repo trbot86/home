@@ -5,17 +5,20 @@ import {
   SuggestionAgentClaim,
   SuggestionAgentReport,
   SuggestionAgentTransition,
+  SuggestionReleaseUpdate,
 } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { authenticateSuggestionAgent } from './agent-access.js';
 import type { SuggestionAgentWork } from './agent-work.js';
 import type { FileMediaStore } from '../media/file-media-store.js';
+import type { SuggestionReleases } from './releases.js';
 
 export function registerSuggestionAgentRoutes(
   app: FastifyInstance,
   db: Sqlite,
   work: SuggestionAgentWork,
   files: FileMediaStore,
+  releases: SuggestionReleases,
 ) {
   const authenticate = (request: FastifyRequest) =>
     authenticateSuggestionAgent(
@@ -25,6 +28,22 @@ export function registerSuggestionAgentRoutes(
   const mediaRequest = Type.Object(
     { runId: Id, leaseToken: Id, expectedServerEpoch: Id, mediaId: Id },
     { additionalProperties: false },
+  );
+  app.post<{ Body: { expectedServerEpoch: string } }>(
+    '/api/suggestion-agent/releases',
+    {
+      schema: { body: Type.Object({ expectedServerEpoch: Id }, { additionalProperties: false }) },
+    },
+    async (request) => ({
+      release: releases.pending(authenticate(request), request.body.expectedServerEpoch),
+    }),
+  );
+  app.post<{ Body: typeof SuggestionReleaseUpdate.static }>(
+    '/api/suggestion-agent/release-update',
+    {
+      schema: { body: SuggestionReleaseUpdate },
+    },
+    async (request) => releases.update(authenticate(request), request.body),
   );
   app.post<{ Body: typeof mediaRequest.static }>(
     '/api/suggestion-agent/media',

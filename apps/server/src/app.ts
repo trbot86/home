@@ -29,6 +29,7 @@ import { HistoryService } from './features/history/history.js';
 import { WriteCoordinator } from './application/write-coordinator.js';
 import { RecipeImports } from './features/recipes/imports.js';
 import { SuggestionAgentWork } from './features/suggestions/agent-work.js';
+import { SuggestionReleases } from './features/suggestions/releases.js';
 import { registerSuggestionAgentRoutes } from './features/suggestions/routes.js';
 import { ViewPreferences } from './features/views/views.js';
 import { CalendarsRepository } from './features/calendars/calendars.js';
@@ -97,6 +98,7 @@ export async function buildApp(options: AppOptions) {
   const history = new HistoryService(db, records, access);
   const recipeImports = new RecipeImports(db, recipes, history, records, now);
   const suggestionWork = new SuggestionAgentWork(db, suggestions, history, access, now);
+  const suggestionRelease = new SuggestionReleases(db, access, now);
   const views = new ViewPreferences(db, access);
   const calendars = new CalendarsRepository(db, access, now);
   const writes = new WriteCoordinator(db, inbox, history, now, records, undefined, [
@@ -111,6 +113,7 @@ export async function buildApp(options: AppOptions) {
     calendars.commands(),
     filing.commands(),
     suggestions.commands(),
+    suggestionRelease.commands(),
   ]);
   const files = new FileMediaStore(join(options.dataRoot, 'media'), options.development === true);
   await files.initialise();
@@ -190,7 +193,7 @@ export async function buildApp(options: AppOptions) {
     return reply.code(503).send({ code: 'temporarily_unavailable' });
   });
   app.get('/health', async () => ({ status: 'ok', contractVersion: 1, development: !!options.development }));
-  registerSuggestionAgentRoutes(app, db, suggestionWork, files);
+  registerSuggestionAgentRoutes(app, db, suggestionWork, files, suggestionRelease);
   app.get('/api/auth/options', async (): Promise<AuthenticationOptions> =>
     options.authenticationMode === 'trusted-network'
       ? { mode: 'trusted-network', profiles: access.profiles() }
@@ -412,5 +415,6 @@ export async function buildApp(options: AppOptions) {
     backups,
     recipeImports,
     suggestionWork,
+    suggestionRelease,
   };
 }

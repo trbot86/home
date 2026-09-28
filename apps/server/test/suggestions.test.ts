@@ -1,12 +1,11 @@
+import { suggestionFixture } from './suggestion-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readdir, copyFile, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { CommandKind, CommandOutcome } from '@our-place/contracts';
+import type { CommandOutcome } from '@our-place/contracts';
 import { integrationFixture } from './integration-fixture.js';
-import { buildApp } from '../src/app.js';
-import { createRecordFeatures } from '../src/application/record-features.js';
 import { migrationsRoot } from '../src/paths.js';
 import { migrate, immediate } from '../src/infrastructure/database.js';
 import { ensureRecipeWorker } from '../src/features/access/workers.js';
@@ -59,71 +58,6 @@ test('022 preserves existing rows and recipe-worker identity, including rollback
     await f.close();
   }
 });
-export async function suggestionFixture() {
-  const f = await integrationFixture();
-  const service = await buildApp({
-    db: f.db,
-    dataRoot: f.dataRoot,
-    development: true,
-    publicOrigin: 'http://localhost',
-    now: f.now,
-  });
-  const a = service.access.authenticate('a'.repeat(43)),
-    b = service.access.authenticate('b'.repeat(43));
-  const features = createRecordFeatures(f.db, service.access);
-  const shared = service.access.scopes(a).find((s) => s.kind === 'shared')!.scopeId;
-  const privateScope = service.access.scopes(a).find((s) => s.kind === 'private')!.scopeId;
-  const envelope = (args: unknown) => ({
-    operationId: randomUUID(),
-    contractVersion: 1 as const,
-    expectedServerEpoch: 'fixture-epoch',
-    arguments: args,
-  });
-  const run = (kind: CommandKind, args: unknown, context = a) =>
-    service.writes.execute(context, kind, envelope(args));
-  const suggestion = (scopeId = shared) => {
-    const inboxId = randomUUID();
-    applied(
-      run('CreateInboxEntry', {
-        inboxId,
-        scopeId,
-        category: 'app_suggestion',
-        text: 'Make suggestions easier to follow',
-        capturedAt: f.now(),
-        source: { kind: 'typed' },
-        attachments: [],
-      }),
-    );
-    return inboxId;
-  };
-  const reply = (suggestionId: string, requestWork = false, scopeId = shared) => ({
-    recordId: randomUUID(),
-    suggestionId,
-    scopeId,
-    text: 'A follow-up',
-    replyToQuestionId: null,
-    requestWork,
-    attachments: [],
-  });
-  return {
-    ...f,
-    service,
-    features,
-    a,
-    b,
-    shared,
-    privateScope,
-    envelope,
-    run,
-    suggestion,
-    reply,
-    close: async () => {
-      await service.app.close();
-      await f.close();
-    },
-  };
-}
-
 test('suggestion reply and work intent are atomic, replay once, and leave original note untouched', async () => {
   const f = await suggestionFixture();
   try {
@@ -344,6 +278,75 @@ test('obsolete questions can be dismissed without dispatch, with scoped history,
     assert.equal(
       work.claim(agent, randomUUID(), 'fixture-epoch').run!.context.questions[0]!.state,
       'resolved',
+    );
+    assert.deepEqual(f.db.pragma('foreign_key_check'), []);
+  } finally {
+    await f.close();
+  }
+});
+
+test('read positions are per person, monotonic and acknowledge only the rendered update', async () => {
+  const f = await suggestionFixture();
+  try {
+    const id = f.suggestion();
+    applied(f.run('PostSuggestionMessage', f.reply(id)));
+    const position = (context = f.a) =>
+      f.features.suggestions.snapshot(context).activity!.find((a) => a.suggestionId === id)!;
+    const mark = (p = position(), context = f.a) => {
+      const { unread: _, ...args } = p;
+      return f.run('MarkSuggestionRead', args, context);
+    };
+    assert.equal(position().unread, false, 'own note is not new activity');
+    assert.equal(position(f.b).unread, true);
+    applied(mark(position(f.b), f.b));
+    const readBeforeReply = position();
+    applied(f.run('PostSuggestionMessage', f.reply(id), f.b));
+    assert.equal(position().unread, true);
+    applied(mark(readBeforeReply));
+    assert.equal(position().unread, true, 'late acknowledgement cannot hide a new reply');
+    applied(mark());
+    applied(mark(readBeforeReply));
+    assert.equal(position().unread, false, 'old acknowledgement cannot rewind the cursor');
+    const credentials = provisionSuggestionAgent(f.db, 'Test agent', f.now());
+    const agent = authenticateSuggestionAgent(f.db, credentials.secret),
+      work = f.service.suggestionWork;
+    applied(f.run('RequestSuggestionWork', { recordId: randomUUID(), suggestionId: id }));
+    const run = work.claim(agent, randomUUID(), 'fixture-epoch').run!;
+    work.report(agent, run.leaseToken, {
+      reportId: randomUUID(),
+      expectedServerEpoch: 'fixture-epoch',
+      runId: run.runId,
+      summary: 'Tested the updated layout.',
+      status: 'ready',
+      messages: [],
+      resolvedQuestionIds: [],
+    });
+    assert.equal(position().unread, true, 'a summary-only agent result is visible');
+    applied(mark());
+    assert.equal(position().unread, false);
+    assert.equal(position(f.b).unread, true, 'one person does not clear the other person');
+    // Another device authenticated as the same person sees the same server cursor.
+    const secondDevice = f.service.access.selectProfile(
+      f.service.access.profiles().find((p) => p.personId === f.a.personId)!.username,
+      'browser',
+    );
+    assert.equal(position(f.service.access.authenticate(secondDevice.secret)).unread, false);
+    assert.equal(
+      mark({ ...position(), workflowRevision: position().workflowRevision + 1 }).status,
+      'Rejected',
+    );
+    const privateId = f.suggestion(f.privateScope);
+    applied(f.run('PostSuggestionMessage', f.reply(privateId, false, f.privateScope)));
+    assert.throws(() =>
+      f.run(
+        'MarkSuggestionRead',
+        { suggestionId: privateId, workflowRevision: 0, messageSequence: 0, workToken: '' },
+        f.b,
+      ),
+    );
+    assert.equal(
+      f.features.suggestions.snapshot(f.b).activity!.some((a) => a.suggestionId === privateId),
+      false,
     );
     assert.deepEqual(f.db.pragma('foreign_key_check'), []);
   } finally {

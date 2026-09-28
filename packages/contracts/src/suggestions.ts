@@ -1,6 +1,7 @@
 import { Type, type Static } from '@sinclair/typebox';
 import { Id, Instant, Revision, object } from './primitives.js';
 import { Attachments } from './attachments.js';
+import type { SuggestionRelease } from './suggestion-releases.js';
 
 const nullableId = Type.Union([Id, Type.Null()]);
 export const SuggestionStatus = Type.Union([
@@ -74,6 +75,15 @@ export type SuggestionSnapshot = {
   work: SuggestionWork[];
   bridgeSeenAt: number | null;
   messagesPerSuggestion: number;
+  activity?: SuggestionActivity[];
+  releases?: SuggestionRelease[];
+};
+export type SuggestionActivity = {
+  suggestionId: string;
+  workflowRevision: number;
+  messageSequence: number;
+  workToken: string;
+  unread: boolean;
 };
 export const emptySuggestions = (): SuggestionSnapshot => ({
   workflows: [],
@@ -82,6 +92,8 @@ export const emptySuggestions = (): SuggestionSnapshot => ({
   work: [],
   bridgeSeenAt: null,
   messagesPerSuggestion: 100,
+  activity: [],
+  releases: [],
 });
 export const SuggestionReplyTarget = object({
   suggestionId: Id,
@@ -102,6 +114,12 @@ export const suggestionCommands = {
   RequestSuggestionWork: object({ recordId: Id, suggestionId: Id }),
   CancelSuggestionWork: object({ requestId: Id }),
   DismissSuggestionQuestion: object({ recordId: Id, suggestionId: Id, questionId: Id }),
+  MarkSuggestionRead: object({
+    suggestionId: Id,
+    workflowRevision: Type.Integer({ minimum: 0 }),
+    messageSequence: Type.Integer({ minimum: 0 }),
+    workToken: Type.String({ maxLength: 200 }),
+  }),
 } as const;
 
 /** Agent reports are persisted as a whole before publishing; retries keep these IDs. */

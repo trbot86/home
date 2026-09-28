@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ClientPlatform, ClientState, Draft } from '@our-place/client';
 import type { InboxEntry, SuggestionMessage } from '@our-place/contracts';
 import { LinkedText } from '../LinkedText.js';
@@ -10,6 +10,7 @@ import { validatePhotoFiles } from '../photo-input.js';
 import { date } from '../format.js';
 import './suggestions.css';
 import { suggestionStatus } from './status.js';
+import { SuggestionReleasePanel } from './SuggestionReleasePanel.js';
 
 export function SuggestionDiscussion({
   client,
@@ -28,6 +29,43 @@ export function SuggestionDiscussion({
     [busy, setBusy] = useState(false);
   const snapshot = state.suggestions,
     workflow = snapshot.workflows.find((w) => w.suggestionId === entry.inboxId);
+  const activity = snapshot.activity?.find((a) => a.suggestionId === entry.inboxId);
+  const [foreground, setForeground] = useState(document.visibilityState === 'visible');
+  const marking = useRef('');
+  useEffect(() => {
+    const update = () => setForeground(document.visibilityState === 'visible');
+    document.addEventListener('visibilitychange', update);
+    return () => document.removeEventListener('visibilitychange', update);
+  }, []);
+  useEffect(() => {
+    if (!foreground || !state.online || !state.session || !activity?.unread) return;
+    const key = [
+      state.session.person.personId,
+      activity.workflowRevision,
+      activity.messageSequence,
+      activity.workToken,
+    ].join(':');
+    if (marking.current === key) return;
+    marking.current = key;
+    const { unread: _unread, ...position } = activity;
+    // A separate attempt key keeps read acknowledgements from locking entry edits.
+    // A delayed acknowledgement names only the version actually rendered here.
+    void client
+      .command('suggestion-read-' + entry.inboxId, 'MarkSuggestionRead', position, state.session.serverEpoch)
+      .catch(() => {
+        if (marking.current === key) marking.current = '';
+      });
+  }, [
+    client,
+    entry.inboxId,
+    foreground,
+    state.online,
+    state.session?.person.personId,
+    activity?.workflowRevision,
+    activity?.messageSequence,
+    activity?.workToken,
+    activity?.unread,
+  ]);
   const messages = [
     ...new Map(
       [...older, ...snapshot.messages.filter((m) => m.suggestionId === entry.inboxId)].map((m) => [
@@ -148,6 +186,9 @@ export function SuggestionDiscussion({
           </button>
         )}
       </div>
+      {active && (
+        <SuggestionReleasePanel client={client} state={state} id={entry.inboxId} onError={onError} />
+      )}
       {questions.some((q) => q.state !== 'resolved') && (
         <section aria-label="Questions" className="suggestion-questions">
           <h3>Questions</h3>

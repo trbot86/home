@@ -11,6 +11,8 @@ import { projectCommands } from './projects.js';
 import { calendarCommands } from './calendars.js';
 import { inboxFilingCommands, type InboxFiling } from './inbox-filing.js';
 import { suggestionCommands } from './suggestions.js';
+import { suggestionReleaseCommands } from './suggestion-releases.js';
+export * from './suggestion-releases.js';
 export * from './suggestions.js';
 export * from './inbox-filing.js';
 export * from './calendars.js';
@@ -74,6 +76,7 @@ export const AbandonRestoredOperation = object({
 });
 export const argumentSchemas = {
   ...suggestionCommands,
+  ...suggestionReleaseCommands,
   ...inboxFilingCommands,
   ...shoppingCommands,
   ...shoppingGroupCommands,

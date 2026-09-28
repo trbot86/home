@@ -2,6 +2,27 @@
 
 Updated 2026-09-27.
 
+## Suggestion cards and explicit releases (2026-09-27)
+
+Cards show a one-line latest update and a per-person unread marker. Opening a
+connected foreground discussion acknowledges only the rendered revisions;
+delayed or repeated acknowledgements cannot hide newer updates. Read metadata
+does not create content history or change the other person's read position.
+
+Prepare release and Deploy tested release are separate durable requests, visible
+on cards and in discussions. One host-managed release checkout merges the
+committed suggestion, audits source, runs isolated checks, and builds both server
+and Android artifacts. Deployment approval pins the exact manifest; stale source,
+images or APKs are rejected. The normal verified-backup upgrade path preserves
+live identity/data and publishes the signed Android update. Uncertain deployment
+outcomes require host inspection; no replacement is launched automatically.
+Build/host-control changes still require coordinated developer review.
+
+Validation: 240 package tests in Linux, 56 browser tests, 15 bridge tests and
+15 Android unit tests pass. A verified secondary backup restored into an isolated
+Linux volume preserves all 59 existing tables and four media files through the
+two additive migrations. Runtime configuration and rehearsal reports are ignored.
+
 ## Implemented and deployed
 
 - TypeScript/SQLite server, responsive dark-green React UI, Android host and Room persistence.

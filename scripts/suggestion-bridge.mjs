@@ -3,6 +3,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { randomUUID } from 'node:crypto';
 import { readJson, writeJson, acquireLock, deliver } from './suggestion-bridge/journal.mjs';
 import { SuggestionRunner } from './suggestion-bridge/runner.mjs';
+import { ReleaseRunner } from './suggestion-bridge/release-runner.mjs';
 
 const configPath = resolve(process.argv[2] ?? '.local/suggestion-bridge/config.json');
 const config = await readJson(configPath);
@@ -46,6 +47,7 @@ async function send(path, payload, binary = false) {
   return binary ? Buffer.from(await response.arrayBuffer()) : await response.json();
 }
 const runner = new SuggestionRunner(config, send);
+const releases = new ReleaseRunner(config, send);
 try {
   while (!stopping) {
     try {
@@ -55,6 +57,8 @@ try {
       });
       if (runs.length) {
         for (const run of runs) await runner.tick(run);
+      } else if (config.releasesEnabled === true && (await releases.tick())) {
+        // The single release slot owns integration until it completes or is cancelled.
       } else if (config.enabled === true && queued) {
         // Keep one durable claim pending until its response is reconciled.
         let poll = await readJson(join(root, 'poll.json'));

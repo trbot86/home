@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-process.env['PLAYWRIGHT_BROWSERS_PATH'] = resolve('.cache/playwright');
+process.env['PLAYWRIGHT_BROWSERS_PATH'] = process.env['OUR_PLACE_BROWSER_CACHE'] || resolve('.cache/playwright');
 process.env['OUR_PLACE_TEST_TOKEN'] ??= randomUUID();
 export default defineConfig({
   testDir: './tests/browser', workers: 1, fullyParallel: false, timeout: 30000,

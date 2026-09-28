@@ -28,7 +28,7 @@ await provisionHousehold(db, [
   { username: 'sam', displayName: 'Sam', password: 'local-demo-sam-2026' },
 ]);
 // UI flows intentionally run much faster than household traffic; rate limits have separate HTTP tests.
-const { app, access, recipeImports, media, writes, suggestionWork } = await buildApp({
+const { app, access, recipeImports, media, writes, suggestionWork, suggestionRelease } = await buildApp({
   db,
   dataRoot,
   development: true,
@@ -144,6 +144,8 @@ async function close() {
   control.close();
 }
 // Test-only control listener, separate from the application; avoids Windows process-tree termination.
+let releaseFixture:
+  { agent: ReturnType<typeof authenticateSuggestionAgent>; suggestionId: string } | undefined;
 const control = createServer((request, response) => {
   const token = process.env['OUR_PLACE_TEST_TOKEN'];
   if (!token || request.method !== 'POST' || request.headers['x-test-token'] !== token) {
@@ -181,7 +183,44 @@ const control = createServer((request, response) => {
     response.writeHead(200).end('ok');
     return;
   }
-  if (request.url === '/suggestion-question') {
+  if (request.url === '/prepare-synthetic-release') {
+    try {
+      if (!releaseFixture) throw new Error();
+      const epoch = installation(db).recovery_epoch,
+        agent = releaseFixture.agent;
+      let job = suggestionRelease.pending(agent, epoch)!;
+      if (job.suggestionId !== releaseFixture.suggestionId) throw new Error();
+      job = suggestionRelease.update(agent, {
+        releaseId: job.releaseId,
+        expectedServerEpoch: epoch,
+        expectedRevision: job.revision,
+        state: 'preparing',
+        summary: 'Checking synthetic build',
+      });
+      suggestionRelease.update(agent, {
+        releaseId: job.releaseId,
+        expectedServerEpoch: epoch,
+        expectedRevision: job.revision,
+        state: 'prepared',
+        summary: 'Synthetic checks passed. Ready to deploy.',
+        manifest: {
+          baseCommit: 'a'.repeat(40),
+          sourceCommit: 'b'.repeat(40),
+          candidateCommit: 'c'.repeat(40),
+          imageId: 'sha256:' + 'd'.repeat(64),
+          previousImageId: 'sha256:' + 'e'.repeat(64),
+          apkSha256: 'f'.repeat(64),
+          checks: ['Synthetic checks passed'],
+          preparedAt: Date.now(),
+        },
+      });
+      response.writeHead(200).end('ok');
+    } catch {
+      response.writeHead(500).end();
+    }
+    return;
+  }
+  if (request.url === '/suggestion-question' || request.url === '/suggestion-ready') {
     try {
       const login = access.selectProfile('alex', 'browser'),
         actor = access.authenticate(login.secret);
@@ -212,20 +251,24 @@ const control = createServer((request, response) => {
       const credentials = provisionSuggestionAgent(db, 'Synthetic question agent', Date.now());
       const agent = authenticateSuggestionAgent(db, credentials.secret),
         run = suggestionWork.claim(agent, randomUUID(), epoch).run!;
+      const ready = request.url === '/suggestion-ready';
+      if (ready) releaseFixture = { agent, suggestionId };
       suggestionWork.report(agent, run.leaseToken, {
         reportId: randomUUID(),
         expectedServerEpoch: epoch,
         runId: run.runId,
-        status: 'needs_input',
-        summary: 'An earlier step asked a question.',
-        messages: [
-          {
-            messageId: questionId,
-            text: 'Do we still need the old environment?',
-            kind: 'question',
-            choices: [],
-          },
-        ],
+        status: ready ? 'ready' : 'needs_input',
+        summary: ready ? 'Implemented and tested the recipe label.' : 'An earlier step asked a question.',
+        messages: ready
+          ? []
+          : [
+              {
+                messageId: questionId,
+                text: 'Do we still need the old environment?',
+                kind: 'question',
+                choices: [],
+              },
+            ],
         resolvedQuestionIds: [],
       });
       response

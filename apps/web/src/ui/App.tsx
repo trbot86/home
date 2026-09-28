@@ -1,6 +1,8 @@
 import { Photo } from './Photo.js';
 import { EntryDialog } from './EntryDialog.js';
 import { suggestionStatus } from './suggestions/status.js';
+import { SuggestionCardUpdate, suggestionUnread } from './suggestions/SuggestionCardUpdate.js';
+import { SuggestionReleasePanel } from './suggestions/SuggestionReleasePanel.js';
 import { Storage } from './Storage.js';
 import { AppUpdates } from './AppUpdates.js';
 import { CalendarSettings } from './calendars/CalendarSettings.js';
@@ -1221,7 +1223,10 @@ export function App({ client }: { client: ClientPlatform }) {
                   ) : (
                     <div className="entry-grid">
                       {activeEntries.slice(0, limit).map((entry) => (
-                        <article className="entry-card" key={entry.inboxId}>
+                        <article
+                          className={`entry-card ${categoryOf(entry) === 'app_suggestion' ? 'suggestion-card' : ''} ${categoryOf(entry) === 'app_suggestion' && suggestionUnread(state.suggestions, entry.inboxId) ? 'has-suggestion-update' : ''}`}
+                          key={entry.inboxId}
+                        >
                           {entry.attachments[0] && (
                             <button
                               className="entry-image"
@@ -1241,6 +1246,13 @@ export function App({ client }: { client: ClientPlatform }) {
                                   {suggestionStatus(state.suggestions, entry.inboxId)}
                                 </span>
                               )}
+                              {categoryOf(entry) === 'app_suggestion' &&
+                                suggestionUnread(state.suggestions, entry.inboxId) && (
+                                  <span className="suggestion-unread">
+                                    <span aria-hidden="true">●</span>
+                                    <span>New update</span>
+                                  </span>
+                                )}
                               <span
                                 className={`scope-badge ${entry.scopeId === sharedScope ? '' : 'private'}`}
                               >
@@ -1265,6 +1277,22 @@ export function App({ client }: { client: ClientPlatform }) {
                                 <LinkedText client={client} text={entry.text || 'A picture to remember'} />
                               </p>
                             </div>
+                            {categoryOf(entry) === 'app_suggestion' && (
+                              <SuggestionCardUpdate
+                                snapshot={state.suggestions}
+                                id={entry.inboxId}
+                                open={() => setSelected({ id: entry.inboxId, history: false })}
+                              />
+                            )}
+                            {categoryOf(entry) === 'app_suggestion' && view !== 'trash' && (
+                              <SuggestionReleasePanel
+                                client={client}
+                                state={state}
+                                id={entry.inboxId}
+                                onError={showError}
+                                compact
+                              />
+                            )}
                             <FilingLinks
                               entry={entry}
                               state={state}

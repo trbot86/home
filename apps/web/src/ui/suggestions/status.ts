@@ -1,5 +1,19 @@
 import type { SuggestionSnapshot } from '@our-place/contracts';
 export function suggestionStatus(snapshot: SuggestionSnapshot, id: string): string {
+  const latest = snapshot.work.find((w) => w.suggestionId === id);
+  const release = snapshot.releases?.find((r) => r.suggestionId === id && r.runId === latest?.runId);
+  if (release && !['cancelled'].includes(release.state))
+    return {
+      queued: 'Preparing release',
+      preparing: 'Preparing release',
+      prepared: 'Ready to deploy',
+      deploy_queued: 'Deployment queued',
+      deploying: 'Deploying',
+      released: 'Released',
+      failed: 'Release needs attention',
+      cancelled: 'Ready for review',
+      uncertain: 'Release needs attention',
+    }[release.state];
   const work = snapshot.work.filter((w) => w.suggestionId === id);
   if (work.some((w) => w.state === 'uncertain')) return 'Connection interrupted';
   if (work.some((w) => w.state === 'running')) return 'Working';

@@ -11,12 +11,14 @@ import {
   type SuggestionRecord,
   type SuggestionSnapshot,
   type SuggestionWorkflow,
+  type SuggestionActivity,
 } from '@our-place/contracts';
 import type { Sqlite } from '../../infrastructure/database.js';
 import { NotFound, Rejection } from '../../application/errors.js';
 import { AccessService, requireHuman, type HumanRequestContext } from '../access/access.js';
 import { AttachmentRepository } from '../media/attachments.js';
 import { requireSuggestionRun } from './agent-access.js';
+import { suggestionReleases, requireNoRelease } from './releases.js';
 import type { WorkerContext } from '../access/workers.js';
 import type { CommandHandler, RecordMutation } from '../records/command-handler.js';
 import type {
@@ -196,10 +198,12 @@ export class SuggestionsRepository {
           .prepare(
             `SELECT q.request_id AS requestId,q.suggestion_id AS suggestionId,q.requested_at AS requestedAt,
         CASE WHEN q.state='running' AND r.lease_until<=? THEN 'uncertain' ELSE q.state END AS state,q.run_id AS runId,r.issue
-        FROM suggestion_work_requests q LEFT JOIN suggestion_runs r USING(run_id) WHERE q.suggestion_id=? ORDER BY q.requested_at DESC LIMIT 30`,
+        FROM suggestion_work_requests q LEFT JOIN suggestion_runs r USING(run_id) WHERE q.suggestion_id=? ORDER BY q.requested_at DESC,q.rowid DESC LIMIT 30`,
           )
           .all(Date.now(), workflow.suggestionId) as SuggestionSnapshot['work']),
       );
+      snapshot.activity!.push(this.activity(context, workflow.suggestionId));
+      snapshot.releases!.push(...suggestionReleases(this.db, workflow.suggestionId));
     }
     snapshot.bridgeSeenAt = (
       this.db
@@ -210,6 +214,50 @@ export class SuggestionsRepository {
         .get() as { seen: number | null }
     ).seen;
     return snapshot;
+  }
+  private activity(context: HumanRequestContext, suggestionId: string): SuggestionActivity {
+    const workflow = this.db
+      .prepare(
+        `SELECT r.revision,w.summary FROM suggestion_workflows w JOIN records r ON r.record_id=w.workflow_id WHERE w.suggestion_id=?`,
+      )
+      .get(suggestionId) as { revision: number; summary: string } | undefined;
+    if (!workflow) throw new Rejection('discussion_unavailable');
+    const messages = this.db
+      .prepare(
+        `SELECT coalesce(max(m.sequence),0) AS latest,
+      coalesce(max(CASE WHEN m.author_agent_id IS NOT NULL OR m.author_person_id<>? THEN m.sequence END),0) AS others
+      FROM suggestion_messages m JOIN records r ON r.record_id=m.message_id WHERE m.suggestion_id=? AND r.deleted_at IS NULL`,
+      )
+      .get(context.personId, suggestionId) as { latest: number; others: number };
+    const run = this.db
+      .prepare(
+        `SELECT run_id,state,lease_until FROM suggestion_runs WHERE suggestion_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1`,
+      )
+      .get(suggestionId) as { run_id: string; state: string; lease_until: number } | undefined;
+    const state =
+      run && ['claimed', 'starting', 'running'].includes(run.state) && run.lease_until <= Date.now()
+        ? 'uncertain'
+        : run?.state;
+    const release = suggestionReleases(this.db, suggestionId)[0];
+    const workToken =
+      (run ? run.run_id + ':' + state : '') + (release ? `:${release.releaseId}:${release.revision}` : '');
+    const seen = this.db
+      .prepare(
+        'SELECT workflow_revision,message_sequence,work_token FROM suggestion_read_positions WHERE suggestion_id=? AND person_id=?',
+      )
+      .get(suggestionId, context.personId) as
+      { workflow_revision: number; message_sequence: number; work_token: string } | undefined;
+    return {
+      suggestionId,
+      workflowRevision: workflow.revision,
+      messageSequence: messages.latest,
+      workToken,
+      unread:
+        (!!workflow.summary && workflow.revision > (seen?.workflow_revision ?? 0)) ||
+        messages.others > (seen?.message_sequence ?? 0) ||
+        ((!!release || (!!run && ['failed', 'uncertain'].includes(state!))) &&
+          workToken !== seen?.work_token),
+    };
   }
   messages(
     context: HumanRequestContext,
@@ -337,6 +385,31 @@ export class SuggestionsRepository {
     now: number,
   ): RecordMutation {
     requireHuman(context);
+    if (kind === 'MarkSuggestionRead') {
+      const args = payload as Command<'MarkSuggestionRead'>['arguments'];
+      this.requireSuggestion(context, args.suggestionId);
+      const current = this.activity(context, args.suggestionId);
+      if (args.workflowRevision > current.workflowRevision || args.messageSequence > current.messageSequence)
+        throw new Rejection('unseen_update');
+      this.db
+        .prepare(
+          `INSERT INTO suggestion_read_positions VALUES (?,?,?,?,?,?)
+        ON CONFLICT(suggestion_id,person_id) DO UPDATE SET
+        workflow_revision=max(workflow_revision,excluded.workflow_revision),
+        message_sequence=max(message_sequence,excluded.message_sequence),
+        work_token=CASE WHEN ? THEN excluded.work_token ELSE work_token END,updated_at=excluded.updated_at`,
+        )
+        .run(
+          args.suggestionId,
+          context.personId,
+          args.workflowRevision,
+          args.messageSequence,
+          args.workToken === current.workToken ? args.workToken : '',
+          now,
+          args.workToken === current.workToken ? 1 : 0,
+        );
+      return { records: [], changes: [] };
+    }
     if (kind === 'DismissSuggestionQuestion') {
       const args = payload as Command<'DismissSuggestionQuestion'>['arguments'];
       const suggestion = this.requireSuggestion(context, args.suggestionId, true);
@@ -401,6 +474,7 @@ export class SuggestionsRepository {
     const suggestion = this.requireSuggestion(context, args.suggestionId, true),
       requestWork = kind === 'RequestSuggestionWork' || args.requestWork,
       changes: RecordChange[] = [];
+    if (requestWork) requireNoRelease(this.db, args.suggestionId);
     if (kind === 'PostSuggestionMessage' && args.scopeId !== suggestion.scope_id)
       throw new Rejection('scope_mismatch');
     if (kind === 'PostSuggestionMessage' && !args.text.trim() && !args.attachments.length)

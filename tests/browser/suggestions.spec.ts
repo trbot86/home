@@ -12,7 +12,14 @@ test('obsolete questions leave the active list and remain in discussion history'
   await page.goto('/');
   await page.getByRole('button', { name: 'Alex', exact: true }).click();
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
-  await page.locator('.entry-card').filter({ hasText: text }).locator('.entry-text').click();
+  const card = page.locator('.entry-card').filter({ hasText: text });
+  await expect(card.getByText('New update', { exact: true })).toBeVisible();
+  await expect(card.locator('.suggestion-card-update-text')).toHaveText('An earlier step asked a question.');
+  await page.reload();
+  await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  await expect(card.getByText('New update', { exact: true })).toBeVisible();
+  await card.locator('.suggestion-card-update').click();
+  await expect(card.getByText('New update', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Questions', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'No longer relevant', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Questions', exact: true })).toHaveCount(0);
@@ -26,9 +33,43 @@ test('obsolete questions leave the active list and remain in discussion history'
   await expect(page.getByRole('button', { name: 'Cancel queued work', exact: true })).toHaveCount(0);
   await page.reload();
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  await expect(card.getByText('New update', { exact: true })).toHaveCount(0);
   await page.locator('.entry-card').filter({ hasText: text }).locator('.entry-text').click();
   await expect(page.getByRole('region', { name: 'Questions', exact: true })).toHaveCount(0);
   await expect(page.getByText('Marked this question as no longer relevant.', { exact: true })).toBeVisible();
+});
+
+test('release controls on the card prepare first and deploy only the tested candidate', async ({
+  page,
+  request,
+}) => {
+  const headers = { 'x-test-token': process.env['OUR_PLACE_TEST_TOKEN']! };
+  const seed = await request.post('http://127.0.0.1:4174/suggestion-ready', { headers });
+  expect(seed.ok()).toBe(true);
+  const { text } = await seed.json();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Alex', exact: true }).click();
+  await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  const card = page.locator('.entry-card').filter({ hasText: text });
+  await card.getByRole('button', { name: 'Prepare release', exact: true }).click();
+  await expect(card.getByText('Preparing release', { exact: true })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Deploy tested release' })).toHaveCount(0);
+  expect((await request.post('http://127.0.0.1:4174/prepare-synthetic-release', { headers })).ok()).toBe(
+    true,
+  );
+  await page.getByRole('button', { name: 'Refresh and sync' }).click();
+  await expect(card.getByText('Ready to deploy', { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 360, height: 820 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await card.screenshot({ path: 'test-results/suggestion-release-card-phone.png' });
+  await page.reload();
+  await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  await card.getByRole('button', { name: 'Deploy tested release', exact: true }).click();
+  await expect(card.getByText('Deployment queued', { exact: true })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Deploy tested release' })).toHaveCount(0);
+  // No host worker is connected to this isolated fixture. Cancel the still-queued deployment.
+  await card.getByRole('button', { name: 'Cancel release', exact: true }).click();
+  await expect(card.getByRole('button', { name: 'Prepare release', exact: true })).toBeVisible();
 });
 
 test('suggestion discussion saves an offline reply once without turning it into an inbox entry', async ({

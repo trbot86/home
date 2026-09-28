@@ -62,11 +62,43 @@ worker authority remains separate.
 ## Integration and release
 
 An agent can implement, test and commit changes in its worktree. It must leave
-deployment, merging and pushing to coordinated review. Ready for review means
+deployment, merging and pushing to the host release coordinator. Ready for review means
 the coding round finished; it does not claim a web deployment or Android update.
 Retain the branch for review and future follow-ups. Check its source diff,
 tests and public-source audit before integration, then follow AGENTS.md's live
 backup, migration and Android preservation rules.
+
+Suggestion cards and discussions offer **Prepare release**, then **Deploy tested
+release**. Preparation merges the committed suggestion into the current clean
+development branch in one separate release checkout. It audits source, builds
+and tests the Docker image, runs type/boundary/browser checks, and builds/tests
+Android with the shared SDK/cache and existing signing identity. Changes to host
+or build controls require developer review. No live files are mounted in tests.
+The saved manifest pins source/base/candidate commits, image identities and the
+APK hash. Deploy approval names that manifest. Changes to the base source, live
+image, prepared source or APK invalidate it. Deployment uses the existing guarded
+backup/upgrade command, publishes the Android update, fast-forwards the clean
+development checkout and verifies secondary backup replication. Git pushing
+remains a developer action. Phones install the update from the existing private
+download page; deployment does not force an installation.
+
+Enable the host coordinator with ignored configuration `releasesEnabled: true`
+and `pnpmEntry` pointing to the installed package manager's JavaScript entry.
+The app server does not receive a Docker socket or repository mount. The bridge
+credential stays outside coding sessions and release supervisors. Requests carry
+identifiers and approval of an immutable manifest, never shell commands or paths.
+There is one active release slot and one retained release checkout. Source branches
+remain in Git. SDKs and caches are shared. Unused coordinator-built images are
+removed without force; live and previous images are retained. Journals and shared
+build caches still occupy storage. Preparation failures leave the running app
+unchanged. An interrupted process or failed deployment remains uncertain and
+blocks another release until the host is inspected; it is never blindly retried.
+
+Cards show a one-line latest update and a per-person **New update** marker. Opening
+a connected foreground discussion acknowledges only the revisions shown there;
+loading the list does not. A delayed acknowledgement cannot hide newer work.
+Read positions are shared across that person's devices, separate from content
+history and from the other person's read position.
 
 The existing weekly review helper includes the current discussion, all question
 states and recent work requests alongside each shared suggestion. Read that
@@ -94,7 +126,8 @@ before establishing new authority. Revoked credentials also stop the bridge.
 
 The first runner is serial on this development host. It reports a start milestone
 and a structured result; it does not stream individual tools or private reasoning.
-There is no automatic merge, deployment, or forced interruption of active work.
+Coding sessions never deploy. Release preparation and deployment each require
+their corresponding explicit in-app action; active work is not forcibly interrupted.
 Local pending/rejected reply photos remain protected by the existing outbox.
 
 At most three suggestion worktrees are retained by default (`maxWorktrees`,

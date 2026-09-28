@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 import { mkdir, readFile, writeFile, copyFile, stat } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { randomBytes, createHash } from 'node:crypto';
+import { acquireLock } from './suggestion-bridge/journal.mjs';
 
 const exec = promisify(execFile);
 const workspace = resolve(import.meta.dirname, '..');
@@ -12,7 +13,7 @@ const accountPath = join(root, 'accounts.json');
 const envPath = join(root, 'host.env');
 const volume = 'our-place-dev-data',
   container = 'our-place-dev',
-  image = 'our-place:development';
+  image = process.env.OUR_PLACE_IMAGE || 'our-place:development';
 const port = 8443,
   upstream = 'http://127.0.0.1:3174';
 const docker = async (...args) =>
@@ -156,7 +157,10 @@ async function prepare() {
 async function publishClient(state) {
   const directory = join(root, 'install');
   await mkdir(directory, { recursive: true });
-  const source = join(workspace, 'apps/android/app/build/outputs/apk/debug/app-debug.apk');
+  const source = join(
+    process.env.OUR_PLACE_CLIENT_SOURCE || workspace,
+    'apps/android/app/build/outputs/apk/debug/app-debug.apk',
+  );
   const bytes = await readFile(source);
   const digest = createHash('sha256').update(bytes).digest('hex');
   await copyFile(source, join(directory, 'our-place-debug.apk'));
@@ -196,6 +200,14 @@ async function start() {
   throw new Error('Trial did not become healthy; inspect docker logs our-place-dev');
 }
 async function upgrade() {
+  const unlock = await acquireLock(join(root, 'upgrade.lock'));
+  try {
+    await upgradeLocked();
+  } finally {
+    await unlock();
+  }
+}
+async function upgradeLocked() {
   const state = await requireState();
   const existing = await inspect('container', container);
   if (existing) requireOwned(existing);
