@@ -1,4 +1,5 @@
 import { useNavigationWrite, useNavigationState } from './NavigationHistory.js';
+import { SecureRecord } from './SecureRecord.js';
 import { ShareRecord } from './ShareRecord.js';
 import { isDialogBackdropClick } from './dialog-backdrop.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -115,13 +116,16 @@ export function EntryDialog({
         if (isDialogBackdropClick(e)) close();
       }}
     >
-      <ShareRecord
-        client={client}
-        state={state}
-        recordId={entry.inboxId}
-        scopeId={entry.scopeId}
-        close={close}
-      />
+      <>
+        <SecureRecord client={client} state={state} recordId={entry.inboxId} />
+        <ShareRecord
+          client={client}
+          state={state}
+          recordId={entry.inboxId}
+          scopeId={entry.scopeId}
+          close={close}
+        />
+      </>
       <div className="dialog-header">
         <div>
           <p className="eyebrow">Saved {date(entry.createdAt)}</p>

@@ -1,3 +1,4 @@
+import { registerRecordSecurityRoutes } from './application/record-security.js';
 import { RecordSharing } from './application/record-sharing.js';
 import { registerFilingAdviceRoutes } from './application/inbox-filing-advice-routes.js';
 import type { FilingAdviceProvider } from './application/inbox-filing-suggestions.js';
@@ -200,6 +201,7 @@ export async function buildApp(options: AppOptions) {
     return reply.code(503).send({ code: 'temporarily_unavailable' });
   });
   app.get('/health', async () => ({ status: 'ok', contractVersion: 1, development: !!options.development }));
+  registerRecordSecurityRoutes(app, db, records, authenticate);
   const filingAdvice = registerFilingAdviceRoutes(
     app,
     db,

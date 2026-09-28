@@ -501,3 +501,205 @@ test('timeout aborts the provider and uncertain attempts only retry explicitly a
     await f.close();
   }
 });
+
+test('Secure defaults off; authenticated, revision-guarded changes survive content edits and reopen', async () => {
+  const f = await fixture();
+  try {
+    const n = f.note(f.privateScope),
+      path = `/api/records/${n.inboxId}/security`;
+    assert.deepEqual((await f.api(path)).json(), { secure: false, effective: false, revision: 0 });
+    assert.equal((await f.api(path, undefined, 'b')).statusCode, 404);
+    const save = { secure: true, expectedRevision: 0, expectedServerEpoch: 'fixture-epoch' };
+    assert.equal((await f.api(path, save, 'b')).statusCode, 404);
+    assert.equal(
+      (await f.api(path, { ...save, expectedServerEpoch: 'old-epoch' })).json().code,
+      'recovery_required',
+    );
+    const before = f.snapshot();
+    assert.deepEqual((await f.api(path, save)).json(), { secure: true, effective: true, revision: 1 });
+    assert.deepEqual(f.snapshot(), before);
+    assert.equal((await f.api(path, save)).json().code, 'revision_conflict');
+    const edit = f.run('SetInboxEntryText', {
+      inboxId: n.inboxId,
+      expectedRevision: 1,
+      text: 'Edited synthetic note',
+    });
+    assert.equal(edit.status, 'Applied');
+    if (edit.status === 'Applied')
+      assert.equal(f.run('UndoChangeSet', { changeSetId: edit.changeSetId }).status, 'Applied');
+    assert.equal((await f.api(path)).json().effective, true);
+    const reopened = openDatabase(f.db.name);
+    try {
+      assert.ok(reopened.prepare('SELECT 1 FROM secure_records WHERE record_id=?').get(n.inboxId));
+    } finally {
+      reopened.close();
+    }
+    await assert.rejects(
+      f
+        .advice(
+          async () => {
+            throw Error('must not call');
+          },
+          false,
+          [f.privateScope],
+        )
+        .suggest(f.a, n.inboxId, f.service.inbox.get(f.a, n.inboxId).revision),
+      /secure_record_excluded/,
+    );
+    assert.equal(
+      f.db.prepare('SELECT * FROM inbox_filing_suggestions WHERE inbox_id=?').get(n.inboxId),
+      undefined,
+    );
+    assert.deepEqual(f.db.pragma('foreign_key_check'), []);
+  } finally {
+    await f.close();
+  }
+});
+
+test('Secure project protects nested pages and filed notes; own flags and safe siblings stay independent', async () => {
+  const f = await fixture();
+  try {
+    const projectId = f.project(),
+      safe = f.project(),
+      pageId = randomUUID(),
+      childId = randomUUID();
+    for (const [id, parent] of [
+      [pageId, null],
+      [childId, pageId],
+    ])
+      assert.equal(
+        f.run('CreateProjectPage', {
+          recordId: id,
+          projectId,
+          parentPageId: parent,
+          title: 'Protected synthetic page',
+          blocks: [],
+        }).status,
+        'Applied',
+      );
+    const n = f.note();
+    assert.equal(
+      f.run('FileInboxEntry', {
+        inboxId: n.inboxId,
+        expectedRevision: 1,
+        destination: { kind: 'existing', recordId: childId },
+      }).status,
+      'Applied',
+    );
+    assert.equal(f.run('ReturnInboxEntry', { inboxId: n.inboxId, expectedRevision: 2 }).status, 'Applied');
+    const set = (id: string, secure: boolean, expectedRevision = 0) =>
+      f.api(`/api/records/${id}/security`, {
+        secure,
+        expectedRevision,
+        expectedServerEpoch: 'fixture-epoch',
+      });
+    await set(projectId, true);
+    for (const id of [projectId, pageId, childId, n.inboxId])
+      assert.equal((await f.api(`/api/records/${id}/security`)).json().effective, true);
+    assert.equal((await f.api(`/api/records/${safe}/security`)).json().effective, false);
+    await set(childId, false);
+    assert.equal((await f.api(`/api/records/${childId}/security`)).json().effective, true);
+    await set(pageId, true);
+    await set(projectId, false, 1);
+    assert.equal((await f.api(`/api/records/${childId}/security`)).json().effective, true);
+    const source = f.note();
+    let input: FilingAdviceInput | undefined;
+    const service = f.advice(async (value) => {
+      input = value;
+      return ['3'];
+    }, true);
+    await service.suggest(f.a, source.inboxId, 1, [childId, safe]);
+    assert.deepEqual(
+      input!.choices.map((c) => c.label),
+      ['tasks', 'shopping', 'projects', 'Synthetic project'],
+    );
+    assert.equal(service.review(f.a, source.inboxId)?.state, 'complete');
+    await assert.rejects(service.suggest(f.a, n.inboxId, 3), /secure_record_excluded/);
+    await set(pageId, false, 1);
+    assert.equal((await f.api(`/api/records/${n.inboxId}/security`)).json().effective, false);
+  } finally {
+    await f.close();
+  }
+});
+
+test('secure capture is protected atomically; automatic discovery skips it without consuming deduplication', async () => {
+  const inputs: FilingAdviceInput[] = [];
+  const f = await fixture(async (input) => {
+    inputs.push(input);
+    return ['0'];
+  });
+  try {
+    f.db.prepare('UPDATE inbox_entries SET filed_at=1').run();
+    const id = randomUUID();
+    assert.equal(
+      f.run('CreateInboxEntry', {
+        inboxId: id,
+        scopeId: f.shared,
+        text: 'Synthetic secure capture',
+        capturedAt: f.now(),
+        source: { kind: 'typed' },
+        attachments: [],
+        secure: true,
+      }).status,
+      'Applied',
+    );
+    const project = f.project(f.shared, 'Excluded synthetic title');
+    await f.api(`/api/records/${project}/security`, {
+      secure: true,
+      expectedRevision: 0,
+      expectedServerEpoch: 'fixture-epoch',
+    });
+    f.note();
+    await f.api('/api/filing-advice/settings', {
+      expectedRevision: 0,
+      preferences: { enabled: true, automatic: true, scopeIds: [f.shared], destinationTitles: true },
+    });
+    assert.equal(await f.service.filingAdviceWorker.tick(), true);
+    assert.equal(await f.service.filingAdviceWorker.tick(), false);
+    assert.equal(inputs.length, 1);
+    assert.equal(inputs[0]!.text, 'Synthetic note to file');
+    assert.equal(inputs[0]!.choices.length, 3);
+    assert.equal(f.db.prepare('SELECT * FROM inbox_filing_suggestions WHERE inbox_id=?').get(id), undefined);
+    await f.api(`/api/records/${id}/security`, {
+      secure: false,
+      expectedRevision: 1,
+      expectedServerEpoch: 'fixture-epoch',
+    });
+    assert.equal(await f.service.filingAdviceWorker.tick(), true);
+    assert.equal(inputs.length, 2);
+  } finally {
+    await f.close();
+  }
+});
+
+test('Secure changes invalidate saved and in-flight advice even when toggled off before the response', async () => {
+  const f = await fixture();
+  try {
+    const n = f.note(),
+      target = f.project();
+    let finish!: (value: unknown) => void;
+    const service = f.advice(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+      true,
+    );
+    const work = service.suggest(f.a, n.inboxId, 1, [target]);
+    const path = `/api/records/${target}/security`;
+    await f.api(path, { secure: true, expectedRevision: 0, expectedServerEpoch: 'fixture-epoch' });
+    await f.api(path, { secure: false, expectedRevision: 1, expectedServerEpoch: 'fixture-epoch' });
+    finish(['3']);
+    assert.equal((await work)?.state, 'stale');
+    assert.deepEqual(service.review(f.a, n.inboxId)?.choices, []);
+    const saved = f.advice(async () => ['3'], true);
+    await saved.suggest(f.a, n.inboxId, 1, [target], Date.now(), 1);
+    assert.equal(saved.review(f.a, n.inboxId)?.state, 'complete');
+    await f.api(path, { secure: true, expectedRevision: 2, expectedServerEpoch: 'fixture-epoch' });
+    assert.equal(saved.review(f.a, n.inboxId)?.state, 'stale');
+    await f.api(path, { secure: false, expectedRevision: 3, expectedServerEpoch: 'fixture-epoch' });
+    assert.deepEqual(saved.review(f.a, n.inboxId)?.choices, []);
+  } finally {
+    await f.close();
+  }
+});

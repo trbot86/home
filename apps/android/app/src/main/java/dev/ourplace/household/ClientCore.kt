@@ -94,7 +94,7 @@ class ClientCore private constructor(val context: Context) {
             .put("recoveryRequired", owner != null && dao.value("$owner:recovery") == "true")
     })
     fun createDraft(scopeId: String, source: String = "typed", category: String = "inbox", replyTarget: JSONObject? = null): DraftRow = captures.create(clientId(), scopeId, source, category, replyTarget).also { changed() }
-    fun saveDraft(id: String, text: String, scopeId: String, revision: Int? = null): DraftRow = captures.save(clientId(), id, text, scopeId, revision).also { changed() }
+    fun saveDraft(id: String, text: String, scopeId: String, revision: Int? = null, secure: Boolean? = null): DraftRow = captures.save(clientId(), id, text, scopeId, revision, secure).also { changed() }
     fun submitDraft(id: String, requestWork: Boolean? = null) { val session = requireSession(); captures.freeze(session.getString("clientId"), id, session.getString("serverEpoch"), requestWork); changed(); UploadWorker.schedule(context) }
     fun discardDraft(id: String) { val clientId = clientId(); val row = captures.discard(clientId, id); val attachments = JSONArray(row.attachmentsJson); for (i in 0 until attachments.length()) media.remove(clientId, attachments.getJSONObject(i).getString("mediaId")); changed() }
     fun addPhoto(id: String, bytes: ByteArray, mimeType: String): DraftRow {
@@ -121,7 +121,7 @@ class ClientCore private constructor(val context: Context) {
     }
     fun copyRejected(id: String): DraftRow {
         val clientId = clientId(); val row = captures.draft(clientId, id); check(row.state == "REJECTED") { "draft_unavailable" }
-        var copy = captures.create(clientId, row.scopeId, category = row.category, replyTarget = row.replyTargetJson?.let(::JSONObject)); copy = captures.save(clientId, copy.draftId, row.text, row.scopeId)
+        var copy = captures.create(clientId, row.scopeId, category = row.category, replyTarget = row.replyTargetJson?.let(::JSONObject)); copy = captures.save(clientId, copy.draftId, row.text, row.scopeId, secure = row.secure)
         val attachments = JSONArray(row.attachmentsJson)
         for (i in 0 until attachments.length()) { val photo = attachments.getJSONObject(i); copy = addPhoto(copy.draftId, media.read(clientId, photo.getString("mediaId")), photo.getString("mimeType")) }
         dao.updateDraft(row.copy(settled = true)); changed(); return copy
@@ -148,6 +148,10 @@ class ClientCore private constructor(val context: Context) {
     fun suggestionMessages(id: String, before: Long): JSONArray { require(id.matches(Regex("[a-zA-Z0-9_-]{8,80}")) && before > 0); return api.json("/suggestions/$id/messages?before=$before", clientId = clientId()).getJSONArray("messages") }
     fun shoppingHistory(id: String): JSONArray = api.json("/shopping/$id/history", clientId = clientId()).getJSONArray("entries")
     fun sharingPreview(id: String): JSONObject = api.json("/records/$id/sharing", clientId = clientId())
+    fun recordSecurity(id: String, request: JSONObject?): JSONObject {
+        require(id.matches(Regex("[a-zA-Z0-9_-]{8,80}")))
+        return api.json("/records/$id/security", if (request == null) "GET" else "POST", request?.toString(), clientId())
+    }
     fun filingAdviceSettings(): JSONObject = api.json("/filing-advice/settings", clientId = clientId())
     fun saveFilingAdviceSettings(revision: Long, preferences: JSONObject): JSONObject = api.json("/filing-advice/settings", "POST", JSONObject().put("expectedRevision", revision).put("preferences", preferences).toString(), clientId())
     fun filingAdvice(id: String, request: JSONObject?): JSONObject {

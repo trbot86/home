@@ -418,3 +418,40 @@ test('read positions are per person, monotonic and acknowledge only the rendered
     await f.close();
   }
 });
+
+test('Secure suggestions never export through claims, status, replay, steering or media', async () => {
+  const f = await suggestionFixture();
+  try {
+    const credentials = provisionSuggestionAgent(f.db, 'Synthetic agent', f.now());
+    const agent = authenticateSuggestionAgent(f.db, credentials.secret),
+      work = f.service.suggestionWork;
+    const id = f.suggestion();
+    applied(f.run('PostSuggestionMessage', f.reply(id, true)));
+    f.db.prepare('INSERT INTO record_security VALUES (?,1,1)').run(id);
+    assert.equal(work.status(agent, 'fixture-epoch').queued, false);
+    assert.equal(work.claim(agent, randomUUID(), 'fixture-epoch').run, null);
+    f.db.prepare('UPDATE record_security SET secure=0 WHERE record_id=?').run(id);
+    const operationId = randomUUID();
+    const run = work.claim(agent, operationId, 'fixture-epoch').run!;
+    assert.ok(run);
+    f.db.prepare('UPDATE record_security SET secure=1 WHERE record_id=?').run(id);
+    assert.deepEqual(work.status(agent, 'fixture-epoch').runs, []);
+    assert.throws(() => work.claim(agent, operationId, 'fixture-epoch'), /secure_record_excluded/);
+    assert.throws(
+      () => work.steering(agent, run.runId, run.leaseToken, 'fixture-epoch'),
+      /secure_record_excluded/,
+    );
+    assert.throws(
+      () => work.media(agent, run.runId, run.leaseToken, 'fixture-epoch', randomUUID()),
+      /secure_record_excluded/,
+    );
+    f.db.prepare('UPDATE record_security SET secure=0 WHERE record_id=?').run(id);
+    const comment = f.reply(id);
+    applied(f.run('PostSuggestionMessage', comment));
+    f.db.prepare('INSERT INTO record_security VALUES (?,1,1)').run(comment.recordId);
+    assert.deepEqual(work.status(agent, 'fixture-epoch').runs, []);
+    assert.throws(() => work.claim(agent, operationId, 'fixture-epoch'), /secure_record_excluded/);
+  } finally {
+    await f.close();
+  }
+});

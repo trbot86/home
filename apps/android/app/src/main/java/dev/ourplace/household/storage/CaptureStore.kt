@@ -10,7 +10,7 @@ fun newId(): String = UUID.randomUUID().toString()
 fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 fun DraftRow.commandKind(): String = if (replyTargetJson == null) "CreateInboxEntry" else "PostSuggestionMessage"
 fun DraftRow.json(): JSONObject = JSONObject().put("draftId", draftId).put("clientId", clientId).put("scopeId", scopeId).put("text", text)
-    .put("category", category)
+    .put("category", category).put("secure", secure)
     .put("createdAt", createdAt).put("revision", revision).put("state", state).put("attachments", JSONArray(attachmentsJson)).put("settled", settled)
     .apply { replyTargetJson?.let { put("replyTarget", JSONObject(it)) }; frozenJson?.let { put("frozenJson", it) }; frozenHash?.let { put("frozenHash", it) }; outcomeJson?.let { put("outcome", JSONObject(it)) } }
 
@@ -24,11 +24,11 @@ class CaptureStore(private val db: LocalDatabase, private val now: () -> Long = 
         dao.insertDraft(row); return row
     }
     fun draft(clientId: String, id: String): DraftRow = dao.draft(id)?.takeIf { it.clientId == clientId } ?: error("draft_unavailable")
-    fun save(clientId: String, id: String, text: String, scopeId: String, expectedRevision: Int? = null): DraftRow = db.runInTransaction(Callable {
+    fun save(clientId: String, id: String, text: String, scopeId: String, expectedRevision: Int? = null, secure: Boolean? = null): DraftRow = db.runInTransaction(Callable {
         val row = draft(clientId, id); check(row.state == "DRAFT") { "draft_locked" }
         check(expectedRevision == null || row.revision == expectedRevision) { "draft_changed_try_again" }
         require(text.length <= 20000) { "text_too_long" }
-        row.copy(text = text, scopeId = scopeId, revision = row.revision + 1).also(dao::updateDraft)
+        row.copy(text = text, scopeId = scopeId, secure = secure ?: row.secure, revision = row.revision + 1).also(dao::updateDraft)
     })
     fun attach(clientId: String, id: String, media: MediaRow): DraftRow = db.runInTransaction(Callable {
         val row = draft(clientId, id); check(row.state == "DRAFT") { "draft_locked" }
@@ -54,7 +54,7 @@ class CaptureStore(private val db: LocalDatabase, private val now: () -> Long = 
             .put("suggestionId", target.getString("suggestionId")).put("replyToQuestionId", target.get("questionId"))
             .put("requestWork", target.getBoolean("requestWork")).put("attachments", JSONArray(row.attachmentsJson))
         else JSONObject().put("inboxId", row.draftId).put("scopeId", row.scopeId).put("text", row.text).put("capturedAt", row.createdAt)
-            .put("category", row.category)
+            .put("category", row.category).put("secure", row.secure)
             .put("source", JSONObject(row.sourceJson)).put("attachments", JSONArray(row.attachmentsJson))
         val frozen = JSONObject().put("operationId", newId()).put("contractVersion", 1).put("expectedServerEpoch", serverEpoch).put("arguments", args).toString()
         row.copy(state = "SUBMITTED", replyTargetJson = target?.toString(), frozenJson = frozen, frozenHash = sha256(frozen.toByteArray(Charsets.UTF_8))).also(dao::updateDraft)

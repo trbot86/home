@@ -48,7 +48,15 @@ export type EntryCategory = Static<typeof EntryCategory>;
 export function categoryOf(entry: { category?: EntryCategory }): EntryCategory {
   return entry.category ?? 'inbox';
 }
+export type RecordSecurity = { secure: boolean; effective: boolean; revision: number };
+export type RecordSecurityRequest = {
+  secure: boolean;
+  expectedRevision: number;
+  expectedServerEpoch: string;
+};
+
 export const CreateInboxEntry = object({
+  secure: Type.Optional(Type.Boolean()),
   inboxId: Id,
   scopeId: Id,
   capturedAt: Instant,

@@ -26,6 +26,7 @@ class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
     private lateinit var editor: EditText
     private lateinit var status: TextView
     private lateinit var mic: Button
+    private lateinit var secure: CheckBox
     private lateinit var save: Button
     private var draft: DraftRow? = null
     private var recognizer: SpeechRecognizer? = null
@@ -42,6 +43,17 @@ class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
         layout.addView(TextView(this).apply { text = "A thought for our place"; textSize = 26f; setTextColor(getColor(R.color.household_accent)) })
         status = TextView(this).apply { text = "Opening your capture…"; setTextColor(getColor(R.color.household_muted)); setPadding(0, 18, 0, 18) }; layout.addView(status)
         editor = EditText(this).apply { hint = "Something to remember…"; minLines = 4; gravity = android.view.Gravity.TOP; inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE; isEnabled = false }; layout.addView(editor)
+        secure = CheckBox(this).apply {
+            text = "Secure — exclude from AI context"; isEnabled = false
+            setOnCheckedChangeListener { _, checked ->
+                val current = draft ?: return@setOnCheckedChangeListener
+                if (!submitting && current.state == "DRAFT") {
+                    val text = editor.text.toString()
+                    core.executor.execute { runCatching { core.saveDraft(current.draftId, text, current.scopeId, secure = checked) }
+                        .onFailure { runOnUiThread { status.text = "Secure setting not saved. Try again before submitting." } } }
+                }
+            }
+        }; layout.addView(secure)
         mic = Button(this).apply { text = "Start dictation"; isEnabled = false; setOnClickListener { if (listening) { recognizer?.stopListening(); text = "Finishing…"; isEnabled = false } else listen() } }; layout.addView(mic)
         save = Button(this).apply { text = "Save to inbox"; isEnabled = false; setOnClickListener { submit(false) } }; layout.addView(save)
         layout.addView(Button(this).apply { text = "Open inbox"; setOnClickListener { startActivity(Intent(this@QuickCaptureActivity, MainActivity::class.java)); finish() } })
@@ -63,6 +75,7 @@ class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
                 draft = current
                 val initial = if (savedId == null) intent.getStringExtra("sharedText")?.take(20000) ?: current.text else current.text
                 runOnUiThread {
+                    secure.isChecked = current.secure; secure.isEnabled = current.state == "DRAFT"
                     editor.setText(initial); editor.isEnabled = current.state == "DRAFT"; save.isEnabled = current.state == "DRAFT"; mic.isEnabled = current.state == "DRAFT"
                     status.text = if (current.state == "DRAFT") "Visibility: ${if (current.scopeId == privateScope) "Just me" else "Shared"}. Saved drafts stay on this phone. Dictation will save and read back the final words." else "Saved on this phone. Waiting for confirmation from the server."
                     if (savedId == null && intent.getBooleanExtra("voice", false)) listen()
@@ -84,10 +97,11 @@ class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
     private fun submit(readBack: Boolean) {
         val current = draft ?: return; if (submitting) return
         val text = editor.text.toString(); if (text.isBlank()) { status.text = "Say or type a thought first."; return }
-        submitting = true; editor.isEnabled = false; save.isEnabled = false; mic.isEnabled = false
+        val secureCapture = secure.isChecked
+        submitting = true; secure.isEnabled = false; editor.isEnabled = false; save.isEnabled = false; mic.isEnabled = false
         core.executor.execute {
             try {
-                core.saveDraft(current.draftId, text, current.scopeId); core.submitDraft(current.draftId)
+                core.saveDraft(current.draftId, text, current.scopeId, secure = secureCapture); core.submitDraft(current.draftId)
                 runOnUiThread { status.text = "Saved on this phone · waiting to sync"; if (readBack) speak("Saved on this phone, waiting to sync: $text") }
                 network.execute {
                     runCatching { core.sync() }
@@ -97,7 +111,7 @@ class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
             } catch (error: Exception) {
                 val stillEditable = runCatching { core.captures.draft(current.clientId, current.draftId).state == "DRAFT" }.getOrDefault(false)
                 submitting = !stillEditable
-                runOnUiThread { editor.isEnabled = stillEditable; save.isEnabled = stillEditable; mic.isEnabled = stillEditable; status.text = if (stillEditable) "Not submitted: ${error.message}" else "Saved on this phone. Open the inbox to check sync status." }
+                runOnUiThread { secure.isEnabled = stillEditable; editor.isEnabled = stillEditable; save.isEnabled = stillEditable; mic.isEnabled = stillEditable; status.text = if (stillEditable) "Not submitted: ${error.message}" else "Saved on this phone. Open the inbox to check sync status." }
             }
         }
     }

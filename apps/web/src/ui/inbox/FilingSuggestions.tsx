@@ -21,6 +21,7 @@ export function FilingSuggestions({
   choose: (choice: FilingAdvice) => void;
   disabled: boolean;
 }) {
+  const [secure, setSecure] = useState<boolean | null>(null);
   const [settings, setSettings] = useState<FilingAdviceSettings | null>(null);
   const [review, setReview] = useState<FilingAdviceReview | null>(null);
   const [busy, setBusy] = useState(false),
@@ -44,12 +45,18 @@ export function FilingSuggestions({
   }, []);
   useEffect(() => {
     let current = true;
+    setSecure(null);
     setReview(null);
     setRetry(false);
     if (state.online)
-      void Promise.all([client.filingAdviceSettings(), client.filingAdvice(entry.inboxId)])
-        .then(([config, result]) => {
+      void Promise.all([
+        client.filingAdviceSettings(),
+        client.filingAdvice(entry.inboxId),
+        client.recordSecurity(entry.inboxId),
+      ])
+        .then(([config, result, security]) => {
           if (current) {
+            setSecure(security.effective);
             setSettings(config);
             setReview(result.review);
             setError('');
@@ -92,10 +99,12 @@ export function FilingSuggestions({
     }
   }
   const blocked = busy || !state.online || disabled;
-  const canRequest = settings?.configured && settings.enabled && settings.scopeIds.includes(entry.scopeId);
+  const canRequest =
+    secure === false && settings?.configured && settings.enabled && settings.scopeIds.includes(entry.scopeId);
   return (
     <section aria-label="Filing suggestions" className="filing-suggestions">
       <h3>Filing suggestions</h3>
+      {secure && <p>Secure items are excluded from AI context. Manage Secure in the note editor.</p>}
       <p>Suggestions never move a note by themselves. Review a choice, then press File note.</p>
       {!state.online && <p role="status">Reconnect to manage or request suggestions.</p>}
       {error && <p role="alert">{error}</p>}
@@ -110,7 +119,8 @@ export function FilingSuggestions({
             <p>
               Choose what this profile may send. Text and titles can contain secrets. Photos, captions, page
               contents, history and other notes are excluded. Using a model does not by itself guarantee
-              confidentiality or no training.
+              confidentiality or no training. Secure items and items inside Secure containers are always
+              excluded.
             </p>
             <fieldset disabled={blocked}>
               <label>
@@ -278,11 +288,13 @@ export function FilingSuggestions({
             disabled={blocked}
             onClick={() =>
               void act(async () => {
-                const [config, result] = await Promise.all([
+                const [config, result, security] = await Promise.all([
                   client.filingAdviceSettings(),
                   client.filingAdvice(entry.inboxId),
+                  client.recordSecurity(entry.inboxId),
                 ]);
                 if (alive.current) {
+                  setSecure(security.effective);
                   setSettings(config);
                   setReview(result.review);
                   setRetry(false);

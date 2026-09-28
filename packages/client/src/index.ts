@@ -25,6 +25,7 @@ import type {
   SuggestionMessage,
 } from '@our-place/contracts';
 export type Draft = {
+  secure?: boolean;
   draftId: string;
   clientId: string;
   scopeId: string;
@@ -97,6 +98,10 @@ export type RunRecordCommand = (
   epoch?: string,
 ) => Promise<CommandOutcome | null>;
 export interface ClientPlatform {
+  recordSecurity(
+    recordId: string,
+    request?: import('@our-place/contracts').RecordSecurityRequest,
+  ): Promise<import('@our-place/contracts').RecordSecurity>;
   filingAdviceSettings(): Promise<import('@our-place/contracts').FilingAdviceSettings>;
   saveFilingAdviceSettings(
     expectedRevision: number,
@@ -117,7 +122,7 @@ export interface ClientPlatform {
   logout(): Promise<void>;
   refresh(): Promise<void>;
   createDraft(scopeId: string, category?: EntryCategory, replyTarget?: SuggestionReplyTarget): Promise<Draft>;
-  saveDraft(draftId: string, text: string, scopeId: string): Promise<Draft>;
+  saveDraft(draftId: string, text: string, scopeId: string, secure?: boolean): Promise<Draft>;
   discardDraft(draftId: string): Promise<void>;
   addPhoto(draftId: string, file: Blob): Promise<Draft>;
   removePhoto(draftId: string, mediaId: string): Promise<Draft>;

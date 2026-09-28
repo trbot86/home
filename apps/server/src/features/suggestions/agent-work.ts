@@ -93,7 +93,9 @@ export class SuggestionAgentWork {
         .get(agent.agentId, operationId) as { request_digest: string; result_json: string } | undefined;
       if (old) {
         if (old.request_digest !== digest) throw new ProtocolConflict('Agent operation ID reused');
-        return JSON.parse(old.result_json) as T;
+        const result = JSON.parse(old.result_json);
+        if (kind === 'claim' && result.run) this.assertContextPermitted(result.run.suggestionId);
+        return result as T;
       }
       const result = work();
       this.db
@@ -102,7 +104,12 @@ export class SuggestionAgentWork {
       return result;
     });
   }
+  private assertContextPermitted(suggestionId: string) {
+    if (this.db.prepare('SELECT 1 FROM secure_suggestions WHERE suggestion_id=?').get(suggestionId))
+      throw new Rejection('secure_record_excluded');
+  }
   private project(r: RunRow): SuggestionRun {
+    this.assertContextPermitted(r.suggestion_id);
     return {
       runId: r.run_id,
       suggestionId: r.suggestion_id,
@@ -146,14 +153,14 @@ export class SuggestionAgentWork {
         .run(agent.agentId);
       const rows = this.db
         .prepare(
-          "SELECT r.* FROM suggestion_runs r JOIN records p ON p.record_id=r.suggestion_id JOIN inbox_entries i ON i.inbox_id=r.suggestion_id WHERE r.agent_id=? AND r.server_epoch=? AND r.state IN ('claimed','starting','running','uncertain') AND p.deleted_at IS NULL AND i.category='app_suggestion' ORDER BY r.created_at",
+          "SELECT r.* FROM suggestion_runs r JOIN records p ON p.record_id=r.suggestion_id JOIN inbox_entries i ON i.inbox_id=r.suggestion_id WHERE r.agent_id=? AND r.server_epoch=? AND r.state IN ('claimed','starting','running','uncertain') AND p.deleted_at IS NULL AND i.category='app_suggestion' AND r.suggestion_id NOT IN (SELECT suggestion_id FROM secure_suggestions) ORDER BY r.created_at",
         )
         .all(agent.agentId, epoch) as RunRow[];
       const queued = !!this.db
         .prepare(
           `SELECT 1 FROM suggestion_work_requests q JOIN records p ON p.record_id=q.suggestion_id
         JOIN inbox_entries i ON i.inbox_id=q.suggestion_id JOIN suggestion_workflows w USING(suggestion_id) JOIN records wr ON wr.record_id=w.workflow_id
-        WHERE q.state='queued' AND p.deleted_at IS NULL AND wr.deleted_at IS NULL AND i.category='app_suggestion'
+        WHERE q.state='queued' AND p.deleted_at IS NULL AND wr.deleted_at IS NULL AND i.category='app_suggestion' AND q.suggestion_id NOT IN (SELECT suggestion_id FROM secure_suggestions)
         AND NOT EXISTS (SELECT 1 FROM suggestion_runs r WHERE r.suggestion_id=q.suggestion_id AND r.state IN ('claimed','starting','running','uncertain')) LIMIT 1`,
         )
         .get();
@@ -169,7 +176,7 @@ export class SuggestionAgentWork {
           `SELECT q.* FROM suggestion_work_requests q JOIN records p ON p.record_id=q.suggestion_id
         JOIN inbox_entries i ON i.inbox_id=q.suggestion_id JOIN suggestion_workflows w USING(suggestion_id)
         JOIN records wr ON wr.record_id=w.workflow_id WHERE q.state='queued' AND p.deleted_at IS NULL AND wr.deleted_at IS NULL
-        AND i.category='app_suggestion' AND NOT EXISTS (SELECT 1 FROM suggestion_runs r WHERE r.suggestion_id=q.suggestion_id AND r.state IN ('claimed','starting','running','uncertain'))
+        AND i.category='app_suggestion' AND q.suggestion_id NOT IN (SELECT suggestion_id FROM secure_suggestions) AND NOT EXISTS (SELECT 1 FROM suggestion_runs r WHERE r.suggestion_id=q.suggestion_id AND r.state IN ('claimed','starting','running','uncertain'))
         ORDER BY q.requested_at,q.request_id LIMIT 1`,
         )
         .get() as { suggestion_id: string; scope_id: string; cause_change_set_id: string } | undefined;

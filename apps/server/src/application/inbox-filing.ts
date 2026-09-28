@@ -1,3 +1,4 @@
+import { isSecure } from './record-security.js';
 import { categoryOf, filingOf, type Command, type FilingDestination } from '@our-place/contracts';
 import type { Sqlite } from '../infrastructure/database.js';
 import type { AccessService, HumanRequestContext } from '../features/access/access.js';
@@ -51,6 +52,12 @@ export class InboxFiling {
             if (filing.destinations.length >= 20) throw new Rejection('inbox_destination_limit');
             created = this.create(context, source.scopeId, destination, now);
             id = destination.arguments.recordId;
+            if (isSecure(this.db, source.inboxId)) {
+              // Include an inline-created project, whose title may come from the protected note.
+              for (const change of created.changes)
+                if (change.before === null)
+                  this.db.prepare('INSERT INTO record_security VALUES (?,1,1)').run(change.after.recordId);
+            }
           }
           if (!filing.destinations.some((d) => d.recordId === id)) {
             if (filing.destinations.length >= 20) throw new Rejection('inbox_destination_limit');

@@ -1,3 +1,4 @@
+import { isSecure } from './record-security.js';
 import { categoryOf, filingOf, type FilingAdvice, type FilingAdviceReview } from '@our-place/contracts';
 import { immediate, installation, type Sqlite } from '../infrastructure/database.js';
 import { requireHuman, type HumanRequestContext } from '../features/access/access.js';
@@ -56,6 +57,7 @@ export class InboxFilingSuggestions {
   private target(context: HumanRequestContext, id: string, scopeId: string) {
     const target = this.records.get(context, id);
     if (
+      isSecure(this.db, id) ||
       target.content.scopeId !== scopeId ||
       target.content.deletedAt !== null ||
       !['project', 'project_page', 'shopping_list', 'task'].includes(target.kind)
@@ -69,6 +71,7 @@ export class InboxFilingSuggestions {
     const row = this.db.prepare('SELECT * FROM inbox_filing_suggestions WHERE inbox_id=?').get(inboxId) as
       Row | undefined;
     if (!row) return null;
+    if (isSecure(this.db, inboxId)) return { state: 'stale', attempt: row.attempt, choices: [] };
     if (row.source_revision !== source.revision || row.scope_id !== source.scopeId)
       return { state: 'stale', attempt: row.attempt, choices: [] };
     const saved = JSON.parse(row.choices_json) as FilingAdvice[];
@@ -98,6 +101,7 @@ export class InboxFilingSuggestions {
     // Own the durable claim: dispatch from an outer rollbackable transaction is unsafe.
     if (this.db.inTransaction) throw new Error('Suggestions require an independent transaction');
     const source = this.source(context, inboxId);
+    if (isSecure(this.db, inboxId)) throw new Rejection('secure_record_excluded');
     if (!this.permission.scopeIds.includes(source.scopeId)) throw new Rejection('scope_not_permitted');
     if (source.revision !== expectedRevision) throw new Rejection('revision_conflict');
     if (!source.text.trim() || source.text.length > 8000) throw new Rejection('suggestion_text_limit');
@@ -110,6 +114,9 @@ export class InboxFilingSuggestions {
       label: category,
     }));
     for (const id of destinationIds) {
+      // Secure destinations are omitted, never exported or allowed to poison the source attempt.
+      this.records.get(context, id);
+      if (isSecure(this.db, id)) continue;
       const target = this.target(context, id, source.scopeId);
       const title = target.content.title ?? target.content.name;
       if (typeof title !== 'string') throw new Rejection('suggestion_title_limit');
@@ -177,10 +184,16 @@ export class InboxFilingSuggestions {
         throw new Error('Invalid provider result');
       const current = this.source(context, inboxId);
       const valid =
-        this.stillPermitted() && current.revision === source.revision && current.scopeId === source.scopeId;
+        this.stillPermitted() &&
+        !isSecure(this.db, inboxId) &&
+        options.every((o) => o.advice.kind !== 'existing' || !isSecure(this.db, o.advice.recordId)) &&
+        current.revision === source.revision &&
+        current.scopeId === source.scopeId;
       const choices = valid ? response.map((key) => options[Number(key)]!.advice) : [];
       this.db
-        .prepare('UPDATE inbox_filing_suggestions SET state=?,choices_json=? WHERE inbox_id=? AND attempt=?')
+        .prepare(
+          "UPDATE inbox_filing_suggestions SET state=?,choices_json=? WHERE inbox_id=? AND attempt=? AND state='attempted'",
+        )
         .run(valid ? 'complete' : 'stale', JSON.stringify(choices), inboxId, expectedAttempt + 1);
     } catch {
       // Never persist provider errors: they can contain the prompt, secrets or credentials.

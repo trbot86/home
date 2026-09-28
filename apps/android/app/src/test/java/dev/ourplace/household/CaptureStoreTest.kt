@@ -18,6 +18,27 @@ import java.util.concurrent.Callable
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], manifest = Config.NONE)
 class CaptureStoreTest {
+    @Test fun secureDraftSurvivesReopenAndFreezeWithoutRewritingOlderRequests() = background {
+        val context = ApplicationProvider.getApplicationContext<Context>(); val name = "test-${newId()}.sqlite"
+        var db = LocalDatabase.open(context, name)
+        try {
+            val client = newId(); val scope = newId(); val epoch = newId(); val store = CaptureStore(db)
+            val draft = store.create(client, scope)
+            assertFalse(draft.secure)
+            store.save(client, draft.draftId, "Synthetic protected capture", scope, secure = true)
+            // Ordinary autosaves must preserve the flag.
+            store.save(client, draft.draftId, "Synthetic edited protected capture", scope)
+            db.close(); db = LocalDatabase.open(context, name)
+            assertTrue(db.dao().draft(draft.draftId)!!.secure)
+            val frozen = CaptureStore(db).freeze(client, draft.draftId, epoch)
+            assertTrue(JSONObject(frozen.frozenJson!!).getJSONObject("arguments").getBoolean("secure"))
+            assertThrows(IllegalStateException::class.java) { CaptureStore(db).save(client, draft.draftId, "changed", scope, secure = false) }
+            db.close(); db = LocalDatabase.open(context, name)
+            assertEquals(frozen.frozenJson, CaptureStore(db).freeze(client, draft.draftId, epoch).frozenJson)
+            assertEquals(frozen.frozenHash, db.dao().draft(draft.draftId)!!.frozenHash)
+        } finally { db.close(); context.deleteDatabase(name) }
+    }
+
     @Test fun replyCrashRecovery() = background {
         val context = ApplicationProvider.getApplicationContext<Context>(); val name = "test-${newId()}.sqlite"; var db = LocalDatabase.open(context, name)
         val client = newId(); val scope = newId(); val epoch = newId(); val question = newId(); val suggestion = newId()
@@ -77,6 +98,7 @@ class CaptureStoreTest {
         var db = LocalDatabase.open(context, name)
         try {
             val migrated = db.dao().draft(id)!!
+            assertFalse(migrated.secure); assertFalse(JSONObject(migrated.frozenJson!!).getJSONObject("arguments").has("secure"));
             assertEquals("inbox", migrated.category); assertEquals(frozen, migrated.frozenJson)
             assertEquals(sha256(frozen.toByteArray()), migrated.frozenHash)
             assertFalse(CaptureStore(db).validateFrozen(migrated).getJSONObject("arguments").has("category"))

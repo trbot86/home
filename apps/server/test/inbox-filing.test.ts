@@ -685,3 +685,57 @@ test('recipe filing preserves private capture, replays once and atomically undoe
     await f.close();
   }
 });
+
+for (const kind of ['task', 'recipe', 'inline-project'] as const)
+  test(`filing a Secure capture into ${kind} retains protection through undo and redo`, async () => {
+    const f = await fixture();
+    try {
+      const source = f.note(),
+        projectId = randomUUID();
+      const destination =
+        kind === 'task'
+          ? f.task()
+          : kind === 'recipe'
+            ? {
+                kind: 'CreateRecipe',
+                arguments: {
+                  ...emptyRecipeFields(),
+                  recordId: randomUUID(),
+                  scopeId: f.shared,
+                  title: 'Protected recipe',
+                  description: source.text,
+                  collectionIds: [],
+                },
+              }
+            : {
+                kind: 'CreateProjectPage',
+                newProject: {
+                  recordId: projectId,
+                  scopeId: f.shared,
+                  title: 'Protected project',
+                  description: '',
+                },
+                arguments: {
+                  recordId: randomUUID(),
+                  projectId,
+                  parentPageId: null,
+                  title: 'Protected page',
+                  blocks: [],
+                },
+              };
+      f.db.prepare('INSERT INTO record_security VALUES (?,1,1)').run(source.inboxId);
+      const filed = applied(f.file(source, destination));
+      const id = destination.arguments.recordId;
+      assert.ok(f.db.prepare('SELECT 1 FROM secure_records WHERE record_id=?').get(id));
+      if (kind === 'inline-project')
+        assert.ok(f.db.prepare('SELECT 1 FROM secure_records WHERE record_id=?').get(projectId));
+      const undo = applied(f.run('UndoChangeSet', { changeSetId: filed.changeSetId }));
+      assert.ok(f.db.prepare('SELECT 1 FROM secure_records WHERE record_id=?').get(id));
+      applied(f.run('RedoChangeSet', { changeSetId: undo.changeSetId }));
+      assert.ok(f.db.prepare('SELECT 1 FROM secure_records WHERE record_id=?').get(id));
+      assert.equal(f.get(source.inboxId).text, source.text);
+      assert.deepEqual(f.db.pragma('foreign_key_check'), []);
+    } finally {
+      await f.close();
+    }
+  });

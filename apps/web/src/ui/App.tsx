@@ -395,12 +395,16 @@ function AppContent({ client }: { client: ClientPlatform }) {
         current?.draftId === latest.draftId && current.revision < latest.revision ? latest : current,
       );
   }, [state.drafts, draft]);
-  async function saveDraft(value: string, scopeId = captureScope) {
+  const secureSave = useRef<Promise<void> | null>(null);
+  useEffect(() => {
+    secureSave.current = null;
+  }, [draft?.draftId]);
+  async function saveDraft(value: string, scopeId = captureScope, secure?: boolean) {
     if (!draft || !captureReady) return;
     setSaving(true);
     setLocalError(false);
     try {
-      const updated = await client.saveDraft(draft.draftId, value, scopeId);
+      const updated = await client.saveDraft(draft.draftId, value, scopeId, secure);
       setDraft((current) =>
         current?.draftId === updated.draftId && current.revision < updated.revision ? updated : current,
       );
@@ -494,6 +498,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
     submitLock.current = true;
     setBusy(true);
     try {
+      await secureSave.current;
       await saveDraft(text);
       await client.submitDraft(draft.draftId);
       setInboxFilter('unfiled');
@@ -1152,6 +1157,21 @@ function AppContent({ client }: { client: ClientPlatform }) {
                           onError={showError}
                         />
                       </div>
+                      {categoryOf(draft) === 'inbox' && (
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={draft.secure ?? false}
+                            disabled={busy || saving}
+                            onChange={(event) => {
+                              const work = saveDraft(text, captureScope, event.target.checked);
+                              secureSave.current = work;
+                              void work.catch(() => {});
+                            }}
+                          />
+                          Secure — exclude from AI context
+                        </label>
+                      )}
                       <div className="capture-submit">
                         <select
                           aria-label="Who can see this capture"
