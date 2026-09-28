@@ -104,7 +104,11 @@ export function HomeHistory({
               <p className="historical-text">
                 <LinkedText client={client} text={details(item.version)} />
               </p>
-              <AttachmentGallery client={client} attachments={item.version.attachments} />
+              <AttachmentGallery
+                navigationKey={`HomeHistory.${item.version.revision}`}
+                client={client}
+                attachments={item.version.attachments}
+              />
               <div className="history-actions">
                 <button
                   onClick={() => {

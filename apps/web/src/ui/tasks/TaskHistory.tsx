@@ -136,7 +136,11 @@ export function TaskHistory({
                 <LinkedText client={client} text={details(item.version)} />
               </p>
               {item.version.kind !== 'task_occurrence' && (
-                <AttachmentGallery client={client} attachments={item.version.attachments ?? []} />
+                <AttachmentGallery
+                  navigationKey={`TaskHistory.${item.version.revision}`}
+                  client={client}
+                  attachments={item.version.attachments ?? []}
+                />
               )}
               <div className="history-actions">
                 <button

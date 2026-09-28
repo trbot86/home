@@ -1,3 +1,4 @@
+import { useNavigationState } from '../NavigationHistory.js';
 import { useRef, useState } from 'react';
 import { CaptureSources } from '../inbox/FilingLinks.js';
 import {
@@ -76,8 +77,12 @@ export function Tasks({
     initial?.kind === 'task'
       ? initial
       : state.tasks.definitions.find((t) => t.recordId === initialOccurrence?.taskId);
-  const [focusId, setFocusId] = useState(initialTask?.recordId ?? null);
-  const [view, setView] = useState<View>(
+  const [focusId, setFocusId] = useNavigationState(
+    `Tasks.${initialRecordId ?? ''}.focusId`,
+    initialTask?.recordId ?? null,
+  );
+  const [view, setView] = useNavigationState<View>(
+      `Tasks.${initialRecordId ?? ''}.view`,
       initialTask?.deletedAt != null
         ? 'deleted'
         : initial?.kind === 'task_completion'
@@ -90,12 +95,20 @@ export function Tasks({
     [context, setContext] = useState('both'),
     [search, setSearch] = useState(''),
     [limit, setLimit] = useState(30);
-  const [editor, setEditor] = useState<Editor | null>(null),
-    [photosId, setPhotosId] = useState<string | null>(null),
-    [completionId, setCompletionId] = useState<string | null>(
+  const [editor, setEditor] = useNavigationState<Editor | null>(
+      `Tasks.${initialRecordId ?? ''}.editor`,
+      null,
+    ),
+    [photosId, setPhotosId] = useNavigationState<string | null>(
+      `Tasks.${initialRecordId ?? ''}.photosId`,
+      null,
+    ),
+    [completionId, setCompletionId] = useNavigationState<string | null>(
+      `Tasks.${initialRecordId ?? ''}.completionId`,
       initialAction === 'complete' && initialOccurrence?.state === 'open' ? initialOccurrence.recordId : null,
     ),
-    [historyId, setHistoryId] = useState<string | null>(
+    [historyId, setHistoryId] = useNavigationState<string | null>(
+      `Tasks.${initialRecordId ?? ''}.historyId`,
       initial && (initial.kind === 'task_completion' || initialOccurrence?.state === 'completed')
         ? initial.recordId
         : null,

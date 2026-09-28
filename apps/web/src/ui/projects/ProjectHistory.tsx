@@ -91,7 +91,11 @@ export function ProjectHistory({
                 {entry.version.deletedAt !== null ? ' · Removed' : ''}
               </p>
               <p className="historical-text">{text(entry.version)}</p>
-              <AttachmentGallery client={client} attachments={entry.version.attachments} />
+              <AttachmentGallery
+                navigationKey={`ProjectHistory.${entry.version.revision}`}
+                client={client}
+                attachments={entry.version.attachments}
+              />
               <div className="history-actions">
                 <button
                   onClick={() => void navigator.clipboard.writeText(text(entry.version)).catch(onError)}

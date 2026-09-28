@@ -94,7 +94,11 @@ export function RecipeHistory({
                 <LinkedText client={client} text={details(entry.version)} />
               </p>
               {entry.version.kind !== 'recipe_collection' && (
-                <AttachmentGallery client={client} attachments={entry.version.attachments} />
+                <AttachmentGallery
+                  navigationKey={`RecipeHistory.${entry.version.revision}`}
+                  client={client}
+                  attachments={entry.version.attachments}
+                />
               )}
               <div className="history-actions">
                 <button

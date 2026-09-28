@@ -1,3 +1,4 @@
+import { useNavigationWrite } from '../NavigationHistory.js';
 import { ShareRecord } from '../ShareRecord.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
@@ -53,6 +54,7 @@ export function ShoppingEditor({
   const key =
     record?.recordId ??
     `shopping:new:${mode}:${mode === 'entry' || mode === 'group' ? list!.recordId : 'default'}`;
+  const writeEditor = useNavigationWrite(onError);
   const [form, setForm] = useState(initial),
     [baseRevision, setBaseRevision] = useState(record?.revision ?? 1),
     [baseEpoch, setBaseEpoch] = useState(session.serverEpoch);
@@ -108,7 +110,9 @@ export function ShoppingEditor({
   function update(field: keyof Form, value: string) {
     const next = { ...form, [field]: value };
     setForm(next);
-    void client.saveEditor(key, JSON.stringify(next), baseRevision, baseEpoch).catch(onError);
+    void writeEditor(() => client.saveEditor(key, JSON.stringify(next), baseRevision, baseEpoch)).catch(
+      onError,
+    );
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -117,7 +121,7 @@ export function ShoppingEditor({
     setBusy(true);
     setError('');
     try {
-      await client.saveEditor(key, JSON.stringify(form), baseRevision, baseEpoch);
+      await writeEditor(() => client.saveEditor(key, JSON.stringify(form), baseRevision, baseEpoch));
       const target = {
         recordId: form.recordId,
         ...(record ? { expectedRevision: baseRevision } : { scopeId: form.scopeId }),

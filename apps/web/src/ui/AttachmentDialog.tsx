@@ -255,7 +255,11 @@ export function AttachmentDialog({
             <div className="attachment-edits">
               {draft.attachments.map((photo, index) => (
                 <article key={photo.attachmentId} className="attachment-edit">
-                  <AttachmentGallery client={client} attachments={[photo]} />
+                  <AttachmentGallery
+                    navigationKey="attachment-editor"
+                    client={client}
+                    attachments={[photo]}
+                  />
                   <div>
                     <Caption
                       key={`${draft.draftId}:${photo.attachmentId}`}

@@ -1,3 +1,4 @@
+import { useNavigationState } from '../NavigationHistory.js';
 import { useEffect, useState } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
 import {
@@ -43,7 +44,7 @@ export function PersonalAgenda({
   const [start, setStart] = useState(today),
     [count, setCount] = useState<number>(layout.days),
     [context, setContext] = useState<AgendaLayout['context']>(layout.context),
-    [editing, setEditing] = useState(false);
+    [editing, setEditing] = useNavigationState('PersonalAgenda.editing', false);
   useEffect(() => {
     setCount(layout.days);
     setContext(layout.context);

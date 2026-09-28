@@ -1,3 +1,4 @@
+import { useNavigationState } from '../NavigationHistory.js';
 import { useRef, useState } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
 import type { CommandKind, HomeRecord, TaskDefinition } from '@our-place/contracts';
@@ -44,22 +45,43 @@ export function Home({
   const initialAsset = state.home.assets.find(
     (r) => r.recordId === (initialService?.assetId ?? initialRecordId),
   );
-  const [view, setView] = useState('active'),
+  const [view, setView] = useNavigationState(`Home.${initialRecordId ?? ''}.view`, 'active'),
     [search, setSearch] = useState(''),
     [scope, setScope] = useState('all');
-  const [selected, setSelected] = useState<string | null>(initialAsset?.recordId ?? null),
+  const [selected, setSelected] = useNavigationState<string | null>(
+      `Home.${initialRecordId ?? ''}.selected`,
+      initialAsset?.recordId ?? null,
+    ),
     [limit, setLimit] = useState(20),
     [serviceLimit, setServiceLimit] = useState(20);
-  const [showRemoved, setShowRemoved] = useState(false),
-    [editor, setEditor] = useState<Editor | null>(null);
-  const [historyId, setHistoryId] = useState<string | null>(initialService?.recordId ?? null),
-    [photosId, setPhotosId] = useState<string | null>(null);
-  const [taskEditor, setTaskEditor] = useState<TaskEditing | null>(null),
-    [completionId, setCompletionId] = useState<string | null>(null),
-    [taskHistoryId, setTaskHistoryId] = useState<string | null>(null);
+  const [showRemoved, setShowRemoved] = useNavigationState(
+      `Home.${initialRecordId ?? ''}.showRemoved`,
+      false,
+    ),
+    [editor, setEditor] = useNavigationState<Editor | null>(`Home.${initialRecordId ?? ''}.editor`, null);
+  const [historyId, setHistoryId] = useNavigationState<string | null>(
+      `Home.${initialRecordId ?? ''}.historyId`,
+      initialService?.recordId ?? null,
+    ),
+    [photosId, setPhotosId] = useNavigationState<string | null>(
+      `Home.${initialRecordId ?? ''}.photosId`,
+      null,
+    );
+  const [taskEditor, setTaskEditor] = useNavigationState<TaskEditing | null>(
+      `Home.${initialRecordId ?? ''}.taskEditor`,
+      null,
+    ),
+    [completionId, setCompletionId] = useNavigationState<string | null>(
+      `Home.${initialRecordId ?? ''}.completionId`,
+      null,
+    ),
+    [taskHistoryId, setTaskHistoryId] = useNavigationState<string | null>(
+      `Home.${initialRecordId ?? ''}.taskHistoryId`,
+      null,
+    );
   const [working, setWorking] = useState<string[]>([]),
     locks = useRef(new Set<string>());
-  const [showIdeas, setShowIdeas] = useState(false);
+  const [showIdeas, setShowIdeas] = useNavigationState(`Home.${initialRecordId ?? ''}.showIdeas`, false);
   const session = state.session!,
     snapshot = state.home,
     records: HomeRecord[] = [...snapshot.assets, ...snapshot.serviceRecords];

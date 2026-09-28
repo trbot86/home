@@ -1,3 +1,4 @@
+import { useNavigationState } from '../NavigationHistory.js';
 import { useState } from 'react';
 import { LinkedText, WebLink } from '../LinkedText.js';
 import type { ClientPlatform, ClientState } from '@our-place/client';
@@ -31,14 +32,16 @@ export function Shopping({
   initialRecordId?: string | null;
 }) {
   const initial = shoppingRecords(state.shopping).find((r) => r.recordId === initialRecordId);
-  const [selectedList, setSelectedList] = useState(
+  const [selectedList, setSelectedList] = useNavigationState(
+      `Shopping.${initialRecordId ?? ''}.selectedList`,
       initial?.kind === 'shopping_list'
         ? initial.recordId
         : initial && 'listId' in initial
           ? initial.listId
           : '',
     ),
-    [tab, setTab] = useState<Tab>(
+    [tab, setTab] = useNavigationState<Tab>(
+      `Shopping.${initialRecordId ?? ''}.tab`,
       initial?.deletedAt != null
         ? 'deleted'
         : initial?.kind === 'restock_item'
@@ -52,13 +55,23 @@ export function Shopping({
       initial?.kind === 'shopping_entry' || initial?.kind === 'restock_item' ? shoppingLabel(initial) : '',
     ),
     [limit, setLimit] = useState(40);
-  const [editor, setEditor] = useState<Editor | null>(null),
-    [historyId, setHistoryId] = useState<string | null>(
+  const [editor, setEditor] = useNavigationState<Editor | null>(
+      `Shopping.${initialRecordId ?? ''}.editor`,
+      null,
+    ),
+    [historyId, setHistoryId] = useNavigationState<string | null>(
+      `Shopping.${initialRecordId ?? ''}.historyId`,
       initial?.kind === 'purchase' ? initial.recordId : null,
     ),
     [working, setWorking] = useState<string | null>(null);
-  const [removingGroup, setRemovingGroup] = useState<string | null>(null);
-  const [photosId, setPhotosId] = useState<string | null>(null);
+  const [removingGroup, setRemovingGroup] = useNavigationState<string | null>(
+    `Shopping.${initialRecordId ?? ''}.removingGroup`,
+    null,
+  );
+  const [photosId, setPhotosId] = useNavigationState<string | null>(
+    `Shopping.${initialRecordId ?? ''}.photosId`,
+    null,
+  );
   const snapshot = state.shopping,
     lists = snapshot.lists.filter((list) => !list.deletedAt),
     list = lists.find((item) => item.recordId === selectedList) ?? lists[0];

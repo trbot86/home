@@ -1,3 +1,4 @@
+import { useNavigationState } from '../NavigationHistory.js';
 import { useRef, useState } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
 import { calendarDateAt, type Recipe } from '@our-place/contracts';
@@ -21,13 +22,19 @@ export function RecipeTasks({
   run: RunRecordCommand;
   onError: (error: unknown) => void;
 }) {
-  const [editor, setEditor] = useState<{
+  const [editor, setEditor] = useNavigationState<{
       mode: 'create' | 'definition' | 'occurrence';
       taskId?: string;
       occurrenceId?: string;
-    } | null>(null),
-    [completionId, setCompletionId] = useState<string | null>(null),
-    [historyId, setHistoryId] = useState<string | null>(null),
+    } | null>(`recipeTasks.${recipe.recordId}.editor`, null),
+    [completionId, setCompletionId] = useNavigationState<string | null>(
+      `recipeTasks.${recipe.recordId}.completionId`,
+      null,
+    ),
+    [historyId, setHistoryId] = useNavigationState<string | null>(
+      `recipeTasks.${recipe.recordId}.historyId`,
+      null,
+    ),
     [working, setWorking] = useState<string[]>([]),
     [limit, setLimit] = useState(10),
     locks = useRef(new Set<string>());

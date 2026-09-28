@@ -12,7 +12,9 @@ async function project(page: Page, title: string, privateOnly = false) {
   await page.getByRole('button', { name: 'New project', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'New project', exact: true });
   await dialog.getByLabel('Title', { exact: true }).fill(title);
-  await dialog.getByLabel('Visibility', { exact: true }).selectOption({ label: privateOnly ? 'Just me' : 'Shared' });
+  await dialog
+    .getByLabel('Visibility', { exact: true })
+    .selectOption({ label: privateOnly ? 'Just me' : 'Shared' });
   await dialog
     .getByLabel('Description', { exact: true })
     .fill('Plans and inspiration, with room for the details.');
@@ -282,6 +284,11 @@ test('a pinned task opens the exact existing task while the project and task his
   await expect(
     page.locator('.task-card').getByRole('button', { name: 'Complete Paint the pantry', exact: true }),
   ).toBeEnabled();
+  await page.goBack();
+  await expect(page.locator('.project-next')).toContainText('Paint the pantry');
+  await page.goForward();
+  await expect(page.locator('.task-card')).toHaveCount(1);
+  await expect(page.locator('.task-card')).toContainText('Paint the pantry');
   const history = await page.request.get(`/api/records/${taskId}/history`);
   expect((await history.json()).entries).toHaveLength(1);
 });

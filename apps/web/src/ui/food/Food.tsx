@@ -1,3 +1,4 @@
+import { useNavigationState } from '../NavigationHistory.js';
 import { useEffect, useRef, useState } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
 import type { CommandKind, Recipe, RecipeRecord } from '@our-place/contracts';
@@ -50,21 +51,46 @@ export function Food({
   const initialRecipe = state.recipes.recipes.find(
     (r) => r.recordId === (initialRecipeId ?? initialCooking?.recipeId ?? initialRecordId),
   );
-  const [view, setView] = useState(
+  const [view, setView] = useNavigationState(
+      `Food.${initialRecipeId ?? initialRecordId ?? ''}.view`,
       initialCollection ? `collection:${initialCollection.recordId}` : initialRecipe ? 'all' : 'want_to_try',
     ),
     [scope, setScope] = useState('all'),
     [search, setSearch] = useState(''),
     [limit, setLimit] = useState(24),
     [cookingLimit, setCookingLimit] = useState(20),
-    [selected, setSelected] = useState<string | null>(initialRecipe?.recordId ?? null);
-  const [editor, setEditor] = useState<'new' | 'edit' | null>(null),
-    [journal, setJournal] = useState<{ mode: 'adjustment' | 'cooking'; id?: string } | null>(null),
-    [photosId, setPhotosId] = useState<string | null>(null),
-    [historyId, setHistoryId] = useState<string | null>(initialCooking?.recordId ?? null),
-    [review, setReview] = useState<string | null>(null),
-    [shopping, setShopping] = useState(false),
-    [removing, setRemoving] = useState<string | null>(null);
+    [selected, setSelected] = useNavigationState<string | null>(
+      `Food.${initialRecipeId ?? initialRecordId ?? ''}.selected`,
+      initialRecipe?.recordId ?? null,
+    );
+  const [editor, setEditor] = useNavigationState<'new' | 'edit' | null>(
+      `Food.${initialRecipeId ?? initialRecordId ?? ''}.editor`,
+      null,
+    ),
+    [journal, setJournal] = useNavigationState<{ mode: 'adjustment' | 'cooking'; id?: string } | null>(
+      `Food.${initialRecipeId ?? initialRecordId ?? ''}.journal`,
+      null,
+    ),
+    [photosId, setPhotosId] = useNavigationState<string | null>(
+      `Food.${initialRecipeId ?? initialRecordId ?? ''}.photosId`,
+      null,
+    ),
+    [historyId, setHistoryId] = useNavigationState<string | null>(
+      `Food.${initialRecipeId ?? initialRecordId ?? ''}.historyId`,
+      initialCooking?.recordId ?? null,
+    ),
+    [review, setReview] = useNavigationState<string | null>(
+      `Food.${initialRecipeId ?? initialRecordId ?? ''}.review`,
+      null,
+    ),
+    [shopping, setShopping] = useNavigationState(
+      `Food.${initialRecipeId ?? initialRecordId ?? ''}.shopping`,
+      false,
+    ),
+    [removing, setRemoving] = useNavigationState<string | null>(
+      `Food.${initialRecipeId ?? initialRecordId ?? ''}.removing`,
+      null,
+    );
   const [working, setWorking] = useState<string[]>([]),
     locks = useRef(new Set<string>()),
     detailRef = useRef<HTMLElement>(null);

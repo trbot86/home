@@ -1,3 +1,4 @@
+import { useNavigationState } from '../NavigationHistory.js';
 import { useEffect, useRef, useState } from 'react';
 import { CaptureSources } from '../inbox/FilingLinks.js';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
@@ -36,18 +37,36 @@ export function Projects({
   onOpenRecord: (reference: RecordReference) => void;
   initialRecordId?: string | null;
 }) {
-  const [selected, setSelected] = useState<string | null>(initialRecordId ?? null),
-    [view, setView] = useState('active'),
+  const [selected, setSelected] = useNavigationState<string | null>(
+      `Projects.${initialRecordId ?? ''}.selected`,
+      initialRecordId ?? null,
+    ),
+    [view, setView] = useNavigationState(`Projects.${initialRecordId ?? ''}.view`, 'active'),
     [scope, setScope] = useState('all'),
     [search, setSearch] = useState(''),
     [limit, setLimit] = useState(24),
-    [showRemoved, setShowRemoved] = useState(false);
-  const [editor, setEditor] = useState<Editor | null>(null),
-    [photosId, setPhotosId] = useState<string | null>(null),
-    [historyId, setHistoryId] = useState<string | null>(null),
-    [moveId, setMoveId] = useState<string | null>(null),
-    [removal, setRemoval] = useState<{ record: ProjectRecord; restore: boolean } | null>(null),
-    [pinning, setPinning] = useState(false),
+    [showRemoved, setShowRemoved] = useNavigationState(
+      `Projects.${initialRecordId ?? ''}.showRemoved`,
+      false,
+    );
+  const [editor, setEditor] = useNavigationState<Editor | null>(
+      `Projects.${initialRecordId ?? ''}.editor`,
+      null,
+    ),
+    [photosId, setPhotosId] = useNavigationState<string | null>(
+      `Projects.${initialRecordId ?? ''}.photosId`,
+      null,
+    ),
+    [historyId, setHistoryId] = useNavigationState<string | null>(
+      `Projects.${initialRecordId ?? ''}.historyId`,
+      null,
+    ),
+    [moveId, setMoveId] = useNavigationState<string | null>(`Projects.${initialRecordId ?? ''}.moveId`, null),
+    [removal, setRemoval] = useNavigationState<{ recordId: string; restore: boolean } | null>(
+      `Projects.${initialRecordId ?? ''}.removal`,
+      null,
+    ),
+    [pinning, setPinning] = useNavigationState(`Projects.${initialRecordId ?? ''}.pinning`, false),
     [pinSearch, setPinSearch] = useState('');
   const [working, setWorking] = useState(false),
     lock = useRef(false),
@@ -324,7 +343,10 @@ export function Projects({
                       {project.archived ? 'Reopen' : 'Archive'}
                     </button>
                   )}
-                  <button disabled={blocked} onClick={() => setRemoval({ record: current!, restore: false })}>
+                  <button
+                    disabled={blocked}
+                    onClick={() => setRemoval({ recordId: current!.recordId, restore: false })}
+                  >
                     Remove
                   </button>
                 </>
@@ -336,7 +358,7 @@ export function Projects({
                     (!!page?.parentPageId &&
                       snapshot.pages.some((p) => p.recordId === page.parentPageId && p.deletedAt !== null))
                   }
-                  onClick={() => setRemoval({ record: current!, restore: true })}
+                  onClick={() => setRemoval({ recordId: current!.recordId, restore: true })}
                 >
                   Restore
                 </button>
@@ -509,11 +531,11 @@ export function Projects({
           onError={onError}
         />
       )}
-      {removal && (
+      {removal && records.some((r) => r.recordId === removal.recordId) && (
         <ProjectRemoval
           client={client}
           state={state}
-          record={removal.record}
+          record={records.find((r) => r.recordId === removal.recordId)!}
           restore={removal.restore}
           run={run}
           close={() => setRemoval(null)}

@@ -103,7 +103,7 @@ export function CalendarSettings({
     setHandoffId(null);
     const url = new URL(window.location.href);
     url.searchParams.delete('calendarConnect');
-    window.history.replaceState(null, '', url);
+    window.history.replaceState(window.history.state, '', url);
   }
   async function begin(reconnect?: BeginCalendarConnection['reconnect'], existingLabel?: string) {
     const result = await client.beginCalendarConnection!({

@@ -1,3 +1,10 @@
+import {
+  NavigationHistoryProvider,
+  useNavigationBoundary,
+  useFlushNavigation,
+  useNavigationFlush,
+  useNavigationState,
+} from './NavigationHistory.js';
 import { NavigationOrderEditor } from './NavigationOrderEditor.js';
 import { navigationItems } from './navigation.js';
 import { Photo } from './Photo.js';
@@ -91,14 +98,26 @@ function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
 }
 
 export function App({ client }: { client: ClientPlatform }) {
+  return (
+    <NavigationHistoryProvider native={!!client.onBack}>
+      <AppContent client={client} />
+    </NavigationHistoryProvider>
+  );
+}
+
+function AppContent({ client }: { client: ClientPlatform }) {
   const [state, setState] = useState<ClientState>(emptyState);
   const [switching, setSwitching] = useState(false);
+  useNavigationBoundary(
+    switching || !state.session ? '' : `${state.session.clientId}:${state.session.serverEpoch}`,
+  );
+  const flushNavigation = useFlushNavigation();
   const appVersion = useAppVersion(client, state.online);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<View>(() =>
+  const [view, setView] = useNavigationState<View>('App.view', () =>
     new URL(window.location.href).searchParams.get('settings') === 'calendars' ? 'storage' : 'inbox',
   );
-  const [editingNavigation, setEditingNavigation] = useState(false);
+  const [editingNavigation, setEditingNavigation] = useNavigationState('App.editingNavigation', false);
   const navigationView = state.views.find(
     (v) =>
       v.kind === 'navigation' &&
@@ -125,7 +144,7 @@ export function App({ client }: { client: ClientPlatform }) {
   const [sort, setSort] = useState('newest');
   const [inboxFilter, setInboxFilter] = useState('unfiled');
   const [suggestionFilter, setSuggestionFilter] = useState<'active' | 'completed'>('active');
-  const [filingId, setFilingId] = useState<string | null>(null);
+  const [filingId, setFilingId] = useNavigationState<string | null>('App.filingId', null);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<{
     label: string;
@@ -135,9 +154,12 @@ export function App({ client }: { client: ClientPlatform }) {
   } | null>(null);
   const reversal = useRef<typeof toast>(null);
   const reversalLock = useRef(false);
-  const [selected, setSelected] = useState<{ id: string; history: boolean } | null>(null);
-  const [recipeTarget, setRecipeTarget] = useState<string | null>(null);
-  const [linkedTarget, setLinkedTarget] = useState<string | null>(null);
+  const [selected, setSelected] = useNavigationState<{ id: string; history: boolean } | null>(
+    'App.selected',
+    null,
+  );
+  const [recipeTarget, setRecipeTarget] = useNavigationState<string | null>('App.recipeTarget', null);
+  const [linkedTarget, setLinkedTarget] = useNavigationState<string | null>('App.linkedTarget', null);
   const [widgetTarget, setWidgetTarget] = useState<WidgetNavigation | null>(null);
   const widgetNavigationLock = useRef(false);
   function openLinkedRecord(reference: RecordReference) {
@@ -161,6 +183,7 @@ export function App({ client }: { client: ClientPlatform }) {
     );
   }
   const [draft, setDraft] = useState<Draft | null>(null);
+  const captureReady = !!draft && categoryOf(draft) === category;
   const [text, setText] = useState('');
   const [captureScope, setCaptureScope] = useState('');
   const [busy, setBusy] = useState(false);
@@ -177,10 +200,17 @@ export function App({ client }: { client: ClientPlatform }) {
     : `${state.session?.clientId ?? ''}:${state.session?.serverEpoch ?? ''}`;
   const textRef = useRef<HTMLTextAreaElement>(null);
   const showError = (value: unknown) => setError(message(value));
+  useNavigationFlush(async () => {
+    if (draft?.state === 'DRAFT')
+      await client.saveDraft(draft.draftId, text, captureScope).catch((error) => {
+        showError(error);
+        throw error;
+      });
+  });
   useFileDropGuard(showError);
   const transfer = usePhotoTransfer({
     disabledReason:
-      !draft || draft.state !== 'DRAFT' || busy || switching
+      !captureReady || draft?.state !== 'DRAFT' || busy || switching
         ? 'Finish the current action before adding photos.'
         : null,
     onFiles: addPhotos,
@@ -191,6 +221,7 @@ export function App({ client }: { client: ClientPlatform }) {
     const owner = currentOwner.current;
     const generation = ++noteLoadGeneration.current;
     try {
+      await flushNavigation();
       let latest = await client.state();
       if (latest.online) {
         try {
@@ -273,8 +304,15 @@ export function App({ client }: { client: ClientPlatform }) {
       if (id) void openNoteRef.current(id).catch(() => {});
     };
     followLocation();
-    window.addEventListener('popstate', followLocation);
-    return () => window.removeEventListener('popstate', followLocation);
+    const cancelLookup = () => {
+      noteLoadGeneration.current++;
+    };
+    window.addEventListener('popstate', cancelLookup);
+    window.addEventListener('ourplace:navigation-fallback', followLocation);
+    return () => {
+      window.removeEventListener('popstate', cancelLookup);
+      window.removeEventListener('ourplace:navigation-fallback', followLocation);
+    };
   }, [state.session?.clientId, switching]);
   useEffect(() => {
     let alive = true;
@@ -322,12 +360,17 @@ export function App({ client }: { client: ClientPlatform }) {
       setText('');
       return;
     }
-    if (draft || initialiseLock.current) return;
+    if ((draft && categoryOf(draft) === category) || initialiseLock.current) return;
     initialiseLock.current = true;
+    const owner = currentOwner.current;
     const privateScope = state.session.scopes.find((s) => s.kind === 'private')!.scopeId;
     const existing = unfinishedDraft(state.drafts, category);
-    void (existing ? Promise.resolve(existing) : client.createDraft(privateScope, category))
+    void (async () => {
+      if (draft?.state === 'DRAFT') await client.saveDraft(draft.draftId, text, captureScope);
+      return existing ?? (await client.createDraft(privateScope, category));
+    })()
       .then((value) => {
+        if (owner !== currentOwner.current) return;
         setDraft(value);
         setText(value.text);
         setCaptureScope(value.scopeId);
@@ -346,7 +389,7 @@ export function App({ client }: { client: ClientPlatform }) {
       );
   }, [state.drafts, draft]);
   async function saveDraft(value: string, scopeId = captureScope) {
-    if (!draft) return;
+    if (!draft || !captureReady) return;
     setSaving(true);
     setLocalError(false);
     try {
@@ -369,6 +412,7 @@ export function App({ client }: { client: ClientPlatform }) {
     let selectionStarted = false;
     try {
       if (draft?.state === 'DRAFT') await client.saveDraft(draft.draftId, text, captureScope);
+      await flushNavigation();
       selectionStarted = true;
       await client.login(username, '');
     } catch (error) {
@@ -405,6 +449,7 @@ export function App({ client }: { client: ClientPlatform }) {
     navigationLock.current = true;
     setBusy(true);
     try {
+      await flushNavigation();
       setWidgetTarget(null);
       if (nextView === 'inbox' || nextView === 'suggestions') {
         const nextCategory = nextView === 'suggestions' ? 'app_suggestion' : 'inbox';
@@ -438,7 +483,7 @@ export function App({ client }: { client: ClientPlatform }) {
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!draft || submitLock.current || photoLock.current || busy || switching) return;
+    if (!draft || !captureReady || submitLock.current || photoLock.current || busy || switching) return;
     submitLock.current = true;
     setBusy(true);
     try {
@@ -462,7 +507,7 @@ export function App({ client }: { client: ClientPlatform }) {
     }
   }
   async function addPhotos(files: File[]) {
-    if (!draft || !files.length) return;
+    if (!draft || !captureReady || !files.length) return;
     if (photoLock.current || busy || switching || draft.state !== 'DRAFT') {
       showError(new Error('Finish the current action before adding photos.'));
       return;
@@ -988,7 +1033,7 @@ export function App({ client }: { client: ClientPlatform }) {
                       ref={textRef}
                       value={text}
                       maxLength={20000}
-                      disabled={busy}
+                      disabled={busy || !captureReady}
                       placeholder={
                         view === 'suggestions'
                           ? 'What could work better? Add a screenshot if it helps…'
@@ -1008,7 +1053,7 @@ export function App({ client }: { client: ClientPlatform }) {
                             <button
                               type="button"
                               aria-label="Remove photo"
-                              disabled={busy}
+                              disabled={busy || !captureReady}
                               onClick={() => {
                                 void client
                                   .removePhoto(draft.draftId, attachment.mediaId)
@@ -1044,7 +1089,7 @@ export function App({ client }: { client: ClientPlatform }) {
                         <select
                           aria-label="Who can see this capture"
                           value={captureScope}
-                          disabled={busy}
+                          disabled={busy || !captureReady}
                           onChange={(event) => {
                             setCaptureScope(event.target.value);
                             void saveDraft(text, event.target.value).catch(() => {});
@@ -1059,7 +1104,7 @@ export function App({ client }: { client: ClientPlatform }) {
                         <span className="keyboard-hint">Ctrl ↵</span>
                         <button
                           className="primary"
-                          disabled={busy || (!text.trim() && !draft.attachments.length)}
+                          disabled={busy || !captureReady || (!text.trim() && !draft.attachments.length)}
                         >
                           {busy ? 'Saving…' : view === 'suggestions' ? 'Save suggestion' : 'Save to inbox'}
                           <Icon name="arrow" size={17} />

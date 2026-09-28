@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useNavigationState } from './NavigationHistory.js';
 import type { ClientPlatform } from '@our-place/client';
 import type { Attachment } from '@our-place/contracts';
 import { Photo } from './Photo.js';
@@ -9,11 +9,17 @@ import './attachments.css';
 export function AttachmentGallery({
   client,
   attachments,
+  navigationKey = '',
 }: {
   client: ClientPlatform;
   attachments: Attachment[];
+  navigationKey?: string;
 }) {
-  const [selected, setSelected] = useState<Attachment | null>(null);
+  const [selectedId, setSelected] = useNavigationState<string | null>(
+    `photos.${navigationKey}.${attachments.map((a) => a.attachmentId).join(',')}`,
+    null,
+  );
+  const selected = attachments.find((a) => a.attachmentId === selectedId);
   if (!attachments.length) return null;
   return (
     <>
@@ -23,7 +29,7 @@ export function AttachmentGallery({
             <button
               type="button"
               aria-label={`View photo ${index + 1}${photo.caption ? `: ${photo.caption}` : ''}`}
-              onClick={() => setSelected(photo)}
+              onClick={() => setSelected(photo.attachmentId)}
             >
               <Photo client={client} id={photo.mediaId} descriptor={photo} />
             </button>

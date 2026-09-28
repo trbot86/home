@@ -1,3 +1,4 @@
+import { useNavigationWrite } from '../NavigationHistory.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { ShoppingList } from '@our-place/contracts';
@@ -15,6 +16,7 @@ export function QuickAdd({
   run: ShoppingRun;
   onError: (error: unknown) => void;
 }) {
+  const writeEditor = useNavigationWrite(onError);
   const blank = () => ({ recordId: crypto.randomUUID(), label: '', quantity: '' });
   const [form, setForm] = useState(blank),
     [epoch, setEpoch] = useState(state.session!.serverEpoch),
@@ -52,7 +54,7 @@ export function QuickAdd({
   function update(field: 'label' | 'quantity', value: string) {
     const next = { ...form, [field]: value };
     setForm(next);
-    void client.saveEditor(key, JSON.stringify(next), 1, epoch).catch(onError);
+    void writeEditor(() => client.saveEditor(key, JSON.stringify(next), 1, epoch)).catch(onError);
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -68,7 +70,7 @@ export function QuickAdd({
     lock.current = true;
     setBusy(true);
     try {
-      await client.saveEditor(key, JSON.stringify(form), 1, epoch);
+      await writeEditor(() => client.saveEditor(key, JSON.stringify(form), 1, epoch));
       await run(
         form,
         'AddShoppingEntry',

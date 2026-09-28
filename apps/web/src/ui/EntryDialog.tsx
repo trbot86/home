@@ -1,3 +1,4 @@
+import { useNavigationWrite, useNavigationState } from './NavigationHistory.js';
 import { ShareRecord } from './ShareRecord.js';
 import { isDialogBackdropClick } from './dialog-backdrop.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -44,6 +45,7 @@ export function EntryDialog({
   onPhotosSaved: AttachmentSaved;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const writeEditor = useNavigationWrite(onError);
   const [text, setText] = useState(entry.text);
   const [baseRevision, setBaseRevision] = useState(entry.revision);
   const [baseEpoch, setBaseEpoch] = useState(serverEpoch);
@@ -51,9 +53,12 @@ export function EntryDialog({
   const hasDiscussion =
     entry.category === 'app_suggestion' ||
     state.suggestions.workflows.some((w) => w.suggestionId === entry.inboxId);
-  const [tab, setTab] = useState(startHistory ? 'history' : hasDiscussion ? 'discussion' : 'edit');
+  const [tab, setTab] = useNavigationState(
+    `entry.${entry.inboxId}.tab`,
+    startHistory ? 'history' : hasDiscussion ? 'discussion' : 'edit',
+  );
   const [busy, setBusy] = useState(false);
-  const [photosOpen, setPhotosOpen] = useState(false);
+  const [photosOpen, setPhotosOpen] = useNavigationState(`entry.${entry.inboxId}.photosOpen`, false);
   const links = [
     ...new Map(
       textLinks(text)
@@ -82,7 +87,7 @@ export function EntryDialog({
     if (busy || pending || baseEpoch !== serverEpoch) return;
     setBusy(true);
     try {
-      await client.saveEditor(entry.inboxId, text, baseRevision, baseEpoch);
+      await writeEditor(() => client.saveEditor(entry.inboxId, text, baseRevision, baseEpoch));
       const outcome = (await run(
         entry,
         'SetInboxEntryText',
@@ -163,8 +168,11 @@ export function EntryDialog({
             value={text}
             readOnly={!online || pending || entry.deletedAt !== null}
             onChange={(e) => {
-              setText(e.target.value);
-              void client.saveEditor(entry.inboxId, e.target.value, baseRevision, baseEpoch).catch(onError);
+              const next = e.target.value;
+              setText(next);
+              void writeEditor(() => client.saveEditor(entry.inboxId, next, baseRevision, baseEpoch)).catch(
+                onError,
+              );
             }}
             rows={8}
             maxLength={20000}
@@ -264,7 +272,11 @@ export function EntryDialog({
                 <p className="historical-text">
                   <LinkedText client={client} text={item.version.text || 'Photo entry'} />
                 </p>
-                <AttachmentGallery client={client} attachments={item.version.attachments} />
+                <AttachmentGallery
+                  navigationKey={`EntryDialog.${item.version.revision}`}
+                  client={client}
+                  attachments={item.version.attachments}
+                />
                 <div className="history-actions">
                   <button
                     onClick={() => {
