@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import {
   defaultAgendaLayout,
+  navigationSections,
   emptyRecipeFields,
   type CommandKind,
   type CommandOutcome,
@@ -433,6 +434,67 @@ test('view pins have their own revision and scope, preserve recipe revision/hist
     assert.deepEqual(f.db.pragma('foreign_key_check'), []);
   } finally {
     await service.app.close();
+    await f.close();
+  }
+});
+
+test('navigation order is private, validated, revision guarded and replayable without changing household data', async () => {
+  const f = await fixture();
+  try {
+    f.note();
+    const tables = ['records', 'record_changes', 'change_sets', 'clients', 'installation_state'];
+    const before = tables.map((table) => f.db.prepare(`SELECT * FROM ${table}`).all());
+    const order = [...navigationSections].reverse();
+    const args = { scopeId: f.privateScope, expectedViewRevision: 0, order };
+    rejected(f.run('SetNavigationOrder', { ...args, scopeId: f.shared }), 'private_view_required');
+    rejected(f.run('SetNavigationOrder', args, f.b), 'private_view_required');
+    const command = f.envelope(args);
+    const saved = applied(f.service.writes.execute(f.a, 'SetNavigationOrder', command));
+    assert.deepEqual(f.service.writes.execute(f.a, 'SetNavigationOrder', command), {
+      ...saved,
+      replayed: true,
+    });
+    assert.deepEqual(
+      f.views.snapshot(f.a).find((v) => v.kind === 'navigation'),
+      {
+        viewId: f.privateScope,
+        scopeId: f.privateScope,
+        kind: 'navigation',
+        revision: 1,
+        order,
+        pins: [],
+      },
+    );
+    assert.equal(
+      f.views.snapshot(f.b).some((v) => v.kind === 'navigation'),
+      false,
+    );
+    rejected(f.run('SetNavigationOrder', args), 'view_revision_conflict');
+    for (const invalid of [
+      order.slice(1),
+      [...order, 'inbox'],
+      order.map(() => 'inbox'),
+      [...order.slice(1), 'unknown'],
+    ]) {
+      rejected(
+        f.run('SetNavigationOrder', { ...args, expectedViewRevision: 1, order: invalid }),
+        'invalid_arguments',
+      );
+    }
+    f.db.exec(
+      `CREATE TRIGGER fail_navigation BEFORE UPDATE ON navigation_preferences BEGIN SELECT RAISE(ABORT,'test interruption'); END`,
+    );
+    const update = f.envelope({ ...args, expectedViewRevision: 1, order: [...navigationSections] });
+    assert.throws(() => f.service.writes.execute(f.a, 'SetNavigationOrder', update), /test interruption/);
+    assert.equal(f.views.snapshot(f.a).find((v) => v.kind === 'navigation')!.revision, 1);
+    f.db.exec('DROP TRIGGER fail_navigation');
+    applied(f.service.writes.execute(f.a, 'SetNavigationOrder', update));
+    assert.equal(f.views.snapshot(f.a).find((v) => v.kind === 'navigation')!.revision, 2);
+    assert.deepEqual(
+      tables.map((table) => f.db.prepare(`SELECT * FROM ${table}`).all()),
+      before,
+    );
+  } finally {
     await f.close();
   }
 });

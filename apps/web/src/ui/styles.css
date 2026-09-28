@@ -1589,3 +1589,11 @@ a {
 .capture > .photo-transfer-hint {
   padding-inline: 24px;
 }
+
+.navigation-order-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+}

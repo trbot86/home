@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   AgendaLayout,
+  NavigationOrder,
   agendaSectionKinds,
   isValid,
   type Command,
@@ -42,7 +43,7 @@ export class ViewPreferences {
         `SELECT v.* FROM saved_views v JOIN visibility_scopes s USING(scope_id) WHERE s.kind='shared' OR s.owner_person_id=? ORDER BY v.view_id`,
       )
       .all(context.personId) as ViewRow[];
-    return views.map((view) => ({
+    const saved: SavedView[] = views.map((view) => ({
       viewId: view.view_id,
       scopeId: view.scope_id,
       revision: view.revision,
@@ -53,14 +54,34 @@ export class ViewPreferences {
           : { kind: 'agenda' as const, layout: this.readLayout(view.layout_json) }),
       pins: this.pins(view.view_id),
     }));
+    const preferences = this.db
+      .prepare(
+        `SELECT p.* FROM navigation_preferences p JOIN visibility_scopes s USING(scope_id) WHERE s.kind='private' AND s.owner_person_id=?`,
+      )
+      .all(context.personId) as { scope_id: string; revision: number; order_json: string }[];
+    for (const row of preferences) {
+      const order: unknown = JSON.parse(row.order_json);
+      if (!isValid(NavigationOrder, order)) throw new Error('Stored navigation order is invalid');
+      saved.push({
+        viewId: row.scope_id,
+        scopeId: row.scope_id,
+        kind: 'navigation',
+        revision: row.revision,
+        order,
+        pins: [],
+      });
+    }
+    return saved;
   }
   commands(): CommandHandler {
     return {
-      kinds: ['SetRecordPin', 'SetViewPinOrder', 'SetAgendaLayout'],
+      kinds: ['SetNavigationOrder', 'SetRecordPin', 'SetViewPinOrder', 'SetAgendaLayout'],
       execute: (context, kind, payload) => {
         requireHuman(context);
         if (!this.db.inTransaction) throw new Error('Pins require a receipt transaction');
-        if (kind === 'SetAgendaLayout')
+        if (kind === 'SetNavigationOrder')
+          this.setNavigationOrder(context, payload as Command<'SetNavigationOrder'>['arguments']);
+        else if (kind === 'SetAgendaLayout')
           this.setAgendaLayout(context, payload as Command<'SetAgendaLayout'>['arguments']);
         else if (kind === 'SetRecordPin')
           this.setPin(context, payload as Command<'SetRecordPin'>['arguments']);
@@ -68,6 +89,19 @@ export class ViewPreferences {
         return { records: [], changes: [] };
       },
     };
+  }
+  private setNavigationOrder(context: HumanRequestContext, args: Command<'SetNavigationOrder'>['arguments']) {
+    if (!this.access.scopes(context).some((s) => s.scopeId === args.scopeId && s.kind === 'private'))
+      throw new Rejection('private_view_required');
+    const row = this.db
+      .prepare('SELECT revision FROM navigation_preferences WHERE scope_id=?')
+      .get(args.scopeId) as { revision: number } | undefined;
+    if ((row?.revision ?? 0) !== args.expectedViewRevision) throw new Rejection('view_revision_conflict');
+    this.db
+      .prepare(
+        `INSERT INTO navigation_preferences(scope_id, revision, order_json) VALUES (?,1,?) ON CONFLICT(scope_id) DO UPDATE SET revision=revision+1,order_json=excluded.order_json`,
+      )
+      .run(args.scopeId, JSON.stringify(args.order));
   }
   private readLayout(json: string | null | undefined) {
     const value: unknown = JSON.parse(json ?? 'null');
