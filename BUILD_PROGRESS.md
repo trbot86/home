@@ -455,3 +455,20 @@ preserved data through an in-place update and verified an offline photo reply
 across process restart, synchronization and viewing from the other profile.
 Physical phone installation remains a user step. See SUGGESTION_BRIDGE.md and
 SUGGESTION_WORKFLOW_PLAN.md for the execution and recovery boundaries.
+
+## Suggestion worker permissions and storage correction (2026-09-27)
+
+The initial worker's conversational rehearsal did not exercise a code write or
+commit. A real suggestion exposed a read-only Windows session and disabled
+approvals. The host now uses the current installed Codex app-server interface,
+explicitly verifies workspace-write and automatic review before starting work,
+and declines any approval that falls back to the unattended bridge. A real
+synthetic edit/test/commit rehearsal passed, including automatic approval for
+Git metadata writes. Runtime selection remains in ignored host configuration.
+
+The bridge retains at most three suggestion checkouts by default and shares a
+pnpm package cache. Clean idle checkouts can be recycled while retaining their
+branches; active, ambiguous and uncommitted work remains protected. Twelve
+isolated protocol, restart and worktree-retention tests pass. The Windows restart
+helper also handles a Node process surviving its scheduled PowerShell wrapper.
+These are host-worker changes; no household migration or Android update is needed.

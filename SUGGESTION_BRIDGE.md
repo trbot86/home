@@ -8,7 +8,7 @@ outbox. Add note records discussion only; Reply & continue work also requests
 another round. Replies arriving during a run remain queued for the next run.
 
 The development host runs `scripts/suggestion-bridge.mjs`. It uses the installed
-Codex executable's JSON event stream and structured final output. Each round
+Codex executable's local stdio app-server protocol and structured final output. Each round
 starts a fresh conversation with the saved discussion and questions; its Git
 worktree is reused across rounds of the same suggestion. This deliberately
 keeps recovery independent of a surviving desktop conversation. Questions and
@@ -31,6 +31,20 @@ existing work is reconciled. The Windows helper
 `scripts/setup-suggestion-bridge.ps1 -Start` registers an interactive-user
 scheduled task at logon; it uses the existing Codex account, without storing
 Windows account credentials. The host must be on and the user signed in.
+Use `scripts/setup-suggestion-bridge.ps1 -Restart` when updating the host code.
+It verifies and stops any surviving Node worker belonging to this exact
+script/configuration before starting the task again. Detached agent supervisors
+continue independently and are reconciled from their journals.
+
+Use the current installed Codex runtime (validated with 0.153.4), rather than a
+leftover executable from an older installation. The bridge explicitly requests
+`workspace-write`, `on-request` approvals and `auto_review`, and on Windows the
+`elevated` native sandbox. It verifies the effective settings returned by
+`thread/start` before sending the task. Automatic review happens inside Codex;
+the bridge declines any approval request that falls back to its unattended
+client. It never grants unrestricted execution. The initial `codex exec`
+launcher was inadequate: the older installed runtime forced `never` approvals,
+and ignoring its Windows configuration downgraded its filesystem to read-only.
 
 Worktree branches are `codex/suggestion-<id>` under the ignored state directory.
 Only the assigned suggestion and its attached images are supplied. Agents have
@@ -43,7 +57,7 @@ worker authority remains separate.
 An agent can implement, test and commit changes in its worktree. It must leave
 deployment, merging and pushing to coordinated review. Ready for review means
 the coding round finished; it does not claim a web deployment or Android update.
-Retain the worktree for review and future follow-ups. Check its source diff,
+Retain the branch for review and future follow-ups. Check its source diff,
 tests and public-source audit before integration, then follow AGENTS.md's live
 backup, migration and Android preservation rules.
 
@@ -75,6 +89,20 @@ The first runner is serial on this development host. It reports a start mileston
 and a structured result; it does not stream individual tools or private reasoning.
 There is no automatic merge, deployment, or forced interruption of active work.
 Local pending/rejected reply photos remain protected by the existing outbox.
+
+At most three suggestion worktrees are retained by default (`maxWorktrees`,
+configurable from 1 to 20). Before creating another, the bridge can remove an
+idle, clean checkout with only recognized build caches and its own copied
+inputs. It verifies its path, repository and exact branch first. Git commits
+and branches remain in the shared repository; a later follow-up recreates the
+checkout from that branch. Git history is not duplicated per checkout.
+Uncommitted source, unknown ignored files, active runs and uncertain/unpublished
+runs prevent recycling. If they occupy every slot, the request fails visibly
+without deleting work or creating another checkout. This caps checkout count,
+not total bytes: retained Git changes, journals and caches still use storage.
+Dependencies share one pnpm package store selected by `npm_config_store_dir`;
+agents must not copy SDKs into each worktree. Recycling does not delete the app's
+discussion or original attachments.
 
 Validation includes `pnpm test:suggestion-bridge`, the server suggestion tests,
 browser offline/reload tests, Android Room upgrade/recovery tests, an in-place

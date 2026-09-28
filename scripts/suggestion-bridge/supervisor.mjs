@@ -3,6 +3,7 @@ import { appendFileSync, openSync, closeSync, fsyncSync, readFileSync } from 'no
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createOnce, readJson, writeJson } from './journal.mjs';
+import { runCodexTurn } from './app-server.mjs';
 
 /** Detached from the polling bridge. Its journal remains inspectable across bridge restarts. */
 export async function supervise(directory) {
@@ -22,6 +23,11 @@ export async function supervise(directory) {
       closeSync(fd);
     }
   }
+  if (spec.transport === 'app-server') {
+    await writeJson(join(directory, 'terminal.json'), await runCodexTurn(spec, record));
+    return;
+  }
+  // Reconcile already-dispatched legacy runs without changing their launch contract.
   let sessionId = null,
     buffer = '',
     stderr = '',

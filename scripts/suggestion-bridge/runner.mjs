@@ -1,13 +1,10 @@
-import { spawn, execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { openSync, closeSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { alive, createOnce, readJson, writeJson, deliver } from './journal.mjs';
-const exec = promisify(execFile);
-const git = async (cwd, ...args) =>
-  (await exec('git', args, { cwd, windowsHide: true, maxBuffer: 2 * 1024 * 1024 })).stdout.trim();
+import { SuggestionWorktrees, WorktreeCapacityError } from './worktrees.mjs';
 const schema = resolve(import.meta.dirname, 'result.schema.json');
 const supervisor = resolve(import.meta.dirname, 'supervisor.mjs');
 const safeId = (value) => {
@@ -46,6 +43,8 @@ export function validateResult(value) {
 export function promptFor(run, imagePaths) {
   return `Work on this Our Place app suggestion in the current isolated Git worktree. The household app owns the discussion. You may use a fresh session: the supplied context is authoritative, including answered/resolved questions. Examine existing work before changing it. Never repeat a resolved question without a new reason.
 Follow AGENTS.md. Preserve live data. Do not access the live household database, credentials, private host configuration or unrelated household content. Use isolated tests. Do not send messages to external people, deploy, merge, push, reset data, change account configuration, or enable paid services. If work needs those actions or a product decision, record a question and stop with needs_input. Ordinary local implementation and meaningful source commits are authorized. Before committing run the public-source audit and inspect the staged manifest. Never commit supplied conversation or photos.
+This session has workspace-write and automatic approval review. If Git metadata, package download or a required local test needs escalation, request the scoped permission through the tool; do not assume approvals are disabled. npm_config_store_dir selects a shared dependency cache; retain that setting. Commit completed source work so an idle checkout can be recycled; its branch is retained. Do not copy SDKs or other large toolchains into each worktree.
+If an earlier question only requested a writable session, verify that the previously blocked actions now succeed and then mark that environment question resolved. No new product answer is needed for a repaired execution environment.
 Summarize concrete progress and test results. Ready means implemented and locally tested, awaiting coordinated review/integration/release; never claim deployment. Ask questions in your final structured result, with short choices when helpful. A later answer starts another round and can arrive after this process exits. Only include resolvedQuestionIds when the supplied answer was actually incorporated. Keep replies plain text suitable for the phone discussion. Your output must match the provided JSON schema.
 Run correlation: ${run.runId}
 Attached image files (already scoped to this suggestion): ${JSON.stringify(imagePaths)}
@@ -76,20 +75,7 @@ export class SuggestionRunner {
     );
   }
   async worktree(run) {
-    const directory = join(this.root, 'worktrees', safeId(run.suggestionId)),
-      branch = 'codex/suggestion-' + run.suggestionId;
-    await mkdir(join(this.root, 'worktrees'), { recursive: true });
-    if (!(await stat(directory).catch(() => null))) {
-      await git(this.config.repository, 'worktree', 'add', '-b', branch, directory, 'HEAD');
-    }
-    const common = resolve(directory, await git(directory, 'rev-parse', '--git-common-dir'));
-    const expected = resolve(
-      this.config.repository,
-      await git(this.config.repository, 'rev-parse', '--git-common-dir'),
-    );
-    if (common !== expected || (await git(directory, 'symbolic-ref', '--short', 'HEAD')) !== branch)
-      throw new Error('Worktree identity mismatch');
-    return directory;
+    return new SuggestionWorktrees(this.config).acquire(run.suggestionId);
   }
   async prepare(run) {
     const directory = this.directory(run),
@@ -130,6 +116,8 @@ export class SuggestionRunner {
     const promptPath = join(inputRoot, 'prompt.txt'),
       outputPath = join(directory, 'result.json');
     await writeFile(promptPath, promptFor(run, imagePaths), { mode: 0o600 });
+    const packageStore = join(this.root, 'package-store');
+    await mkdir(packageStore, { recursive: true });
     const spec = {
       nonce: randomUUID(),
       runId: run.runId,
@@ -137,20 +125,9 @@ export class SuggestionRunner {
       promptPath,
       outputPath,
       executable: this.config.codexExecutable,
-      arguments: [
-        'exec',
-        '--ignore-user-config',
-        '--sandbox',
-        'workspace-write',
-        '--json',
-        '--color',
-        'never',
-        '--output-schema',
-        schema,
-        '--output-last-message',
-        outputPath,
-        '-',
-      ],
+      transport: 'app-server',
+      schema,
+      packageStore,
     };
     await writeJson(join(directory, 'launch.json'), spec);
     return spec;
@@ -166,7 +143,9 @@ export class SuggestionRunner {
         sessionId: run.sessionId,
         turnId: run.turnId,
         issue:
-          'The development host could not prepare this work. No agent was launched; the request and diagnostic details are saved.',
+          error instanceof WorktreeCapacityError
+            ? error.message
+            : 'The development host could not prepare this work. No agent was launched; the request and diagnostic details are saved.',
       });
       return false;
     }
