@@ -233,3 +233,14 @@ test('batch preparation pins all inputs and runs the broad checks once after int
     await cleanup(root);
   }
 });
+
+test('host review exceptions are limited to the exact committed source and paths', () => {
+  const commit = 'a'.repeat(40),
+    paths = ['apps/web/package.json'];
+  const approvals = [{ sourceCommit: commit, paths }];
+  assert.equal(reviewPaths(['apps/web/test/example.test.tsx']), true);
+  assert.equal(reviewPaths(paths), false);
+  assert.equal(reviewPaths(paths, commit, approvals), true);
+  assert.equal(reviewPaths(paths, 'b'.repeat(40), approvals), false);
+  assert.equal(reviewPaths(['scripts/dev-host.mjs'], commit, approvals), false);
+});

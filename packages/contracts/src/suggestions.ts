@@ -53,7 +53,10 @@ type Header<K extends SuggestionKind> = {
 export type SuggestionWorkflow = Header<'suggestion_workflow'> &
   Static<typeof suggestionContentSchemas.suggestion_workflow>;
 export type SuggestionMessage = Header<'suggestion_message'> &
-  Static<typeof suggestionContentSchemas.suggestion_message> & { sequence: number };
+  Static<typeof suggestionContentSchemas.suggestion_message> & {
+    sequence: number;
+    steering?: 'pending' | 'accepted' | 'uncertain' | 'missed' | 'included';
+  };
 export type SuggestionRecord = SuggestionWorkflow | SuggestionMessage;
 export type SuggestionQuestion = {
   questionId: string;
@@ -69,6 +72,7 @@ export type SuggestionWork = {
   state: 'queued' | 'running' | 'needs_input' | 'ready' | 'failed' | 'uncertain' | 'cancelled';
   runId: string | null;
   issue: string | null;
+  liveSteering?: boolean;
 };
 export type SuggestionSnapshot = {
   workflows: SuggestionWorkflow[];

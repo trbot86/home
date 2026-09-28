@@ -4,8 +4,21 @@ The household database stores the discussion, current summary, questions,
 work requests and precisely which message revisions each agent run received.
 Phone replies use the existing Room outbox, including photos, frozen requests,
 receipts and restore recovery. Browser replies use the equivalent IndexedDB
-outbox. Add note records discussion only; Reply & continue work also requests
-another round. Replies arriving during a run remain queued for the next run.
+outbox. Add note records discussion without launching an idle agent. On a
+supporting active run it sends steering to that run; Reply & continue work
+explicitly requests another round instead. Ctrl+Enter steers while a supporting
+run is active, and requests work otherwise.
+
+The bridge polls scoped comments and delivers them through Codex `turn/steer`
+with the exact active turn ID. Photos are fetched through the existing scoped
+media grant and verified before delivery. A durable dispatch marker prevents
+blind retries after an ambiguous acknowledgement. Delivery labels distinguish
+waiting, accepted, uncertain and too late; accepted means Codex accepted the
+input, not a claim that the implementation satisfies it. Late or uncertain
+comments hold automatic release for another round. The final report checks for
+comments atomically, including those arriving after the supervisor closes.
+Comments on idle suggestions do not launch work. Runs launched before steering
+support retain their original behavior until the next round.
 
 The development host runs `scripts/suggestion-bridge.mjs`. It uses the installed
 Codex executable's local stdio app-server protocol and structured final output. Each round

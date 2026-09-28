@@ -172,3 +172,26 @@
 .suggestion-update-batch li {
   overflow-wrap: anywhere;
 }
+
+.suggestion-release-choices {
+  display: grid;
+  gap: 0.75rem;
+  margin-block: 1rem;
+}
+.suggestion-release-choices label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.suggestion-release-choices input {
+  flex: 0 0 auto;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-top: 0.2rem;
+}
+.suggestion-release-choices small {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+}

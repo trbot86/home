@@ -19,12 +19,20 @@ export function releaseIdentity(job) {
     if (!/^[a-f0-9-]{36}$/.test(value)) throw new ReleaseCheckError('Invalid release identity.');
   return job;
 }
-export function reviewPaths(paths) {
+export function reviewPaths(paths, sourceCommit, approvals = []) {
   return paths.every(
     (p) =>
-      /^(?:apps\/web\/(?:src|public)\/|apps\/server\/(?:src|test|migrations)\/|apps\/android\/app\/src\/|packages\/(?:contracts|client)\/|tests\/|scripts\/verify-[\w-]+\.mjs$)/.test(
+      /^(?:apps\/web\/(?:src|public|test)\/|apps\/server\/(?:src|test|migrations)\/|apps\/android\/app\/src\/|packages\/(?:contracts|client)\/|tests\/|scripts\/verify-[\w-]+\.mjs$)/.test(
         p,
-      ) || /^[A-Z_]+\.md$/.test(p),
+      ) ||
+      /^[A-Z_]+\.md$/.test(p) ||
+      approvals.some(
+        (a) =>
+          a.sourceCommit === sourceCommit &&
+          /^[a-f0-9]{40}$/.test(a.sourceCommit) &&
+          Array.isArray(a.paths) &&
+          a.paths.includes(p),
+      ),
   );
 }
 export class ReleaseExecutor {
@@ -48,7 +56,9 @@ export class ReleaseExecutor {
       return out.stdout.trim();
     } catch (e) {
       await appendFile(this.log, (e.stdout || '') + (e.stderr || '') + '\n' + e.message + '\n');
-      throw new Error('A release command failed; diagnostic output was retained on the development host.');
+      throw new ReleaseCheckError(
+        `${this.phase || 'Release preparation'} failed. Nothing further was run. Diagnostic output was retained on the development host.`,
+      );
     }
   }
   git(...args) {
@@ -156,12 +166,14 @@ export class ReleaseExecutor {
         throw new ReleaseCheckError(
           'A suggestion has no new committed source changes. The batch needs review.',
         );
-      if (!reviewPaths(changed))
+      const approvals = (await readJson(join(this.root, 'reviewed-changes.json'))) || [];
+      if (!Array.isArray(approvals) || !reviewPaths(changed, sourceCommit, approvals))
         throw new ReleaseCheckError(
           'A suggestion changes build or host configuration. The batch needs coordinated developer review.',
         );
       sources.push({ suggestionId: member.suggestionId, runId: member.runId, sourceCommit });
     }
+    this.phase = 'Integration';
     await this.workspace(baseCommit);
     for (const source of sources) {
       try {
@@ -179,6 +191,7 @@ export class ReleaseExecutor {
       this.cwd,
     );
     const candidateCommit = await this.treeGit('rev-parse', 'HEAD');
+    this.phase = 'Server build and package tests';
     // Docker build runs the server, contracts, client and Alexa tests in isolated databases.
     await this.docker(
       'build',
@@ -208,15 +221,19 @@ export class ReleaseExecutor {
     if (!this.config.pnpmEntry)
       throw new ReleaseCheckError('The release host needs its package-manager path configured.');
     const pnpm = (...args) => this.run(process.execPath, [this.config.pnpmEntry, ...args], this.cwd);
+    this.phase = 'Dependency installation';
     await pnpm('install', '--frozen-lockfile');
+    this.phase = 'Type and architecture checks';
     await pnpm('-r', 'typecheck');
     await this.run(process.execPath, ['scripts/check-boundaries.mjs'], this.cwd);
+    this.phase = 'Web build';
     await pnpm('--filter', '@our-place/web', 'build');
     await this.run(
       process.execPath,
       ['node_modules/@capacitor/cli/bin/capacitor', 'sync', 'android'],
       this.cwd,
     );
+    this.phase = 'Android build and tests';
     // Use the shared SDK, Gradle cache and original signing identity, never copies per suggestion.
     const host = await readJson(join(this.repo, '.local/phone-trial/host.json'));
     await this.run('powershell.exe', [
@@ -229,6 +246,7 @@ export class ReleaseExecutor {
       '-ServerOrigin',
       host.origin,
     ]);
+    this.phase = 'Browser regression tests';
     await this.run(process.execPath, ['node_modules/@playwright/test/cli.js', 'test'], this.cwd, {
       ...this.env,
       OUR_PLACE_BROWSER_CACHE: join(this.repo, '.cache/playwright'),

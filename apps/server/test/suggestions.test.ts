@@ -19,6 +19,71 @@ function applied(outcome: CommandOutcome) {
   if (outcome.status !== 'Applied') throw new Error();
   return outcome;
 }
+
+test('live steering freezes scoped comments, acknowledges delivery, and blocks release on a late comment', async () => {
+  const f = await suggestionFixture();
+  try {
+    const credentials = provisionSuggestionAgent(f.db, 'Test agent', f.now());
+    const agent = authenticateSuggestionAgent(f.db, credentials.secret),
+      work = f.service.suggestionWork;
+    const id = f.suggestion(),
+      other = f.suggestion(f.privateScope);
+    applied(f.run('PostSuggestionMessage', f.reply(id, true)));
+    const run = work.claim(agent, randomUUID(), 'fixture-epoch').run!;
+    const comment = f.reply(id),
+      followup = f.reply(id, true),
+      privateComment = f.reply(other, false, f.privateScope);
+    applied(f.run('PostSuggestionMessage', comment, f.b));
+    applied(f.run('PostSuggestionMessage', followup));
+    applied(f.run('PostSuggestionMessage', privateComment));
+    const poll = (
+      updates: { messageId: string; state: 'accepted' | 'missed' | 'uncertain' }[] = [],
+      finish = false,
+    ) => work.steering(agent, run.runId, run.leaseToken, 'fixture-epoch', updates, finish);
+    assert.deepEqual(
+      poll().messages.map((m) => m.recordId),
+      [comment.recordId],
+    );
+    assert.deepEqual(
+      poll().messages.map((m) => m.recordId),
+      [comment.recordId],
+    );
+    assert.throws(
+      () => poll([{ messageId: privateComment.recordId, state: 'accepted' }]),
+      /steering_message_not_supplied/,
+    );
+    assert.throws(() => work.steering(agent, run.runId, randomUUID(), 'fixture-epoch'));
+    assert.throws(() => work.steering(agent, run.runId, run.leaseToken, 'wrong-epoch'));
+    const ack = [{ messageId: comment.recordId, state: 'accepted' as const }];
+    assert.deepEqual(poll(ack).messages, []);
+    assert.deepEqual(poll(ack).messages, []);
+    assert.equal(
+      f.features.suggestions.messages(f.b, id).find((m) => m.recordId === comment.recordId)!.steering,
+      'accepted',
+    );
+    assert.throws(() => poll([{ messageId: comment.recordId, state: 'missed' }]));
+    poll([], true);
+    // Arrives after the supervisor's final drain but before publication.
+    const late = f.reply(id);
+    applied(f.run('PostSuggestionMessage', late));
+    work.report(agent, run.leaseToken, {
+      reportId: randomUUID(),
+      runId: run.runId,
+      expectedServerEpoch: 'fixture-epoch',
+      status: 'ready',
+      summary: 'Code is ready',
+      messages: [],
+      resolvedQuestionIds: [],
+    });
+    const view = f.features.suggestions.snapshot(f.a);
+    assert.equal(view.workflows.find((w) => w.suggestionId === id)!.status, 'needs_input');
+    assert.equal(view.messages.find((m) => m.recordId === late.recordId)!.steering, 'missed');
+    assert.equal(view.work.filter((w) => w.state === 'queued').length, 1);
+    assert.throws(() => f.features.suggestions.messages(f.b, other));
+  } finally {
+    await f.close();
+  }
+});
 test('022 preserves existing rows and recipe-worker identity, including rollback of its referenced-table rebuild', async () => {
   const f = await integrationFixture();
   try {

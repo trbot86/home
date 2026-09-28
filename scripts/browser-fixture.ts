@@ -146,6 +146,14 @@ async function close() {
 // Test-only control listener, separate from the application; avoids Windows process-tree termination.
 let releaseFixture:
   { agent: ReturnType<typeof authenticateSuggestionAgent>; suggestionId: string } | undefined;
+let steeringFixture:
+  | {
+      agent: ReturnType<typeof authenticateSuggestionAgent>;
+      runId: string;
+      leaseToken: string;
+      epoch: string;
+    }
+  | undefined;
 const control = createServer((request, response) => {
   const token = process.env['OUR_PLACE_TEST_TOKEN'];
   if (!token || request.method !== 'POST' || request.headers['x-test-token'] !== token) {
@@ -188,11 +196,6 @@ const control = createServer((request, response) => {
       if (!releaseFixture) throw new Error();
       const epoch = installation(db).recovery_epoch,
         agent = releaseFixture.agent;
-      // Test-only clock aging: no real host or live database is connected here.
-      db.prepare("UPDATE suggestion_runs SET updated_at=? WHERE agent_id=? AND state='ready'").run(
-        Date.now() - 31_000,
-        agent.agentId,
-      );
       let job = suggestionRelease.pending(agent, epoch)!;
       if (!job.members?.some((m) => m.suggestionId === releaseFixture!.suggestionId)) throw new Error();
       job = suggestionRelease.update(agent, {
@@ -226,9 +229,27 @@ const control = createServer((request, response) => {
     }
     return;
   }
+  if (request.url === '/deliver-synthetic-steering') {
+    try {
+      if (!steeringFixture) throw new Error();
+      const { agent, runId, leaseToken, epoch } = steeringFixture;
+      const feed = suggestionWork.steering(agent, runId, leaseToken, epoch);
+      suggestionWork.steering(
+        agent,
+        runId,
+        leaseToken,
+        epoch,
+        feed.messages.map((m) => ({ messageId: m.recordId, state: 'accepted' })),
+      );
+      response.writeHead(200).end('ok');
+    } catch {
+      response.writeHead(500).end();
+    }
+    return;
+  }
   if (
-    request.url === '/suggestion-question' ||
     request.url === '/suggestion-working' ||
+    request.url === '/suggestion-question' ||
     request.url === '/suggestion-ready' ||
     request.url === '/suggestion-ready-same-agent'
   ) {
@@ -265,11 +286,23 @@ const control = createServer((request, response) => {
             ? releaseFixture.agent
             : authenticateSuggestionAgent(db, credentials.secret),
         run = suggestionWork.claim(agent, randomUUID(), epoch).run!;
+      const ready = request.url !== '/suggestion-question';
       if (request.url === '/suggestion-working') {
+        steeringFixture = { agent, runId: run.runId, leaseToken: run.leaseToken, epoch };
+        suggestionWork.steering(agent, run.runId, run.leaseToken, epoch);
+        suggestionWork.report(agent, run.leaseToken, {
+          reportId: randomUUID(),
+          expectedServerEpoch: epoch,
+          runId: run.runId,
+          status: 'working',
+          summary: 'Working on the synthetic suggestion',
+          messages: [],
+          resolvedQuestionIds: [],
+        });
+        access.logout(actor);
         response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ text }));
         return;
       }
-      const ready = request.url !== '/suggestion-question';
       if (ready) releaseFixture = { agent, suggestionId };
       suggestionWork.report(agent, run.leaseToken, {
         reportId: randomUUID(),

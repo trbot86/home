@@ -42,6 +42,10 @@ export type SuggestionRelease = {
   updatedAt: number;
 };
 export const suggestionReleaseCommands = {
+  PrepareSuggestionBatch: object({
+    releaseId: Id,
+    members: Type.Array(SuggestionReleaseMember, { minItems: 1, maxItems: 20, uniqueItems: true }),
+  }),
   PrepareSuggestionRelease: object({ releaseId: Id, suggestionId: Id, runId: Id }),
   DeploySuggestionRelease: object({ releaseId: Id, manifestDigest: hash }),
   CancelSuggestionRelease: object({ releaseId: Id }),

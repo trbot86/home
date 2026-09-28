@@ -58,6 +58,11 @@ export class SuggestionAgentWork {
     const permitted = [
       ...context.original.attachments,
       ...context.messages.flatMap((m) => m.attachments),
+      ...(
+        this.db.prepare('SELECT message_json FROM suggestion_steering WHERE run_id=?').all(runId) as {
+          message_json: string;
+        }[]
+      ).flatMap((r) => (JSON.parse(r.message_json) as SuggestionMessage).attachments),
     ].find((a) => a.mediaId === mediaId);
     if (!permitted) throw new Rejection('media_not_supplied');
     const media = this.db
@@ -260,6 +265,85 @@ export class SuggestionAgentWork {
       return { leaseUntil: this.now() + leaseDuration };
     });
   }
+  steering(
+    agent: SuggestionAgent,
+    runId: string,
+    leaseToken: string,
+    epoch: string,
+    updates: { messageId: string; state: 'accepted' | 'uncertain' | 'missed' }[] = [],
+    finish = false,
+  ) {
+    return immediate(this.db, () => this.steeringLocked(agent, runId, leaseToken, epoch, updates, finish));
+  }
+  private steeringLocked(
+    agent: SuggestionAgent,
+    runId: string,
+    leaseToken: string,
+    epoch: string,
+    updates: { messageId: string; state: 'accepted' | 'uncertain' | 'missed' }[],
+    finish: boolean,
+  ) {
+    if (epoch !== installation(this.db).recovery_epoch) throw new Rejection('recovery_required');
+    const worker = this.worker(agent, runId, leaseToken),
+      now = this.now();
+    const grant = requireSuggestionRun(this.db, worker, now);
+    // The initial snapshot is immutable. Only ordinary comments after its boundary
+    // steer this turn; explicitly requested follow-ups retain their next-round semantics.
+    const context = this.project(this.row(agent, runId)).context;
+    this.db
+      .prepare('UPDATE suggestion_runs SET context_json=? WHERE run_id=?')
+      .run(JSON.stringify({ ...context, liveSteering: true }), runId);
+    const initial = context.messages;
+    const boundary = Math.max(0, ...initial.map((m) => m.sequence));
+    const fresh = this.db
+      .prepare(
+        `SELECT m.message_id FROM suggestion_messages m JOIN records r ON r.record_id=m.message_id
+        WHERE m.suggestion_id=? AND m.sequence>? AND m.author_person_id IS NOT NULL AND m.message_type='note'
+        AND r.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM suggestion_work_requests q WHERE q.request_id=m.message_id)
+        AND NOT EXISTS(SELECT 1 FROM suggestion_steering s WHERE s.run_id=? AND s.message_id=m.message_id)
+        ORDER BY m.sequence`,
+      )
+      .all(grant.suggestion_id, boundary, runId) as { message_id: string }[];
+    for (const row of fresh) {
+      const message = this.repository.project(
+        this.repository.getForRun(worker, row.message_id, now),
+      ) as SuggestionMessage;
+      this.db
+        .prepare('INSERT INTO suggestion_steering VALUES (?,?,?,?,?,?)')
+        .run(runId, message.recordId, message.revision, JSON.stringify(message), 'pending', now);
+      // Pin the exact version once supplied to the host. Delivery is tracked separately.
+      this.db
+        .prepare('INSERT OR IGNORE INTO suggestion_run_inputs VALUES (?,?,?,?,?)')
+        .run(runId, message.recordId, message.revision, grant.suggestion_id, grant.scope_id);
+    }
+    for (const update of updates) {
+      const old = this.db
+        .prepare('SELECT state FROM suggestion_steering WHERE run_id=? AND message_id=?')
+        .get(runId, update.messageId) as { state: string } | undefined;
+      if (!old) throw new Rejection('steering_message_not_supplied');
+      if (old.state !== 'pending' && old.state !== update.state)
+        throw new Rejection('steering_delivery_already_recorded');
+      if (old.state === update.state) continue;
+      this.db
+        .prepare('UPDATE suggestion_steering SET state=?,updated_at=? WHERE run_id=? AND message_id=?')
+        .run(update.state, now, runId, update.messageId);
+    }
+    if (finish)
+      this.db
+        .prepare(
+          "UPDATE suggestion_steering SET state='missed',updated_at=? WHERE run_id=? AND state='pending'",
+        )
+        .run(now, runId);
+    return {
+      messages: (
+        this.db
+          .prepare(
+            "SELECT message_json FROM suggestion_steering WHERE run_id=? AND state='pending' ORDER BY rowid",
+          )
+          .all(runId) as { message_json: string }[]
+      ).map((r) => JSON.parse(r.message_json) as SuggestionMessage),
+    };
+  }
   transition(agent: SuggestionAgent, args: SuggestionAgentTransition): { run: SuggestionRun } {
     return this.receipt(agent, 'transition', args.operationId, args.expectedServerEpoch, args, () => {
       const now = this.now(),
@@ -305,9 +389,24 @@ export class SuggestionAgentWork {
         .get(grant.suggestion_id) as { workflow_id: string };
       const before = this.repository.getForRun(worker, workflow.workflow_id, now),
         changes: RecordChange[] = [];
+      if (
+        report.status !== 'working' &&
+        (JSON.parse(this.row(agent, report.runId).context_json) as { liveSteering?: boolean }).liveSteering
+      )
+        this.steeringLocked(agent, report.runId, leaseToken, report.expectedServerEpoch, [], true);
+      const undelivered =
+        report.status !== 'working' &&
+        this.db
+          .prepare("SELECT 1 FROM suggestion_steering WHERE run_id=? AND state<>'accepted' LIMIT 1")
+          .get(report.runId);
+      const status = undelivered ? 'needs_input' : report.status;
+      const summary = undelivered
+        ? report.summary.slice(0, 19000) +
+          '\nSome discussion comments were not confirmed as delivered to this run. Review them and request another round before release.'
+        : report.summary;
       this.db
         .prepare('UPDATE suggestion_workflows SET summary=?,status=? WHERE workflow_id=?')
-        .run(report.summary, report.status, workflow.workflow_id);
+        .run(summary, status, workflow.workflow_id);
       this.db
         .prepare('UPDATE records SET revision=revision+1,updated_at=? WHERE record_id=?')
         .run(now, workflow.workflow_id);
@@ -363,10 +462,10 @@ export class SuggestionAgentWork {
       if (report.status !== 'working') {
         this.db
           .prepare('UPDATE suggestion_runs SET state=?,updated_at=? WHERE run_id=?')
-          .run(report.status, now, report.runId);
+          .run(status, now, report.runId);
         this.db
           .prepare('UPDATE suggestion_work_requests SET state=? WHERE run_id=?')
-          .run(report.status, report.runId);
+          .run(status, report.runId);
       }
       return { changeSetId };
     });

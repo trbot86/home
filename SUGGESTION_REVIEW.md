@@ -51,3 +51,18 @@ See RECIPE_IMPLEMENTATION.md for tests and remaining work.
   available. Verified with real KEYCODE_BACK events in the isolated AOSP35 emulator
   using `scripts/verify-android-back.mjs`; the updated APK is published. The original
   suggestion and its history remain accessible. Actual-phone confirmation is pending.
+
+## Selected releases
+
+The App suggestions list shows a Ready for update selector. Select up to 20
+ready implementations with the same visibility, then Prepare selected. Host
+polling does not choose suggestions automatically. Preparation freezes run IDs,
+merges their committed branches in one reusable release worktree, and runs the
+combined release checks. Deploy update is available only for that tested candidate.
+Failed or cancelled inputs may be selected again; already released runs cannot.
+
+Build and host configuration changes still require developer review. After
+reviewing the actual diff, a developer may record exact source commits and paths
+in ignored `.local/suggestion-bridge/releases/reviewed-changes.json`, an array of
+`{ "sourceCommit": "<full commit>", "paths": ["<reviewed source path>"] }`.
+Exceptions do not apply to later commits or other paths, and never skip tests.

@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import {
   suggestionReleaseCommands,
   type Command,
@@ -146,58 +146,46 @@ export class SuggestionReleases {
         .run(releaseId, m.suggestionId, m.runId, i),
     );
   }
-  /** Authenticated host polling schedules once per finished run, never on a browser read. */
-  private schedule(agent: SuggestionAgent, epoch: string) {
-    if (this.db.prepare(`SELECT 1 FROM suggestion_releases WHERE state IN ${active}`).get()) return;
-    const candidates = this.db
-      .prepare(
-        `SELECT r.run_id AS runId,r.suggestion_id AS suggestionId,r.scope_id AS scopeId,r.updated_at AS finishedAt,
-      (SELECT requested_by FROM suggestion_work_requests WHERE run_id=r.run_id ORDER BY requested_at LIMIT 1) AS personId
-      FROM suggestion_runs r JOIN suggestion_workflows w USING(suggestion_id)
-      JOIN records p ON p.record_id=r.suggestion_id JOIN inbox_entries i ON i.inbox_id=r.suggestion_id
-      WHERE r.state='ready' AND r.agent_id=? AND r.server_epoch=? AND w.completed_at IS NULL
-      AND p.deleted_at IS NULL AND i.category='app_suggestion'
-      AND r.run_id=(SELECT run_id FROM suggestion_runs WHERE suggestion_id=r.suggestion_id ORDER BY created_at DESC,rowid DESC LIMIT 1)
-      AND NOT EXISTS(SELECT 1 FROM suggestion_work_requests WHERE suggestion_id=r.suggestion_id AND state IN ('queued','running','uncertain'))
-      AND NOT EXISTS(SELECT 1 FROM suggestion_release_members WHERE run_id=r.run_id)
-      ORDER BY r.updated_at,r.run_id`,
-      )
-      .all(agent.agentId, epoch) as {
-      runId: string;
-      suggestionId: string;
-      scopeId: string;
-      finishedAt: number;
-      personId: string;
-    }[];
-    const first = candidates[0];
-    if (!first) return;
-    // A batch never mixes visibility scopes. Quiet for 30s, with a 2-minute upper bound.
-    const batch = candidates.filter((c) => c.scopeId === first.scopeId).slice(0, 20);
-    const now = this.now();
-    if (now - Math.max(...batch.map((c) => c.finishedAt)) < 30_000 && now - first.finishedAt < 120_000)
-      return;
-    const releaseId = randomUUID();
-    this.enqueue(releaseId, batch, first.personId, now);
-    this.db
-      .prepare('UPDATE suggestion_releases SET agent_id=? WHERE release_id=?')
-      .run(agent.agentId, releaseId);
-  }
   commands(): CommandHandler {
     return {
       kinds: Object.keys(suggestionReleaseCommands) as (keyof typeof suggestionReleaseCommands)[],
       execute: (context, kind, payload, now): RecordMutation => {
-        if (kind === 'PrepareSuggestionRelease') {
-          const a = payload as Command<'PrepareSuggestionRelease'>['arguments'];
-          this.visible(context, a.suggestionId);
-          this.eligible(a.suggestionId, a.runId);
+        if (kind === 'PrepareSuggestionRelease' || kind === 'PrepareSuggestionBatch') {
+          const a = payload as Command<'PrepareSuggestionBatch'>['arguments'] &
+            Command<'PrepareSuggestionRelease'>['arguments'];
+          const batch =
+            kind === 'PrepareSuggestionBatch'
+              ? a.members
+              : [{ suggestionId: a.suggestionId, runId: a.runId }];
+          if (new Set(batch.map((m) => m.suggestionId)).size !== batch.length)
+            throw new Rejection('duplicate_suggestion');
+          const epoch = installation(this.db).recovery_epoch;
+          let owner: { scope_id: string; agent_id: string } | undefined;
+          for (const m of batch) {
+            this.visible(context, m.suggestionId);
+            this.eligible(m.suggestionId, m.runId);
+            const run = this.db
+              .prepare('SELECT scope_id,agent_id,server_epoch FROM suggestion_runs WHERE run_id=?')
+              .get(m.runId) as { scope_id: string; agent_id: string; server_epoch: string };
+            if (run.server_epoch !== epoch) throw new Rejection('recovery_required');
+            if (owner && (owner.scope_id !== run.scope_id || owner.agent_id !== run.agent_id))
+              throw new Rejection('select_suggestions_from_same_scope_and_host');
+            if (
+              this.db
+                .prepare(
+                  "SELECT 1 FROM suggestion_release_members m JOIN suggestion_releases r USING(release_id) WHERE m.run_id=? AND r.state='released'",
+                )
+                .get(m.runId)
+            )
+              throw new Rejection('suggestion_already_released');
+            owner = run;
+          }
           if (this.db.prepare(`SELECT 1 FROM suggestion_releases WHERE state IN ${active}`).get())
             throw new Rejection('another_release_in_progress');
-          this.enqueue(
-            a.releaseId,
-            [{ suggestionId: a.suggestionId, runId: a.runId }],
-            context.personId,
-            now,
-          );
+          this.enqueue(a.releaseId, batch, context.personId, now);
+          this.db
+            .prepare('UPDATE suggestion_releases SET agent_id=? WHERE release_id=?')
+            .run(owner!.agent_id, a.releaseId);
         } else {
           const a = payload as Command<'DeploySuggestionRelease'>['arguments'];
           const row = this.db
@@ -243,7 +231,6 @@ export class SuggestionReleases {
   pending(agent: SuggestionAgent, epoch: string): SuggestionRelease | null {
     requireSuggestionAgent(this.db, agent);
     if (epoch !== installation(this.db).recovery_epoch) throw new Rejection('recovery_required');
-    immediate(this.db, () => this.schedule(agent, epoch));
     const row = this.db.prepare(`SELECT * FROM suggestion_releases WHERE state IN ${active}`).get() as
       Row | undefined;
     if (!row || (row.agent_id && row.agent_id !== agent.agentId)) return null;

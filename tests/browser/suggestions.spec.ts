@@ -23,6 +23,34 @@ test('working suggestions have a blue card at phone width and retain it after re
   await expect(card).toHaveCSS('background-color', 'rgb(47, 61, 73)');
 });
 
+test('discussion notes steer active work and show acknowledged delivery without queuing a new round', async ({
+  page,
+  request,
+}) => {
+  const headers = { 'x-test-token': process.env['OUR_PLACE_TEST_TOKEN']! };
+  const seeded = await request.post('http://127.0.0.1:4174/suggestion-working', { headers });
+  expect(seeded.ok()).toBe(true);
+  const { text } = await seeded.json();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Alex', exact: true }).click();
+  await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  await page.locator('.entry-card').filter({ hasText: text }).locator('.entry-text').click();
+  const discussion = page.getByRole('region', { name: 'Suggestion discussion' });
+  await expect(discussion.getByRole('button', { name: 'Send to working agent', exact: true })).toBeVisible();
+  await discussion.getByLabel('Add a follow-up').fill('Please use the green layout');
+  await discussion.getByLabel('Add a follow-up').press('Control+Enter');
+  await expect(
+    discussion.locator('.suggestion-timeline').getByText('Please use the green layout', { exact: true }),
+  ).toBeVisible();
+  expect((await request.post('http://127.0.0.1:4174/deliver-synthetic-steering', { headers })).ok()).toBe(
+    true,
+  );
+  await expect(discussion.getByText('Delivered to the working agent', { exact: true })).toBeVisible({
+    timeout: 20000,
+  });
+  await expect(discussion.getByText('Queued', { exact: true })).toHaveCount(0);
+});
+
 test('completed suggestions stay behind their filter, retain discussion offline and can be reopened', async ({
   page,
   request,
@@ -142,7 +170,7 @@ test('obsolete questions leave the active list and remain in discussion history'
   await expect(page.getByText('Marked this question as no longer relevant.', { exact: true })).toBeVisible();
 });
 
-test('one batch panel automatically prepares several suggestions and deploys only the tested candidate', async ({
+test('one batch panel prepares selected suggestions and deploys only the tested candidate', async ({
   page,
   request,
 }) => {
@@ -159,6 +187,10 @@ test('one batch panel automatically prepares several suggestions and deploys onl
   const card = page.locator('.entry-card').filter({ hasText: text });
   await expect(page.getByRole('button', { name: 'Prepare release', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Deploy update' })).toHaveCount(0);
+  await page.getByRole('checkbox', { name: text, exact: true }).check();
+  await page.getByRole('checkbox', { name: secondText, exact: true }).check();
+  await page.getByRole('button', { name: 'Prepare selected (2)', exact: true }).click();
+  await expect(page.getByRole('heading', { name: /^App update.*2 suggestions$/ })).toBeVisible();
   expect((await request.post('http://127.0.0.1:4174/prepare-synthetic-release', { headers })).ok()).toBe(
     true,
   );
@@ -181,7 +213,7 @@ test('one batch panel automatically prepares several suggestions and deploys onl
   await expect(page.getByRole('button', { name: 'Deploy update' })).toHaveCount(0);
   // No host worker is connected to this isolated fixture. Cancel the still-queued deployment.
   await panel.getByRole('button', { name: 'Cancel release', exact: true }).click();
-  await expect(panel).toHaveCount(0);
+  await expect(panel.getByRole('heading')).toHaveText('Ready for update');
   await card.locator('.entry-text').click();
   await expect(page.getByRole('button', { name: 'Retry update checks', exact: true })).toBeVisible();
 });
