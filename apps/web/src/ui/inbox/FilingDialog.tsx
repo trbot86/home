@@ -244,8 +244,7 @@ export function FilingDialog({
         The original note and photos stay saved in Filed. New items keep the same visibility, with a link back
         to this capture.
       </p>
-      <details open>
-        <summary>Get filing suggestions</summary>
+      <div>
         {filingOf(entry).filedAt === null && (
           <FilingSuggestions
             onSettings={() => void buffer.flush().then(onSettings).catch(onError)}
@@ -254,7 +253,10 @@ export function FilingDialog({
             state={state}
             entry={entry}
             disabled={!buffer.ready || busy || pending || stale}
-            choose={(choice) => {
+            run={run}
+            done={() => void finish()}
+            choose={(choice, preserveDraft) => {
+              if (preserveDraft) return;
               if (choice.kind === 'existing') {
                 buffer.field('mode', 'existing');
                 buffer.field('targetId', choice.recordId);
@@ -269,7 +271,7 @@ export function FilingDialog({
             }}
           />
         )}
-      </details>
+      </div>
       <details>
         <summary>Original capture</summary>
         <p className="filing-original">{entry.text || 'Photo note'}</p>

@@ -229,7 +229,7 @@ test('bounded provider input excludes media, source metadata, page bodies and ID
     assert.equal(result?.state, 'complete');
     assert.equal(result?.choices.length, 2);
     assert.deepEqual(Object.keys(input!), ['instruction', 'text', 'choices']);
-    assert.deepEqual(input!.choices.at(-1), { key: '3', label: 'Synthetic project' });
+    assert.deepEqual(input!.choices.at(-1), { key: '3', label: 'Project: Synthetic project' });
     assert.ok(!JSON.stringify(input).includes(target));
     assert.ok(!JSON.stringify(input).includes('Do not export'));
     assert.deepEqual(f.snapshot(), before);
@@ -390,7 +390,7 @@ test('automatic worker discovers scoped destinations, processes one item per tic
       second = f.note(),
       hidden = f.note(f.privateScope);
     f.note(f.shared, 'app_suggestion');
-    f.project();
+    const target = f.project();
     f.project(f.privateScope);
     const worker = f.service.filingAdviceWorker;
     assert.equal(await worker.tick(), false);
@@ -413,6 +413,8 @@ test('automatic worker discovers scoped destinations, processes one item per tic
     assert.deepEqual(snapshot.entries.find((e: any) => e.inboxId === first.inboxId).filingAdvice, {
       state: 'complete',
       count: 1,
+      attempt: 1,
+      choices: [{ kind: 'existing', recordId: target, revision: 1 }],
     });
     f.db.prepare('UPDATE records SET revision=revision+1 WHERE record_id=?').run(second.inboxId);
     assert.equal(await worker.tick(), false);
@@ -461,7 +463,7 @@ test('automatic discovery truncates a long valid destination label without consu
       preferences: { enabled: true, automatic: true, scopeIds: [f.shared], destinationTitles: true },
     });
     assert.equal(await f.service.filingAdviceWorker.tick(), true);
-    assert.equal(received!.choices[3]!.label, title.slice(0, 200));
+    assert.equal(received!.choices[3]!.label, ('Project: ' + title).slice(0, 200));
     assert.equal(f.records.get(f.a, target).content.title, title);
     const review = f.advice(async () => []).review(f.a, n.inboxId);
     assert.equal(review?.state, 'complete');
@@ -611,7 +613,7 @@ test('Secure project protects nested pages and filed notes; own flags and safe s
     await service.suggest(f.a, source.inboxId, 1, [childId, safe]);
     assert.deepEqual(
       input!.choices.map((c) => c.label),
-      ['tasks', 'shopping', 'projects', 'Synthetic project'],
+      ['tasks', 'shopping', 'projects', 'Project: Synthetic project'],
     );
     assert.equal(service.review(f.a, source.inboxId)?.state, 'complete');
     await assert.rejects(service.suggest(f.a, n.inboxId, 3), /secure_record_excluded/);
@@ -699,6 +701,45 @@ test('Secure changes invalidate saved and in-flight advice even when toggled off
     assert.equal(saved.review(f.a, n.inboxId)?.state, 'stale');
     await f.api(path, { secure: false, expectedRevision: 3, expectedServerEpoch: 'fixture-epoch' });
     assert.deepEqual(saved.review(f.a, n.inboxId)?.choices, []);
+  } finally {
+    await f.close();
+  }
+});
+
+test('manual discovery includes bounded permitted titles and excludes other scopes and Secure records', async () => {
+  let received: FilingAdviceInput | undefined;
+  const f = await fixture(async (input) => {
+    received = input;
+    return ['1'];
+  });
+  try {
+    f.project(f.privateScope, 'Private excluded destination');
+    const secure = f.project(f.shared, 'Secure excluded destination');
+    f.db.prepare('INSERT INTO record_security VALUES (?,1,1)').run(secure);
+    for (let i = 0; i < 25; i++) f.project(f.shared, 'Allowed destination ' + i);
+    const n = f.note();
+    await f.api('/api/filing-advice/settings', {
+      expectedRevision: 0,
+      preferences: { enabled: true, automatic: false, scopeIds: [f.shared], destinationTitles: true },
+    });
+    const result = await f.api(`/api/inbox/${n.inboxId}/filing-advice`, {
+      expectedRevision: 1,
+      expectedAttempt: 0,
+    });
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.json().review.state, 'complete');
+    assert.equal(received!.choices.length, 23);
+    assert.ok(received!.choices.slice(3).every((c) => c.label.startsWith('Project: Allowed destination')));
+    await f.api('/api/filing-advice/settings', {
+      expectedRevision: 1,
+      preferences: { enabled: true, automatic: false, scopeIds: [f.shared], destinationTitles: false },
+    });
+    const second = f.note();
+    await f.api(`/api/inbox/${second.inboxId}/filing-advice`, { expectedRevision: 1, expectedAttempt: 0 });
+    assert.deepEqual(
+      received!.choices.map((c) => c.label),
+      ['tasks', 'shopping', 'projects'],
+    );
   } finally {
     await f.close();
   }

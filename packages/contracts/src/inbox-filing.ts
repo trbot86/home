@@ -31,7 +31,11 @@ export const FilingDestination = Type.Union([
 export type FilingDestination = Static<typeof FilingDestination>;
 const source = { inboxId: Id, expectedRevision: Revision };
 export const inboxFilingCommands = {
-  FileInboxEntry: object({ ...source, destination: FilingDestination }),
+  FileInboxEntry: object({
+    ...source,
+    destination: FilingDestination,
+    suggestedTarget: Type.Optional(object({ recordId: Id, expectedRevision: Revision })),
+  }),
   ReturnInboxEntry: object(source),
   RemoveInboxDestination: object({ ...source, recordId: Id }),
 };

@@ -20,6 +20,7 @@ import {
   authenticateSuggestionAgent,
 } from '../apps/server/src/features/suggestions/agent-access.js';
 
+let failedAdviceOnce = false;
 const dataRoot = await mkdtemp(join(tmpdir(), 'our-place-browser-'));
 const db = openDatabase(join(dataRoot, 'db/household.sqlite'));
 migrate(db);
@@ -38,7 +39,16 @@ const { app, access, recipeImports, media, writes, suggestionWork, suggestionRel
   authenticationMode: 'trusted-network',
   requestLimit: 10000,
   // Synthetic provider: no network or real model account is used by browser tests.
-  filingAdviceProvider: async (input) => input.choices.length > 3 ? ['3', '0'] : ['0'],
+  filingAdviceProvider: async (input) => {
+    if (input.text === 'Buy synthetic retry supplies' && !failedAdviceOnce) {
+      failedAdviceOnce = true;
+      throw new Error('Synthetic temporary provider failure');
+    }
+    if (input.text.startsWith('Buy synthetic')) return ['1'];
+    const page = input.choices.find((c) => c.label === 'Project page: Advice precise page');
+    if (input.text.includes('precise advice') && page) return [page.key, '0'];
+    return input.choices.length > 3 ? ['3', '0'] : ['0'];
+  },
   calendars: {
     secrets: new CalendarSecretBox('fixture', new Map([['fixture', randomBytes(32)]])),
     authorization: {

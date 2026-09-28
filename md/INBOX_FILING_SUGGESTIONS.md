@@ -1,11 +1,15 @@
 # Inbox filing suggestions
 
-Filing suggestions are advisory. Inbox cards show saved-result counts, pending,
-stale and failed states. Review opens the existing filing form; selecting a
-suggestion does not file anything. File note uses the normal revision-checked
-command, receipt and compound undo. Suggested existing destinations also carry
-their expected revision. Original text, attachments and source history remain
-unchanged by categorization.
+Inbox cards show up to three ranked suggestions as direct filing buttons. A click
+uses the normal revision-checked command, durable receipt and compound undo.
+Tasks creates a task; a shopping list creates an item; a project or page creates
+a page containing the note and an original-capture link. Existing tasks accept a
+reference. A broad Shopping or Projects choice asks only for the missing container
+when several are available. Existing edited filing drafts open for review instead
+of being discarded. Original text, attachments and source history remain saved.
+The server checks source and suggested destination revisions and visibility in
+the same transaction as filing. Undo is available immediately after an acknowledged
+save, or through the note's History after reconnecting or reloading.
 
 ## Setup and processing
 
@@ -15,9 +19,11 @@ private scopes may be used, whether destination titles may be included, and
 whether automatic processing is allowed. All defaults are off. No provider is
 connected by default in the production entry point. Saving consent alone cannot send data.
 
-The Filing suggestions control on a note contains only that note's request, retry,
-results and optional destination context. Its Settings link saves the unfinished
-filing draft before navigation. Changing profiles loads that profile's permissions.
+The Filing suggestions control on a note contains only its results and request or
+retry button. More options holds refresh and the Settings link. Destination titles
+are selected automatically within the saved permissions; there is no per-note
+context checklist. The filing dialog's Settings link saves the unfinished draft
+before navigation. Changing profiles loads that profile's permissions.
 Agenda day-range/context and task person/context choices are remembered per
 profile and installation on each device; they do not store note contents.
 
@@ -26,9 +32,11 @@ scopes. The server polls every three seconds after the previous attempt finishes
 with one item per tick and no overlapping automatic dispatch. It discovers at
 most 20 recently updated destinations with exactly the source visibility when
 title context is permitted. It does not enumerate other private scopes. Manual
-requests can select up to 20 destinations explicitly. The provider sees only the
+requests now use the same bounded discovery when destination IDs are omitted.
+The API still accepts an explicit list of up to 20 IDs, or an empty list for
+category-only requests. The provider sees only the
 source text (at most 8,000 JavaScript characters), category choices and permitted
-destination titles truncated to 200 characters. Complete titles stay in app data.
+destination titles with type labels, truncated to 200 characters. Complete titles stay in app data.
 Photos, captions, page bodies, source metadata, history, other inbox entries,
 record IDs, credentials and database access are not given to the provider.
 
@@ -204,8 +212,8 @@ open-app sync interval is 15 seconds.
   defaults, automatic discovery, long titles, durable deduplication, explicit
   retries, timeout, staleness, filing privacy/undo, and upgrade preservation.
 - Browser: `filing-suggestions.spec.ts` and `inbox-filing.spec.ts`, with the synthetic
-  provider and temporary database. Covers setup, automatic card updates, selected
-  destinations, explicit acceptance, reload, retries, widths down to 320 pixels,
+  provider and temporary database. Covers setup, automatic card updates, direct
+  filing, missing-container selection, saved drafts, reload, failed-provider retries, widths down to 320 pixels,
   source photos, offline drafts, lost replies, partner edits and private backlinks.
 - Type checks for server, web, contracts and client; package boundary check; staged
   public-source audit. Android `:app:compileDebugKotlin` runs offline using shared

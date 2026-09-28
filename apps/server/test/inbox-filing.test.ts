@@ -739,3 +739,61 @@ for (const kind of ['task', 'recipe', 'inline-project'] as const)
       await f.close();
     }
   });
+
+test('quick shopping filing guards the suggested list revision, scope and Secure flag before creating an item', async () => {
+  const f = await fixture();
+  try {
+    const source = f.note(),
+      listId = randomUUID();
+    applied(
+      f.run('CreateShoppingList', {
+        recordId: listId,
+        scopeId: f.shared,
+        name: 'Synthetic quick list',
+        purpose: 'household',
+      }),
+    );
+    const destination = {
+      kind: 'AddShoppingEntry',
+      arguments: {
+        recordId: randomUUID(),
+        listId,
+        label: 'Synthetic supplies',
+        quantity: '',
+        notes: source.text,
+      },
+    };
+    const args = {
+      inboxId: source.inboxId,
+      expectedRevision: 1,
+      destination,
+      suggestedTarget: { recordId: listId, expectedRevision: 1 },
+    };
+    f.db.prepare('UPDATE records SET revision=2 WHERE record_id=?').run(listId);
+    rejected(f.run('FileInboxEntry', args), 'revision_conflict');
+    assert.equal(f.get(source.inboxId).filedAt, null);
+    assert.equal(
+      f.db.prepare('SELECT 1 FROM records WHERE record_id=?').get(destination.arguments.recordId),
+      undefined,
+    );
+    args.suggestedTarget.expectedRevision = 2;
+    f.db.prepare('INSERT INTO record_security VALUES (?,1,1)').run(listId);
+    rejected(f.run('FileInboxEntry', args), 'suggestion_target_unavailable');
+    f.db.prepare('DELETE FROM record_security WHERE record_id=?').run(listId);
+    const saved = applied(f.run('FileInboxEntry', args));
+    assert.equal(f.get(source.inboxId).destinations![0]!.recordId, destination.arguments.recordId);
+    applied(f.run('UndoChangeSet', { changeSetId: saved.changeSetId }));
+    assert.equal(f.get(source.inboxId).filedAt, null);
+    const privateNote = f.note(f.privateScope);
+    rejected(
+      f.run('FileInboxEntry', {
+        ...args,
+        inboxId: privateNote.inboxId,
+        destination: { ...destination, arguments: { ...destination.arguments, recordId: randomUUID() } },
+      }),
+      'suggestion_target_unavailable',
+    );
+  } finally {
+    await f.close();
+  }
+});

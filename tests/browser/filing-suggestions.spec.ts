@@ -1,41 +1,33 @@
 import { test, expect, type Page } from '@playwright/test';
-
 async function login(page: Page) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Alex', exact: true }).click();
-  await page.getByLabel('Who can see this capture').selectOption({ label: 'Shared' });
+  await expect(page.getByLabel('What’s on your mind?')).toBeVisible();
 }
 async function capture(page: Page, text: string) {
+  await page.getByLabel('Who can see this capture').selectOption({ label: 'Shared' });
   await page.getByLabel('What’s on your mind?').fill(text);
   await page.getByLabel('What’s on your mind?').press('Control+Enter');
   const card = page
     .locator('.entry-card')
     .filter({ has: page.locator('.entry-text').filter({ hasText: text }) });
   await expect(card).toHaveCount(1);
-  await card.getByRole('button', { name: 'Filing suggestions', exact: true }).click();
-  return page.getByRole('dialog', { name: 'File this note', exact: true });
+  return card;
 }
-
-async function configure(page: Page, dialog: any, text: string, titles = false, automatic = false) {
-  await expect(dialog.getByLabel('Allow requests from this profile')).toHaveCount(0);
-  await dialog.getByRole('button', { name: 'Manage note suggestions in Settings' }).click();
+async function configure(page: Page, titles = false, automatic = false) {
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
   const settings = page.getByRole('region', { name: 'Note suggestion settings' });
   await settings.getByLabel('Allow requests from this profile').check();
   await settings.getByLabel('Shared inbox text', { exact: true }).check();
-  if (titles) await settings.getByLabel('Allow selected destination titles with the same visibility').check();
-  if (automatic) await settings.getByLabel('Automatically suggest filing for unfiled inbox items').check();
+  await settings.getByLabel('Allow selected destination titles with the same visibility').setChecked(titles);
+  await settings.getByLabel('Automatically suggest filing for unfiled inbox items').setChecked(automatic);
   await settings.getByRole('button', { name: 'Save suggestion permissions' }).click();
   await expect(settings.getByText('Suggestion permissions saved.')).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Inbox', exact: true }).click();
-  await page
-    .locator('.entry-card')
-    .filter({ hasText: text })
-    .getByRole('button', { name: /filing suggestions|Filing suggestions/ })
-    .click();
 }
 async function command(page: Page, kind: string, args: object) {
   const session = await (await page.request.get('/api/session')).json();
-  const result = await page.request.post(`/api/commands/${kind}`, {
+  const r = await page.request.post(`/api/commands/${kind}`, {
     headers: { origin: 'http://127.0.0.1:4173' },
     data: {
       operationId: crypto.randomUUID(),
@@ -44,15 +36,19 @@ async function command(page: Page, kind: string, args: object) {
       arguments: args,
     },
   });
-  expect((await result.json()).status).toBe('Applied');
+  expect((await r.json()).status).toBe('Applied');
+}
+async function snapshot(page: Page) {
+  return (await page.request.get('/api/cache/inbox')).json();
 }
 
-test('consent setup, synthetic suggestions, explicit existing-page filing, reload deduplication and undo', async ({
+test('ranked destinations appear on the card; one click files a project page and undo preserves the original', async ({
   page,
 }) => {
   await login(page);
-  const session = await (await page.request.get('/api/session')).json();
-  const scopeId = session.scopes.find((s: any) => s.kind === 'shared').scopeId;
+  await configure(page, true);
+  const session = await (await page.request.get('/api/session')).json(),
+    scopeId = session.scopes.find((s: any) => s.kind === 'shared').scopeId;
   const projectId = crypto.randomUUID(),
     pageId = crypto.randomUUID();
   await command(page, 'CreateProject', {
@@ -69,105 +65,153 @@ test('consent setup, synthetic suggestions, explicit existing-page filing, reloa
     blocks: [],
   });
   await page.getByRole('button', { name: 'Refresh and sync' }).click();
-  let dialog = await capture(page, 'Synthetic filing advice capture');
-  await expect(dialog.getByRole('button', { name: 'Suggest filing', exact: true })).toBeDisabled();
-  await configure(page, dialog, 'Synthetic filing advice capture', true, false);
-  await dialog.getByLabel('Suggestion destination context').selectOption(pageId);
-  await dialog.getByRole('button', { name: 'Suggest filing', exact: true }).click();
-  await expect(
-    dialog.getByRole('button', { name: 'Review suggestion: Project page: Advice precise page' }),
-  ).toBeVisible();
-  const snapshot = await (await page.request.get('/api/cache/inbox')).json();
-  const note = snapshot.entries.find((e: any) => e.text === 'Synthetic filing advice capture');
+  const card = await capture(page, 'Synthetic precise advice capture');
+  await expect(card.getByLabel('Suggestion destination context')).toHaveCount(0);
+  await card.getByRole('button', { name: 'Suggest filing', exact: true }).click();
+  const action = card.getByRole('button', { name: 'File to Project page: Advice precise page', exact: true });
+  await expect(action).toBeVisible();
+  expect(await card.locator('[aria-label="Suggested destinations"] button').count()).toBeLessThanOrEqual(3);
+  const note = (await snapshot(page)).entries.find((e: any) => e.text === 'Synthetic precise advice capture');
   expect(note.filedAt).toBeNull();
-  expect(note.revision).toBe(1);
-  await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.reload();
-  await page
-    .locator('.entry-card')
-    .filter({ hasText: 'Synthetic filing advice capture' })
-    .getByRole('button', { name: 'Review 2 filing suggestions', exact: true })
-    .click();
-  dialog = page.getByRole('dialog', { name: 'File this note', exact: true });
-  await expect(dialog.getByRole('button', { name: 'Suggest filing', exact: true })).toHaveCount(0);
-  await dialog.getByRole('button', { name: 'Review suggestion: Project page: Advice precise page' }).click();
-  await expect(dialog.getByLabel('Filing destination')).toHaveValue('existing');
-  await expect(dialog.getByLabel('Saved item', { exact: true })).toHaveValue(pageId);
+  await expect(action).toBeVisible();
   for (const width of [320, 390, 1440]) {
-    await page.setViewportSize({ width, height: 1100 });
-    expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await page.setViewportSize({ width, height: 1000 });
+    expect(await card.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
   }
-  await dialog.getByRole('button', { name: 'File note', exact: true }).click();
-  await expect(dialog).toHaveCount(0);
-  const filed = await (await page.request.get(`/api/inbox/${note.inboxId}`)).json();
-  expect(filed.destinations[0].recordId).toBe(pageId);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: '.cache/filing-quick-phone.png', fullPage: true });
+  await action.click();
+  await expect(card).toHaveCount(0);
+  const data = await snapshot(page),
+    filed = data.entries.find((e: any) => e.inboxId === note.inboxId),
+    child = data.projects.pages.find((p: any) => p.recordId === filed.destinations[0].recordId);
+  expect(child.parentPageId).toBe(pageId);
+  expect(child.blocks.some((b: any) => b.text === note.text)).toBe(true);
   expect(filed.text).toBe(note.text);
   await page.keyboard.press('Control+z');
-  await expect(
-    page.locator('.entry-card').filter({ hasText: 'Synthetic filing advice capture' }),
-  ).toHaveCount(1);
+  await expect(card).toHaveCount(1);
 });
 
-test('changed notes hide old suggestions and explicit retries produce a new attempt', async ({ page }) => {
+test('Shopping asks only for a missing list; direct filing survives a lost reply without duplicates', async ({
+  page,
+}) => {
   await login(page);
-  const dialog = await capture(page, 'Synthetic stale advice capture');
-  await configure(page, dialog, 'Synthetic stale advice capture', false, false);
-  await dialog.getByRole('button', { name: 'Suggest filing', exact: true }).click();
-  await expect(dialog.getByRole('button', { name: 'Review suggestion: tasks', exact: true })).toBeVisible();
-  const snapshot = await (await page.request.get('/api/cache/inbox')).json();
-  const note = snapshot.entries.find((e: any) => e.text === 'Synthetic stale advice capture');
-  await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await configure(page, false);
+  const session = await (await page.request.get('/api/session')).json(),
+    scopeId = session.scopes.find((s: any) => s.kind === 'shared').scopeId,
+    privateId = session.scopes.find((s: any) => s.kind === 'private').scopeId;
+  const listId = crypto.randomUUID();
+  for (const [id, scope, name] of [
+    [listId, scopeId, 'Synthetic chosen purchases'],
+    [crypto.randomUUID(), scopeId, 'Synthetic other purchases'],
+    [crypto.randomUUID(), privateId, 'Private excluded list'],
+  ])
+    await command(page, 'CreateShoppingList', { recordId: id, scopeId: scope, name, purpose: 'household' });
+  await page.getByRole('button', { name: 'Refresh and sync' }).click();
+  const card = await capture(page, 'Buy synthetic household supplies');
+  await card.getByRole('button', { name: 'Suggest filing', exact: true }).click();
+  await card.getByRole('button', { name: 'File to Shopping', exact: true }).click();
+  const picker = card.getByRole('group', { name: 'Choose suggested destination' });
+  await expect(picker).toBeVisible();
+  await expect(picker.getByRole('button', { name: 'Private excluded list' })).toHaveCount(0);
+  let release = false;
+  const attempts: string[] = [];
+  await page.route('**/api/commands/FileInboxEntry', async (route) => {
+    attempts.push(route.request().postData()!);
+    if (release) return route.continue();
+    await route.fetch();
+    await route.abort('failed');
+  });
+  await page.route('**/api/operations/**', (route) => (release ? route.continue() : route.abort('failed')));
+  await picker.getByRole('button', { name: 'Synthetic chosen purchases', exact: true }).click();
+  await expect.poll(() => attempts.length).toBeGreaterThan(0);
+  release = true;
+  await page.getByRole('button', { name: 'Refresh and sync' }).click();
+  await expect(card).toHaveCount(0);
+  expect(new Set(attempts).size).toBe(1);
+  const data = await snapshot(page),
+    items = data.shopping.entries.filter((e: any) => e.label === 'Buy synthetic household supplies');
+  expect(items).toHaveLength(1);
+  expect(items[0].listId).toBe(listId);
+  expect(items[0].notes).toBe('Buy synthetic household supplies');
+  // A lost acknowledgement has no immediate Undo toast; history retains the receipt.
+  await page.getByRole('button', { name: 'Filed', exact: true }).click();
+  await card.getByRole('button', { name: 'Open note', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'History', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Undo this change', exact: true }).first().click();
+  await dialog.getByRole('button', { name: 'Close entry', exact: true }).click();
+  await page.getByRole('button', { name: 'Unfiled', exact: true }).click();
+  await expect(card).toHaveCount(1);
+});
+
+test('changed notes hide stale suggestions and retry is a single explicit action', async ({ page }) => {
+  await login(page);
+  await configure(page, false);
+  let card = await capture(page, 'Synthetic stale advice capture');
+  await card.getByRole('button', { name: 'Suggest filing', exact: true }).click();
+  await expect(card.getByRole('button', { name: 'File to Tasks', exact: true })).toBeVisible();
+  const note = (await snapshot(page)).entries.find((e: any) => e.text === 'Synthetic stale advice capture');
   await command(page, 'SetInboxEntryText', {
     inboxId: note.inboxId,
     expectedRevision: note.revision,
     text: 'Synthetic edited advice capture',
   });
   await page.reload();
-  await page
-    .locator('.entry-card')
-    .filter({ hasText: 'Synthetic edited advice capture' })
-    .getByRole('button', { name: 'Filing suggestions changed', exact: true })
-    .click();
-  await expect(
-    dialog.getByText('This note or a destination changed. Previous suggestions are hidden.'),
-  ).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Review suggestion: tasks', exact: true })).toHaveCount(0);
-  await expect(dialog.getByRole('button', { name: 'Retry suggestions', exact: true })).toBeDisabled();
-  await dialog
-    .getByLabel('Send this item again; an interrupted attempt may already have reached the provider')
-    .check();
-  await dialog.getByRole('button', { name: 'Retry suggestions', exact: true }).click();
-  await expect(dialog.getByRole('button', { name: 'Review suggestion: tasks', exact: true })).toBeVisible();
+  card = page.locator('.entry-card').filter({ hasText: 'Synthetic edited advice capture' });
+  await expect(card.getByRole('button', { name: 'File to Tasks', exact: true })).toHaveCount(0);
+  await card.getByRole('button', { name: 'Retry suggestions', exact: true }).click();
+  await expect(card.getByRole('button', { name: 'File to Tasks', exact: true })).toBeVisible();
   expect(
     (await (await page.request.get(`/api/inbox/${note.inboxId}/filing-advice`)).json()).review.attempt,
   ).toBe(2);
 });
 
-test('automatic consent discovers destinations and updates the inbox card without a manual request', async ({
-  page,
-}) => {
+test('failed processing is retryable and reload does not dispatch another request', async ({ page }) => {
   await login(page);
-  const dialog = await capture(page, 'Synthetic automatic filing advice');
-  await configure(page, dialog, 'Synthetic automatic filing advice', true, true);
-  await expect(dialog.getByRole('button', { name: /Review suggestion: Project/ })).toBeVisible({
-    timeout: 25000,
-  });
+  await configure(page, false);
+  const card = await capture(page, 'Buy synthetic retry supplies');
+  await card.getByRole('button', { name: 'Suggest filing', exact: true }).click();
+  await expect(card.getByText("Suggestions couldn't be loaded. Try again.")).toBeVisible();
+  await page.reload();
+  await expect(card.getByRole('button', { name: 'Retry suggestions', exact: true })).toBeVisible();
+  const note = (await snapshot(page)).entries.find((e: any) => e.text === 'Buy synthetic retry supplies');
+  expect(note.filingAdvice.attempt).toBe(1);
+  await card.getByRole('button', { name: 'Retry suggestions', exact: true }).click();
+  await expect(card.getByRole('button', { name: 'File to Shopping', exact: true })).toBeVisible();
+  expect(
+    (await snapshot(page)).entries.find((e: any) => e.inboxId === note.inboxId).filingAdvice.attempt,
+  ).toBe(2);
+});
+
+test('quick filing preserves a modified saved filing draft', async ({ page }) => {
+  await login(page);
+  await configure(page, false);
+  const card = await capture(page, 'Synthetic draft advice capture');
+  await card.getByRole('button', { name: 'Suggest filing', exact: true }).click();
+  await card.getByRole('button', { name: 'To task', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'File this note' });
+  await dialog.getByLabel('Title', { exact: true }).fill('Keep my edited title');
   await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
-  const card = page.locator('.entry-card').filter({ hasText: 'Synthetic automatic filing advice' });
-  await expect(card.getByRole('button', { name: /Review \d+ filing suggestions/ })).toBeVisible({
+  await card.getByRole('button', { name: 'File to Tasks', exact: true }).click();
+  await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue('Keep my edited title');
+  const note = (await snapshot(page)).entries.find((e: any) => e.text === 'Synthetic draft advice capture');
+  expect(note.filedAt).toBeNull();
+});
+
+test('automatic suggestions arrive as direct actions without opening a dialog', async ({ page }) => {
+  await login(page);
+  await configure(page, true, true);
+  const card = await capture(page, 'Synthetic automatic filing advice');
+  await expect(card.locator('[aria-label="Suggested destinations"] button').first()).toBeVisible({
     timeout: 25000,
   });
-  await card.getByRole('button', { name: /Review \d+ filing suggestions/ }).click();
-  await expect(dialog.getByRole('button', { name: /Review suggestion: Project/ })).toBeVisible();
-  const snapshot = await (await page.request.get('/api/cache/inbox')).json();
-  const note = snapshot.entries.find((e: any) => e.text === 'Synthetic automatic filing advice');
+  const note = (await snapshot(page)).entries.find(
+    (e: any) => e.text === 'Synthetic automatic filing advice',
+  );
   expect(note.filedAt).toBeNull();
-  expect(note.revision).toBe(1);
-  await dialog.getByRole('button', { name: 'Manage note suggestions in Settings' }).click();
-  const settings = page.getByRole('region', { name: 'Note suggestion settings' });
-  await settings.getByLabel('Allow requests from this profile').uncheck();
-  await settings.getByRole('button', { name: 'Save suggestion permissions' }).click();
-  await expect(settings.getByText('Suggestion permissions saved.')).toBeVisible();
+  await configure(page, true, false);
 });
 
 test('Secure capture persists offline and excludes requests; existing-note toggle survives reload', async ({
@@ -191,11 +235,10 @@ test('Secure capture persists offline and excludes requests; existing-note toggl
   const note = snapshot.entries.find((e: any) => e.text === 'Synthetic protected offline capture');
   const path = `/api/records/${note.inboxId}/security`;
   expect((await (await page.request.get(path)).json()).effective).toBe(true);
-  await card.getByRole('button', { name: 'Filing suggestions', exact: true }).click();
+  await card.getByRole('button', { name: 'To task', exact: true }).click();
   let dialog = page.getByRole('dialog', { name: 'File this note', exact: true });
-  await expect(
-    dialog.getByText('Secure items are excluded from AI context. Manage Secure in the note editor.'),
-  ).toBeVisible();
+  await dialog.getByText('More options', { exact: true }).click();
+  await expect(dialog.getByText('Secure notes are excluded from suggestions.')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Suggest filing', exact: true })).toBeDisabled();
   await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await card.locator('.entry-text').click();

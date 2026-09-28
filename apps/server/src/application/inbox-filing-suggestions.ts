@@ -7,6 +7,12 @@ import type { RecordRegistry } from '../features/records/record-registry.js';
 import { Rejection } from './errors.js';
 
 const categories = ['tasks', 'shopping', 'projects'] as const;
+const destinationLabels: Record<string, string> = {
+  project: 'Project',
+  project_page: 'Project page',
+  shopping_list: 'Shopping list',
+  task: 'Task',
+};
 export type FilingAdviceInput = {
   instruction: string;
   text: string;
@@ -87,6 +93,23 @@ export class InboxFilingSuggestions {
     return { state: row.state, attempt: row.attempt, choices };
   }
 
+  discover(context: HumanRequestContext, inboxId: string): string[] {
+    const source = this.source(context, inboxId);
+    if (!this.permission?.destinationTitles || !this.permission.scopeIds.includes(source.scopeId)) return [];
+    if (isSecure(this.db, inboxId)) throw new Rejection('secure_record_excluded');
+    return (
+      this.db
+        .prepare(
+          `SELECT record_id FROM records
+      WHERE scope_id=? AND deleted_at IS NULL
+      AND record_id NOT IN (SELECT record_id FROM secure_records)
+      AND kind IN ('project','project_page','shopping_list','task')
+      ORDER BY updated_at DESC,record_id LIMIT 20`,
+        )
+        .all(source.scopeId) as { record_id: string }[]
+    ).map((r) => r.record_id);
+  }
+
   async suggest(
     context: HumanRequestContext,
     inboxId: string,
@@ -122,7 +145,7 @@ export class InboxFilingSuggestions {
       if (typeof title !== 'string') throw new Rejection('suggestion_title_limit');
       options.push({
         advice: { kind: 'existing', recordId: id, revision: target.revision },
-        label: title.slice(0, 200),
+        label: `${destinationLabels[target.kind]}: ${title}`.slice(0, 200),
       });
     }
     const claimed = immediate(this.db, () => {

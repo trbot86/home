@@ -12,7 +12,8 @@ export type FilingAdviceSettings = FilingAdvicePreferences & { configured: boole
 export const FilingAdviceRequest = object({
   expectedRevision: Revision,
   expectedAttempt: Type.Integer({ minimum: 0 }),
-  destinationIds: Type.Array(Id, { maxItems: 20, uniqueItems: true }),
+  // Omitted discovers bounded, permitted same-scope destinations. [] requests categories only.
+  destinationIds: Type.Optional(Type.Array(Id, { maxItems: 20, uniqueItems: true })),
 });
 export type FilingAdviceRequest = Static<typeof FilingAdviceRequest>;
 export type FilingAdvice =

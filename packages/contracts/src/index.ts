@@ -190,7 +190,12 @@ export type BackupStatus = {
 };
 export type InboxEntry = InboxFiling & {
   /** Read-only advisory metadata; omitted in older caches and immutable history. */
-  filingAdvice?: { state: import('./filing-advice.js').FilingAdviceReview['state']; count: number };
+  filingAdvice?: {
+    state: import('./filing-advice.js').FilingAdviceReview['state'];
+    count: number;
+    attempt?: number;
+    choices?: import('./filing-advice.js').FilingAdvice[];
+  };
   inboxId: string;
   scopeId: string;
   revision: number;

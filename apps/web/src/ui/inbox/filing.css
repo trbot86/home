@@ -76,3 +76,39 @@
   max-width: 100%;
   margin: 0.3rem 0.3rem 0.3rem 0;
 }
+
+.filing-suggestions.compact {
+  margin: 10px 0;
+}
+.filing-advice-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.filing-advice-buttons button {
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+  min-height: 44px;
+  text-align: left;
+}
+.filing-suggestion-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.filing-suggestions > p {
+  margin: 6px 0;
+  font-size: 0.85rem;
+}
+.filing-suggestions summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 6px 0;
+}
+.filing-advice-picker {
+  border-left: 2px solid var(--line);
+  padding-left: 10px;
+  margin-top: 8px;
+}

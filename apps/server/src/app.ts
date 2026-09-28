@@ -280,9 +280,7 @@ export async function buildApp(options: AppOptions) {
     const entries = snapshot.entries.map((entry) => {
       if (entry.deletedAt !== null || entry.category !== 'inbox' || entry.filedAt !== null) return entry;
       const advice = filingAdvice.review(context, entry.inboxId);
-      return advice
-        ? { ...entry, filingAdvice: { state: advice.state, count: advice.choices.length } }
-        : entry;
+      return advice ? { ...entry, filingAdvice: { ...advice, count: advice.choices.length } } : entry;
     });
     return {
       ...snapshot,

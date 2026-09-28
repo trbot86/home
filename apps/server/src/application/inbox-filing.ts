@@ -41,6 +41,24 @@ export class InboxFiling {
         let created: RecordMutation = { records: [], changes: [] };
         if (kind === 'FileInboxEntry') {
           const destination = args.destination;
+          if (args.suggestedTarget) {
+            const { recordId, expectedRevision } = args.suggestedTarget;
+            const related =
+              destination.kind === 'existing'
+                ? destination.recordId === recordId
+                : destination.kind === 'AddShoppingEntry'
+                  ? destination.arguments.listId === recordId
+                  : destination.kind === 'CreateProjectPage' &&
+                    [destination.arguments.projectId, destination.arguments.parentPageId].includes(recordId);
+            if (!related) throw new Rejection('invalid_suggested_target');
+            const target = this.records.requireRevision(context, recordId, expectedRevision);
+            if (
+              target.content.scopeId !== source.scopeId ||
+              target.content.deletedAt !== null ||
+              isSecure(this.db, recordId)
+            )
+              throw new Rejection('suggestion_target_unavailable');
+          }
           let id: string;
           if (destination.kind === 'existing') {
             id = destination.recordId;

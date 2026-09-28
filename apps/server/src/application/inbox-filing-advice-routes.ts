@@ -88,7 +88,7 @@ export function registerFilingAdviceRoutes(
         context,
         request.params.id,
         request.body.expectedRevision,
-        request.body.destinationIds,
+        request.body.destinationIds ?? service.discover(context, request.params.id),
         now(),
         request.body.expectedAttempt,
       );

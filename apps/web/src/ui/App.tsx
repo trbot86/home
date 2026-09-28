@@ -18,6 +18,7 @@ import { SuggestionReleasePanel } from './suggestions/SuggestionReleasePanel.js'
 import { Storage } from './Storage.js';
 import { AppUpdates } from './AppUpdates.js';
 import { useAppVersion } from './useAppVersion.js';
+import { FilingSuggestions } from './inbox/FilingSuggestions.js';
 import { FilingSettings } from './inbox/FilingSettings.js';
 import { CalendarSettings } from './calendars/CalendarSettings.js';
 import { PersonalAgenda } from './calendars/PersonalAgenda.js';
@@ -1508,6 +1509,30 @@ function AppContent({ client }: { client: ClientPlatform }) {
                               }
                             />
                             <CaptureSources recordId={entry.inboxId} state={state} />
+                            {view !== 'trash' &&
+                              categoryOf(entry) === 'inbox' &&
+                              filingOf(entry).filedAt === null && (
+                                <FilingSuggestions
+                                  compact
+                                  client={client}
+                                  state={state}
+                                  entry={entry}
+                                  run={runCommand}
+                                  disabled={state.pendingEdits.includes(entry.inboxId)}
+                                  done={() => {}}
+                                  onSettings={() => setView('storage')}
+                                  choose={(choice) => {
+                                    setFilingMode(
+                                      choice.kind === 'category'
+                                        ? ({ tasks: 'task', shopping: 'shopping', projects: 'project' }[
+                                            choice.category
+                                          ] as FilingMode)
+                                        : 'project',
+                                    );
+                                    setFilingId(entry.inboxId);
+                                  }}
+                                />
+                              )}
                             <div className="entry-actions">
                               {view === 'suggestions' && (
                                 <SuggestionCompletionButton
@@ -1539,25 +1564,6 @@ function AppContent({ client }: { client: ClientPlatform }) {
                                       {label}
                                     </button>
                                   ))}
-                                  <button
-                                    disabled={
-                                      state.pendingEdits.includes(entry.inboxId) ||
-                                      filingOf(entry).filedAt !== null
-                                    }
-                                    onClick={() => setFilingId(entry.inboxId)}
-                                  >
-                                    {entry.filingAdvice?.state === 'complete'
-                                      ? entry.filingAdvice.count
-                                        ? `Review ${entry.filingAdvice.count} filing suggestions`
-                                        : 'No filing match'
-                                      : entry.filingAdvice?.state === 'attempted'
-                                        ? 'Filing suggestions pending'
-                                        : entry.filingAdvice?.state === 'stale'
-                                          ? 'Filing suggestions changed'
-                                          : entry.filingAdvice?.state === 'failed'
-                                            ? 'Retry filing suggestions'
-                                            : 'Filing suggestions'}
-                                  </button>
                                 </>
                               )}
                               {view !== 'trash' &&
