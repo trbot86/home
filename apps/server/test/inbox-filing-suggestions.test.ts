@@ -11,6 +11,7 @@ import {
 } from '../src/application/inbox-filing-suggestions.js';
 import { openDatabase } from '../src/infrastructure/database.js';
 import type { CommandKind } from '@our-place/contracts';
+import { dedicatedCodexProvider } from '../src/infrastructure/filing-codex-provider.js';
 
 async function fixture(provider?: FilingAdviceProvider) {
   const f = await integrationFixture();
@@ -91,6 +92,49 @@ async function fixture(provider?: FilingAdviceProvider) {
     },
   };
 }
+
+test('dedicated adapter preserves durable dispatch and original data through the suggestion route', async () => {
+  let calls = 0;
+  const provider = dedicatedCodexProvider(
+    {
+      launcher: process.execPath,
+      workingDirectory: process.cwd(),
+      model: 'gpt-5.6-luna',
+      effort: 'low',
+      isolationReviewed: true,
+    },
+    async (_exe, args, payload, _cwd, env) => {
+      calls++;
+      assert.deepEqual(args, []);
+      assert.equal(env['CODEX_HOME'], undefined);
+      assert.equal(env['PATH'], undefined);
+      const request = JSON.parse(payload);
+      assert.equal(request.version, 1);
+      assert.equal(request.model, 'gpt-5.6-luna');
+      assert.deepEqual(Object.keys(request.input).sort(), ['choices', 'instruction', 'text']);
+      assert.equal(request.input.text, 'Synthetic note to file');
+      return '{"keys":["1"]}';
+    },
+  );
+  const f = await fixture(provider);
+  try {
+    const note = f.note();
+    await f.api('/api/filing-advice/settings', {
+      expectedRevision: 0,
+      preferences: { enabled: true, automatic: false, scopeIds: [f.shared], destinationTitles: false },
+    });
+    const request = { expectedRevision: note.revision, expectedAttempt: 0, destinationIds: [] };
+    const response = await f.api(`/api/inbox/${note.inboxId}/filing-advice`, request);
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json().review.choices, [{ kind: 'category', category: 'shopping' }]);
+    await f.api(`/api/inbox/${note.inboxId}/filing-advice`, request);
+    assert.equal(calls, 1);
+    assert.equal(f.service.inbox.get(f.a, note.inboxId).text, note.text);
+    assert.equal(f.service.inbox.get(f.a, note.inboxId).revision, note.revision);
+  } finally {
+    await f.close();
+  }
+});
 
 test('disabled by default; consent is profile-owned and cannot grant another private scope', async () => {
   let calls = 0;

@@ -4,6 +4,7 @@ import { OperationsWorker } from './features/operations/worker.js';
 import { RecipeImportWorker } from './features/recipes/import-worker.js';
 import { installation } from './infrastructure/database.js';
 import { loadCalendarConfiguration } from './features/calendars/configuration.js';
+import { loadFilingProvider } from './infrastructure/filing-codex-provider.js';
 
 const development = process.argv.includes('--development');
 const publicOrigin = process.env['PUBLIC_ORIGIN'] ?? (development ? 'http://127.0.0.1:5173' : '');
@@ -16,6 +17,7 @@ const backupRoot = process.env['BACKUP_ROOT'];
 const clientDownloadRoot = process.env['CLIENT_DOWNLOAD_ROOT'];
 const authenticationMode = process.env['AUTHENTICATION_MODE'] ?? 'password';
 const calendars = await loadCalendarConfiguration(process.env['CALENDAR_CONFIG_FILE'], publicOrigin);
+const filingAdviceProvider = await loadFilingProvider(process.env['FILING_WORKER_CONFIG_FILE']);
 if (authenticationMode !== 'password' && authenticationMode !== 'trusted-network')
   throw new Error('AUTHENTICATION_MODE must be password or trusted-network');
 const { app, db, media, backups, recipeImports } = await buildApp({
@@ -25,6 +27,7 @@ const { app, db, media, backups, recipeImports } = await buildApp({
   logger: true,
   authenticationMode,
   ...(calendars ? { calendars } : {}),
+  ...(filingAdviceProvider ? { filingAdviceProvider } : {}),
   ...(backupRoot ? { backupRoot: resolve(backupRoot) } : {}),
   ...(clientDownloadRoot ? { clientDownloadRoot: resolve(clientDownloadRoot) } : {}),
 });

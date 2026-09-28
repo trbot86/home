@@ -13,7 +13,7 @@ The Filing suggestions control on an inbox card opens Suggestion setup. Each
 profile separately saves whether processing is allowed, which of its shared or
 private scopes may be used, whether destination titles may be included, and
 whether automatic processing is allowed. All defaults are off. No provider is
-connected in the production entry point. Saving consent alone cannot send data.
+connected by default in the production entry point. Saving consent alone cannot send data.
 
 Automatic mode discovers both existing and new unfiled inbox entries in permitted
 scopes. The server polls every three seconds after the previous attempt finishes,
@@ -50,15 +50,56 @@ revisions hide it. Failed/stale attempts can be explicitly retried. Nothing in
 this design guarantees that a remote model will avoid retention, disclosure or
 training; provider/account policy must be reviewed before connecting it.
 
-## Provider boundary and remaining decision
+## Dedicated Codex worker
 
-A real provider adapter and host activation are deliberately absent. The injected
-provider interface has no database/tool access; a future adapter must preserve
-that boundary, structured choice validation, bounded input, cancellation and no
-prompt/error logging. Selecting an account/model and authorizing real processing
-remain separate from this source change. The synthetic browser fixture is the
-only host in this change that configures a provider. No real household content is
-sent during tests. No daily bulk exporter or unrestricted Codex session is added.
+The server adapter and standalone `filing-worker-main` entry point implement a
+dedicated Codex worker transport. Host activation is absent. Tests use synthetic
+data and substitute the model subprocess; they do not authenticate or send model
+requests. No daily bulk exporter or unrestricted desktop session is added.
+
+The server entry point reads `FILING_WORKER_CONFIG_FILE` only when explicitly set.
+The host-owned JSON file has `launcher` (absolute executable path),
+`workingDirectory` (absolute empty directory), `isolationReviewed: true`, and
+optional `model` and `effort`. Defaults are `gpt-5.6-luna` and `low`; this is a
+requested initial choice, not a claim of account availability. The file belongs
+in ignored host configuration and must never contain household content. No
+configuration was created by this implementation.
+
+The launcher is trusted deployment infrastructure, not model-controlled text.
+It receives no arguments and one bounded JSON request on stdin; it must enter the
+dedicated OS/container isolation boundary and run `filing-worker-main`. Forward
+only the worker's JSON stdout. Do not implement the launcher as a direct call to
+desktop Codex. The server does not pass its environment, credentials, data root,
+PATH, or Codex home (Windows SystemRoot is the sole inherited platform value).
+Configure any transport endpoint/authentication inside the host-owned launcher,
+not source code. Do not expose a general command-execution or database endpoint.
+
+Inside the isolated worker, explicitly set absolute `FILING_CODEX_EXECUTABLE`,
+`FILING_CODEX_HOME` and `FILING_WORKER_TEMP`. Provision authentication independently;
+never extract or copy desktop account secrets. The worker uses a fresh temporary
+directory with only a choice-output schema, a fresh `codex exec --ephemeral` run,
+read-only sandbox, no approval prompts, disabled known tool/integration features,
+and no inherited user configuration. Prompts travel through stdin, never process
+arguments. Only up to three offered keys are returned. Temporary schemas are
+removed on ordinary completion/failure; use disposable storage for crash cleanup.
+The worker does not save prompt files, raw model output or stderr.
+
+The [non-interactive mode documentation](https://learn.chatgpt.com/docs/non-interactive-mode)
+documents ephemeral runs, stdin input and structured output. The installed CLI's
+`exec --help` and `features list` were also inspected. Configuration flags are
+defense in depth, not proof of a tool-free runtime. Before activation, independently
+enforce and test no household/desktop mounts, no inherited skills/memories/plugins,
+no unrelated network services, and inference/authentication-only egress. Pin and
+revalidate the supported CLI version. A fresh directory alone is not isolation.
+
+Each request has a 25-second subprocess deadline, output byte limit, generic
+failure and no automatic retry. Cancellation sends termination, then forces the
+launcher process to exit after a one-second grace period. The launcher must also
+terminate the entire isolated job on caller disconnect/death, including forced
+termination; killing a transport process alone cannot guarantee remote teardown.
+The worker has its own deadline. Test both disconnect and process-death cleanup
+when provisioning the actual host. An interrupted model request may already have
+been sent, so the existing durable attempt stays consumed until explicit retry.
 
 Data scope is a deferred runtime choice in Suggestion setup, not a prerequisite
 for developing the adapter with synthetic data. Keep the production provider
@@ -95,23 +136,26 @@ evidence for reusing a general-purpose authenticated app-server safely here.
 No existing app-server session or account configuration should be changed to
 try to make this adapter work.
 
-Choose the provider isolation approach before implementing its transport:
+Keep this dedicated-worker adapter disconnected pending the independent host
+isolation/authentication rehearsal and explicit activation. Do not substitute a
+direct API or change account/billing settings. Account entitlement and retention
+policy are not established by the model name or by these synthetic tests.
 
-- A dedicated Codex worker with its own explicitly authorized authentication and
-  independently enforced host isolation. Prove with synthetic adversarial input
-  that it cannot read household files, inherited memories, plugins or unrelated
-  services. Do not copy credentials from the desktop account. Source work can
-  precede activation, but host isolation and authentication require separate setup.
-- A direct inference API adapter with no tools supplied. This is a different
-  credential/billing path and requires an explicit provider choice; do not
-  silently substitute it for the requested Codex backend or enable billing.
-- Keep the provider disconnected.
+## Secure context exclusion: pending product rule
 
-Whichever path is selected must retain the existing durable pre-dispatch claim,
-bounded choice-only output, timeout/cancellation, and explicit acceptance. Model
-and reasoning effort should be configurable; Luna with low effort is the proposed
-starting configuration, subject to availability through the selected provider.
-Do not infer account entitlement or data-retention policy from the model name.
+A proposed Secure flag would exclude an item from LLM context, with the flag off
+by default. Off must still respect the existing profile/scope consent and bounded
+context rules; it does not grant database or unrestricted page access. Enforce the
+flag before dispatch for both source text and destination labels, including manual
+requests, and discard in-flight results if protection changes. Existing stored
+results must not expose a newly protected destination. The flag is a context
+exclusion, not encryption or a password vault, and cannot recall already sent data.
+
+This flag is not implemented. Its remaining product rule is whether protecting a
+project or parent page also protects its contained pages/items, or only the marked
+record. Resolve inheritance before designing persistence, editor controls and
+exclusion queries. Keep real processing disconnected while this rule and its
+implementation are pending.
 
 Schema 029 is additive. Production upgrades must use the existing verified-backup
 upgrade command. Android adds online bridge methods only; Room schema and frozen
@@ -120,6 +164,11 @@ on both clients, so a saved result appears without editing its note. The normal
 open-app sync interval is 15 seconds.
 
 ## Focused verification
+
+- Adapter: `filing-codex-provider.test.ts` covers bounded/stripped wire input,
+  choice-only output, real synthetic subprocess failures/cancellation, environment
+  isolation, Codex argument/schema construction, temporary cleanup and disabled
+  configuration defaults. No real model or deployed isolation boundary is tested.
 
 - Server: `inbox-filing-suggestions.test.ts`, `inbox-filing.test.ts`, `upgrades.test.ts`.
   Covers consent and authentication, scope isolation, bounded data, no-provider
