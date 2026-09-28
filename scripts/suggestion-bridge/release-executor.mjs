@@ -35,6 +35,17 @@ export function reviewPaths(paths, sourceCommit, approvals = []) {
       ),
   );
 }
+export function reviewedIntegration(reviewed, baseCommit, sources) {
+  if (
+    !reviewed ||
+    reviewed.baseCommit !== baseCommit ||
+    JSON.stringify(reviewed.sources) !== JSON.stringify(sources)
+  )
+    return null;
+  if (!/^[a-f0-9]{40}$/.test(reviewed.candidateCommit))
+    throw new ReleaseCheckError('Invalid reviewed integration commit.');
+  return reviewed.candidateCommit;
+}
 export class ReleaseExecutor {
   constructor(config, job, log) {
     this.config = config;
@@ -174,8 +185,16 @@ export class ReleaseExecutor {
       sources.push({ suggestionId: member.suggestionId, runId: member.runId, sourceCommit });
     }
     this.phase = 'Integration';
-    await this.workspace(baseCommit);
-    for (const source of sources) {
+    const reviewed = await readJson(join(this.root, 'reviewed-integration.json'));
+    const candidate = reviewedIntegration(reviewed, baseCommit, sources);
+    if (candidate) {
+      // A developer-resolved merge must contain every exact input. It still
+      // undergoes the complete audit, build and test sequence below.
+      for (const input of [baseCommit, ...sources.map((s) => s.sourceCommit)])
+        await this.git('merge-base', '--is-ancestor', input, candidate);
+    }
+    await this.workspace(candidate || baseCommit);
+    for (const source of candidate ? [] : sources) {
       try {
         await this.treeGit('merge', '--no-ff', '--no-edit', source.sourceCommit);
       } catch {

@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
-import { ReleaseExecutor, reviewPaths } from './release-executor.mjs';
+import { ReleaseExecutor, reviewPaths, reviewedIntegration } from './release-executor.mjs';
 import { ReleaseRunner } from './release-runner.mjs';
 import { writeJson, readJson } from './journal.mjs';
 const hash = (b) => createHash('sha256').update(b).digest('hex');
@@ -243,4 +243,15 @@ test('host review exceptions are limited to the exact committed source and paths
   assert.equal(reviewPaths(paths, commit, approvals), true);
   assert.equal(reviewPaths(paths, 'b'.repeat(40), approvals), false);
   assert.equal(reviewPaths(['scripts/dev-host.mjs'], commit, approvals), false);
+});
+
+test('reviewed integration is tied to the exact base and ordered source commits', () => {
+  const base = 'a'.repeat(40),
+    sources = [{ suggestionId: 'one', runId: 'run', sourceCommit: 'b'.repeat(40) }];
+  const reviewed = { baseCommit: base, sources, candidateCommit: 'c'.repeat(40) };
+  assert.equal(reviewedIntegration(reviewed, base, sources), reviewed.candidateCommit);
+  assert.equal(reviewedIntegration(reviewed, 'd'.repeat(40), sources), null);
+  assert.equal(reviewedIntegration(reviewed, base, [{ ...sources[0], sourceCommit: 'e'.repeat(40) }]), null);
+  assert.equal(reviewedIntegration(reviewed, base, []), null);
+  assert.throws(() => reviewedIntegration({ ...reviewed, candidateCommit: 'HEAD' }, base, sources));
 });
