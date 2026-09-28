@@ -101,7 +101,7 @@ export function PersonalAgenda({
       )}
       {!state.agenda.configured && (
         <p className="calendar-message">
-          Google Calendar setup is pending. Your household sections work normally.
+          Calendar connection is optional. Your tasks appear without a connected calendar.
         </p>
       )}
       {state.agenda.needsReconnect && (
@@ -125,6 +125,8 @@ export function PersonalAgenda({
               key={section.kind}
               state={state}
               context={context}
+              start={start}
+              count={count}
               limit={section.limit}
               onTask={onTask}
               onAllTasks={onAllTasks}

@@ -21,31 +21,42 @@ import { recordReferences, type RecordReference } from '../RecordReferences.js';
 export function AgendaTasks({
   state,
   context,
+  start,
+  count,
   limit,
   onTask,
   onAllTasks,
 }: {
   state: ClientState;
   context: string;
+  start: string;
+  count: number;
   limit: number;
   onTask: (id: string) => void;
   onAllTasks: () => void;
 }) {
   const today = calendarDateAt(Date.now(), state.tasks.timeZone);
+  const through = addCalendarDate(start, count - 1, 'days');
   const tasks = openTasks(state.tasks)
     .filter(
       ({ task, occurrence }) =>
         (context === 'both' || task.context === context) &&
         (!occurrence.assigneeId || occurrence.assigneeId === state.session!.person.personId) &&
-        !['upcoming', 'anytime'].includes(taskAttention(occurrence, today)),
+        (!['upcoming', 'anytime'].includes(taskAttention(occurrence, today)) ||
+          [occurrence.deadlineDate, occurrence.targetDate, occurrence.reviewDate].some(
+            (day) => day !== null && day >= start && day <= through,
+          )),
     )
     .sort(compareOpenTasks);
   return (
-    <section className="agenda-panel agenda-focus" aria-label="Your tasks today" data-agenda-section="tasks">
+    <section className="agenda-panel agenda-focus" aria-label="Your tasks" data-agenda-section="tasks">
       <p className="eyebrow">For {state.session!.person.displayName}</p>
-      <h2>Your tasks today</h2>
-      <p className="fine">Assigned to you or unassigned. Open a task to complete, edit or postpone it.</p>
-      {!tasks.length && <p>No tasks need your attention today.</p>}
+      <h2>Your tasks</h2>
+      <p className="fine">
+        Tasks needing attention today and dated tasks from {start} through {through}. Assigned to you or
+        unassigned. Open a task to complete, edit or postpone it.
+      </p>
+      {!tasks.length && <p>No tasks need attention today or are scheduled for these dates.</p>}
       {tasks.slice(0, limit).map(({ task, occurrence }) => (
         <button className="agenda-task" key={occurrence.recordId} onClick={() => onTask(occurrence.recordId)}>
           <strong>{task.title}</strong>
@@ -59,7 +70,7 @@ export function AgendaTasks({
         </button>
       ))}
       {tasks.length > limit && (
-        <button onClick={onAllTasks}>Open all tasks ({tasks.length} need attention)</button>
+        <button onClick={onAllTasks}>Open all tasks ({tasks.length} in this view)</button>
       )}
     </section>
   );
@@ -118,7 +129,7 @@ export function AgendaCalendar({
       aria-label="Calendar events"
       data-agenda-section="calendar"
     >
-      <h2>Coming up</h2>
+      <h2>Calendar events</h2>
       <div className="agenda-sources">
         {calendars.map((c) => (
           <div className="agenda-source" key={c.calendarId}>
@@ -143,7 +154,9 @@ export function AgendaCalendar({
           </div>
         ))}
       </div>
-      {!calendars.length && !state.agenda.issue && <p>Choose calendars in Settings to see events here.</p>}
+      {!calendars.length && !state.agenda.issue && (
+        <p>No calendars selected. You can add calendars in Settings; tasks appear independently.</p>
+      )}
       {calendars.length > 0 && total === 0 && <p>No events in the saved calendars for these dates.</p>}
       {visible.map((day) => (
         <section className="agenda-day" key={day.date} aria-label={day.date}>
