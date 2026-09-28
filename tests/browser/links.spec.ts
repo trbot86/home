@@ -21,7 +21,7 @@ test('plain notes recognize safe web links without changing text or replacing an
   await expect(card.locator('a').nth(2)).toHaveAttribute('href', 'https://example.net/?a=1&b=2');
   await expect(card.locator('.entry-text')).toHaveText(text);
   await expect(card.locator('img')).toHaveCount(0);
-  await card.getByRole('button', { name: 'Edit', exact: true }).click();
+  await card.getByRole('button', { name: 'Open note', exact: true }).press('Enter');
   const editor = page.getByLabel('Entry text');
   await editor.fill(text + '\nUnfinished changes');
   const first = page.locator('.entry-links a').first();
@@ -37,7 +37,7 @@ test('plain notes recognize safe web links without changing text or replacing an
   await popup.close();
   await page.getByRole('button', { name: 'Close entry', exact: true }).click();
   await page.reload();
-  await card.getByRole('button', { name: 'Edit', exact: true }).click();
+  await card.getByRole('button', { name: 'Open note', exact: true }).press('Enter');
   await expect(editor).toHaveValue(text + '\nUnfinished changes');
   for (const width of [320, 390, 820]) {
     await page.setViewportSize({ width, height: 900 });

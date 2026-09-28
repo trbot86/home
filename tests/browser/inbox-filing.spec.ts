@@ -46,7 +46,7 @@ async function file(page: Page, text: string) {
   const card = page
     .locator('.entry-card')
     .filter({ has: page.locator('.entry-text').filter({ hasText: text }) });
-  await card.getByRole('button', { name: 'File', exact: true }).click();
+  await card.getByRole('button', { name: 'To task', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'File this note', exact: true });
   await expect(dialog.getByLabel('Filing destination')).toBeEnabled();
   return dialog;
@@ -83,7 +83,7 @@ test('filing a photo note into a task keeps its draft, original, links and compo
       `Filing dialog fits ${width}`,
     ).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: `test-results/filing-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `.cache/filing-${width}.png`, fullPage: true });
   }
   await dialog.getByLabel('Details', { exact: true }).press('Control+Enter');
   await expect(dialog).toHaveCount(0);
@@ -236,42 +236,44 @@ test('inline project creation retains its draft and files a page with the origin
   await expect(page.locator('.project-board-heading')).toContainText(text);
 });
 
-test('a lost filing reply freezes edits and retries exactly once without duplicating the task', async ({
-  page,
-}) => {
-  await login(page);
-  const text = 'Filing retry capture';
-  const card = await capture(page, text);
-  const dialog = await file(page, text);
-  await dialog.getByLabel('Title', { exact: true }).fill('Filing retry task');
-  const attempts: string[] = [];
-  let release = false;
-  await page.route('**/api/commands/FileInboxEntry', async (route) => {
-    attempts.push(route.request().postData()!);
-    if (release) return route.continue();
-    await route.fetch();
-    await route.abort('failed');
+for (const mode of ['task', 'recipe'] as const)
+  test(`a lost filing reply freezes edits and retries exactly once without duplicating the ${mode}`, async ({
+    page,
+  }) => {
+    await login(page);
+    const text = `Filing retry capture ${mode}`;
+    const card = await capture(page, text);
+    const dialog = await file(page, text);
+    await dialog.getByLabel('Filing destination').selectOption(mode);
+    await dialog.getByLabel('Title', { exact: true }).fill(`Filing retry ${mode}`);
+    const attempts: string[] = [];
+    let release = false;
+    await page.route('**/api/commands/FileInboxEntry', async (route) => {
+      attempts.push(route.request().postData()!);
+      if (release) return route.continue();
+      await route.fetch();
+      await route.abort('failed');
+    });
+    await page.route('**/api/operations/**', (route) => (release ? route.continue() : route.abort('failed')));
+    await dialog.getByRole('button', { name: 'File note', exact: true }).click();
+    await expect(dialog.getByText('Checking the previous filing.', { exact: false })).toBeVisible();
+    await expect(dialog.getByLabel('Title', { exact: true })).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: 'Discard filing draft', exact: true })).toBeDisabled();
+    await dialog.getByRole('button', { name: 'Retry filing', exact: true }).click();
+    await expect.poll(() => attempts.length).toBeGreaterThan(1);
+    expect(new Set(attempts).size).toBe(1);
+    release = true;
+    await dialog.getByRole('button', { name: 'Retry filing', exact: true }).click();
+    await saved(page);
+    await expect(card).toHaveCount(1);
+    await page.reload();
+    await page.getByRole('button', { name: 'Filed', exact: true }).click();
+    const state = await snapshot(page);
+    const records = mode === 'task' ? state.tasks.definitions : state.recipes.recipes;
+    expect(records.filter((t: any) => t.title === `Filing retry ${mode}`)).toHaveLength(1);
+    await card.getByRole('button', { name: 'To task', exact: true }).click();
+    await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue(text);
   });
-  await page.route('**/api/operations/**', (route) => (release ? route.continue() : route.abort('failed')));
-  await dialog.getByRole('button', { name: 'File note', exact: true }).click();
-  await expect(dialog.getByText('Checking the previous filing.', { exact: false })).toBeVisible();
-  await expect(dialog.getByLabel('Title', { exact: true })).toBeDisabled();
-  await expect(dialog.getByRole('button', { name: 'Discard filing draft', exact: true })).toBeDisabled();
-  await dialog.getByRole('button', { name: 'Retry filing', exact: true }).click();
-  await expect.poll(() => attempts.length).toBeGreaterThan(1);
-  expect(new Set(attempts).size).toBe(1);
-  release = true;
-  await dialog.getByRole('button', { name: 'Retry filing', exact: true }).click();
-  await saved(page);
-  await expect(card).toHaveCount(1);
-  await page.reload();
-  await page.getByRole('button', { name: 'Filed', exact: true }).click();
-  expect(
-    (await snapshot(page)).tasks.definitions.filter((t: any) => t.title === 'Filing retry task'),
-  ).toHaveLength(1);
-  await card.getByRole('button', { name: 'File', exact: true }).click();
-  await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue(text);
-});
 
 test('offline filing drafts survive reload and refuse to overwrite a partner’s newer source', async ({
   page,
@@ -364,4 +366,73 @@ test('private capture filing keeps destinations private and does not expose back
   } finally {
     await other.close();
   }
+});
+
+test('destination actions open reviewable drafts and food preserves the original capture', async ({
+  page,
+}) => {
+  await login(page);
+  await page
+    .locator('input[type=file]')
+    .setInputFiles({ name: 'soup.png', mimeType: 'image/png', buffer: png });
+  const text = 'Weeknight soup idea\nKeep these notes for the recipe.';
+  const card = await capture(page, text);
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await card.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    for (const name of ['To task', 'Into project', 'To shopping', 'To food'])
+      await expect(card.getByRole('button', { name, exact: true })).toBeVisible();
+    await card.screenshot({ path: `.cache/inbox-actions-${width}.png` });
+  }
+  for (const label of ['Edit', 'History', 'Suggest', 'File'])
+    await expect(card.getByRole('button', { name: label, exact: true })).toHaveCount(0);
+  await card.getByRole('button', { name: 'Open note', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByLabel('Entry text')).toHaveValue(text);
+  await expect(page.getByRole('button', { name: 'History', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close entry' }).click();
+  for (const [label, mode] of [
+    ['To task', 'task'],
+    ['Into project', 'project'],
+    ['To shopping', 'shopping'],
+    ['To food', 'recipe'],
+  ]) {
+    await card.getByRole('button', { name: label, exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'File this note', exact: true });
+    await expect(dialog.getByLabel('Filing destination')).toHaveValue(mode);
+    await expect(dialog.getByLabel('Details', { exact: true })).toHaveValue(text);
+    await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  }
+  await card.getByRole('button', { name: 'To food', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'File this note', exact: true });
+  await dialog.getByLabel('Title', { exact: true }).fill('Reviewed soup');
+  await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.reload();
+  // An unfinished draft wins over the next shortcut, so it is never silently replaced.
+  await card.getByRole('button', { name: 'To task', exact: true }).click();
+  await expect(dialog.getByLabel('Filing destination')).toHaveValue('recipe');
+  await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue('Reviewed soup');
+  await dialog.getByRole('button', { name: 'File note', exact: true }).click();
+  await saved(page);
+  await card.getByRole('button', { name: 'Recipe: Reviewed soup', exact: true }).click();
+  await page.getByRole('button', { name: /Original note & photos: Weeknight soup idea/ }).click();
+  await expect(page.getByLabel('Entry text')).toHaveValue(text);
+  await expect(page.getByRole('dialog').locator('img')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Close entry' }).click();
+  await page.getByRole('button', { name: 'Inbox', exact: true }).click();
+  await page.keyboard.press('Control+z');
+  await expect
+    .poll(
+      async () =>
+        (await snapshot(page)).recipes.recipes.find((r: any) => r.title === 'Reviewed soup').deletedAt,
+    )
+    .not.toBeNull();
+  await page.keyboard.press('Control+Shift+z');
+  await expect
+    .poll(
+      async () =>
+        (await snapshot(page)).recipes.recipes.find((r: any) => r.title === 'Reviewed soup').deletedAt,
+    )
+    .toBeNull();
 });

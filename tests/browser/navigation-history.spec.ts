@@ -24,7 +24,8 @@ test('note history, close, and forward restore the panel without losing unfinish
 }) => {
   await login(page);
   const card = await capture(page, 'Navigation history note');
-  await card.getByRole('button', { name: 'Edit', exact: true }).click();
+  await card.getByRole('button', { name: 'Open note', exact: true }).focus();
+  await page.keyboard.press('Enter');
   await page.getByLabel('Entry text').fill('Navigation history note with unfinished edits');
   await page.getByRole('dialog').getByRole('button', { name: 'History', exact: true }).click();
   await expect(page.getByLabel('Entry text')).toHaveCount(0);
@@ -52,13 +53,15 @@ test('linked-note back and forward preserve the source draft and branch on new n
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await login(page);
   const target = await capture(page, 'Navigation target');
-  await target.getByRole('button', { name: 'Edit', exact: true }).click();
+  await target.getByRole('button', { name: 'Open note', exact: true }).focus();
+  await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Copy link', exact: true }).click();
   await expect(page.getByText('Link copied', { exact: true })).toBeVisible();
   const url = await page.evaluate(() => navigator.clipboard.readText());
   await page.getByRole('button', { name: 'Close entry', exact: true }).click();
   const source = await capture(page, 'Navigation source\n' + url);
-  await source.getByRole('button', { name: 'Edit', exact: true }).click();
+  await source.getByRole('button', { name: 'Open note', exact: true }).focus();
+  await page.keyboard.press('Enter');
   const draft = 'Unfinished source\n' + url;
   await holdEditorWrite(page);
   await page.getByLabel('Entry text').fill(draft + '\nFirst pending edit');
@@ -104,7 +107,8 @@ test('old profile history cannot reopen private panels', async ({ page }) => {
   await login(page);
   await page.getByLabel('Who can see this capture').selectOption({ label: 'Just me' });
   const card = await capture(page, 'Private navigation secret');
-  await card.getByRole('button', { name: 'Edit', exact: true }).click();
+  await card.getByRole('button', { name: 'Open note', exact: true }).focus();
+  await page.keyboard.press('Enter');
   await page.getByRole('dialog').getByRole('button', { name: 'History', exact: true }).click();
   await page.getByRole('button', { name: 'Close entry', exact: true }).click();
   await page.getByLabel('Current profile').selectOption({ label: 'Sam' });
@@ -205,7 +209,8 @@ test('an old note URL still resolves through authorized lookup after browser rel
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await login(page);
   const card = await capture(page, 'Reloaded navigation link');
-  await card.getByRole('button', { name: 'Edit', exact: true }).click();
+  await card.getByRole('button', { name: 'Open note', exact: true }).focus();
+  await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Copy link', exact: true }).click();
   await expect(page.getByText('Link copied', { exact: true })).toBeVisible();
   const url = await page.evaluate(() => navigator.clipboard.readText());
@@ -245,4 +250,32 @@ test('failed editor storage keeps the editor mounted until a successful retry', 
   await expect(dialog).toHaveCount(0);
   await back(page);
   await expect(dialog.getByLabel('Recipe name', { exact: true })).toHaveValue('Recovered final draft');
+});
+
+test('filing shortcuts retain their destination and edited draft across browser history', async ({
+  page,
+}) => {
+  await login(page);
+  const recipe = await capture(page, 'Navigation recipe shortcut');
+  const task = await capture(page, 'Navigation task shortcut');
+  const dialog = page.getByRole('dialog', { name: 'File this note', exact: true });
+  await recipe.getByRole('button', { name: 'To food', exact: true }).click();
+  await expect(dialog.getByLabel('Filing destination')).toHaveValue('recipe');
+  await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await task.getByRole('button', { name: 'To task', exact: true }).click();
+  await expect(dialog.getByLabel('Filing destination')).toHaveValue('task');
+  await back(page);
+  await expect(dialog).toHaveCount(0);
+  await back(page);
+  await expect(dialog.getByLabel('Filing destination')).toHaveValue('recipe');
+  await dialog.getByLabel('Title', { exact: true }).fill('Unfinished recipe navigation');
+  await forward(page);
+  await expect(dialog).toHaveCount(0);
+  await forward(page);
+  await expect(dialog.getByLabel('Filing destination')).toHaveValue('task');
+  await back(page);
+  await expect(dialog).toHaveCount(0);
+  await back(page);
+  await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue('Unfinished recipe navigation');
+  await expect(dialog.getByLabel('Filing destination')).toHaveValue('recipe');
 });

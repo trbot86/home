@@ -27,12 +27,13 @@ test('text editing, per-person history, delete and undo, with Ctrl+Enter', async
   await page.getByLabel('What’s on your mind?').press('Control+Enter');
   const card = page.locator('.entry-card').filter({ hasText: 'Replace the kitchen tap filter' });
   await expect(card).toHaveCount(1);
-  await card.getByRole('button', { name: 'Edit', exact: true }).click();
+  await card.getByRole('button', { name: 'Open note', exact: true }).click();
   await page.getByLabel('Entry text').fill('Kitchen tap filter: 22 mm');
   await page.getByLabel('Entry text').press('Control+Enter');
   await expect(page.getByRole('dialog')).not.toBeVisible();
   const updated = page.locator('.entry-card').filter({ hasText: 'Kitchen tap filter: 22 mm' });
-  await updated.getByRole('button', { name: 'History', exact: true }).click();
+  await updated.getByRole('button', { name: 'Open note', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'History', exact: true }).click();
   await expect(
     page.locator('.historical-text').filter({ hasText: 'Measure the thread first.' }),
   ).toBeVisible();

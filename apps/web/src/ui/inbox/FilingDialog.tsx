@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
-import { filingOf, type FilingDestination, type InboxEntry } from '@our-place/contracts';
+import { emptyRecipeFields, filingOf, type FilingDestination, type InboxEntry } from '@our-place/contracts';
 import { RecordDialog } from '../RecordDialog.js';
 import { useSavedForm } from '../useSavedForm.js';
 import { recordReferences } from '../RecordReferences.js';
 import { AttachmentGallery } from '../AttachmentGallery.js';
 import './filing.css';
 
+export type FilingMode = 'task' | 'project' | 'shopping' | 'recipe';
+
 export function FilingDialog({
   client,
   state,
   entry,
+  initialMode,
   run,
   close,
   onError,
@@ -18,13 +21,14 @@ export function FilingDialog({
   client: ClientPlatform;
   state: ClientState;
   entry: InboxEntry;
+  initialMode: FilingMode;
   run: RunRecordCommand;
   close: () => void;
   onError: (error: unknown) => void;
 }) {
   const session = state.session!;
   const initial = () => ({
-    mode: 'task',
+    mode: initialMode as string,
     recordId: crypto.randomUUID(),
     occurrenceId: crypto.randomUUID(),
     blockId: crypto.randomUUID(),
@@ -81,6 +85,7 @@ export function FilingDialog({
       ? !!selected
       : !!form.title.trim() &&
         (form.mode === 'task' ||
+          form.mode === 'recipe' ||
           (form.mode === 'shopping'
             ? lists.some((l) => l.recordId === form.listId)
             : form.mode === 'project' &&
@@ -110,6 +115,18 @@ export function FilingDialog({
       void finish();
   }, [buffer.ready, pending, entry, buffer.baseRevision, buffer.epoch, session.serverEpoch, destinationId]);
   function destination(): FilingDestination {
+    if (form.mode === 'recipe')
+      return {
+        kind: 'CreateRecipe',
+        arguments: {
+          ...emptyRecipeFields(),
+          recordId: form.recordId,
+          scopeId: entry.scopeId,
+          title: form.title.trim(),
+          description: form.notes,
+          collectionIds: [],
+        },
+      };
     if (form.mode === 'existing') return { kind: 'existing', recordId: form.targetId };
     if (form.mode === 'shopping')
       return {
@@ -184,7 +201,7 @@ export function FilingDialog({
       !state.online ||
       !valid ||
       entry.deletedAt !== null ||
-      (form.mode === 'shopping' && form.notes.length > 10000)
+      ((form.mode === 'shopping' || form.mode === 'recipe') && form.notes.length > 10000)
     )
       return;
     lock.current = true;
@@ -262,6 +279,7 @@ export function FilingDialog({
               <option value="task">New task</option>
               <option value="shopping">Shopping item</option>
               <option value="project">New project page</option>
+              <option value="recipe">New recipe</option>
               <option value="existing">Link to something saved</option>
             </select>
           </label>
@@ -439,19 +457,24 @@ export function FilingDialog({
                   </label>
                 </>
               )}
+              {form.mode === 'recipe' && (
+                <p className="fine">
+                  Review the title and notes before filing. Add ingredients and steps in Food afterwards.
+                </p>
+              )}
               <label>
                 Details
                 <textarea
                   aria-label="Details"
                   rows={5}
-                  maxLength={form.mode === 'shopping' ? 10000 : 20000}
+                  maxLength={form.mode === 'shopping' || form.mode === 'recipe' ? 10000 : 20000}
                   value={form.notes}
                   onChange={(e) => buffer.field('notes', e.target.value)}
                 />
               </label>
-              {form.mode === 'shopping' && form.notes.length > 10000 && (
+              {(form.mode === 'shopping' || form.mode === 'recipe') && form.notes.length > 10000 && (
                 <p role="alert">
-                  Shopping details have a 10,000-character limit. Shorten these details; the complete original
+                  These details have a 10,000-character limit. Shorten these details; the complete original
                   stays saved.
                 </p>
               )}
@@ -469,7 +492,7 @@ export function FilingDialog({
               !state.online ||
               !valid ||
               entry.deletedAt !== null ||
-              (form.mode === 'shopping' && form.notes.length > 10000)
+              ((form.mode === 'shopping' || form.mode === 'recipe') && form.notes.length > 10000)
             }
           >
             File note

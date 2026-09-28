@@ -94,7 +94,7 @@ export class InboxFiling {
     let destinationScope: string;
     try {
       destinationScope =
-        destination.kind === 'CreateTask'
+        destination.kind === 'CreateTask' || destination.kind === 'CreateRecipe'
           ? destination.arguments.scopeId
           : this.records.get(
               context,

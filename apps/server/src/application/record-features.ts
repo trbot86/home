@@ -34,6 +34,7 @@ export function createRecordFeatures(db: Sqlite, access: AccessService, househol
     ...suggestions.adapters(),
   ]);
   const filing = new InboxFiling(db, access, inbox, records, {
+    CreateRecipe: recipes.commands(),
     CreateTask: tasks.commands(),
     AddShoppingEntry: shopping.commands(),
     CreateProjectPage: projects.commands(),

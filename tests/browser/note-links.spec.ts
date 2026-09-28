@@ -11,8 +11,8 @@ async function copyLink(page: Page, text: string) {
   await page
     .locator('.entry-card')
     .filter({ hasText: text })
-    .getByRole('button', { name: 'Edit', exact: true })
-    .click();
+    .getByRole('button', { name: 'Open note', exact: true })
+    .press('Enter');
   await page.getByRole('button', { name: 'Copy link', exact: true }).click();
   await expect(page.getByText('Link copied', { exact: true })).toBeVisible();
   const url = await page.evaluate(() => navigator.clipboard.readText());
@@ -43,7 +43,8 @@ test('Alexa notes retain full integration IDs in links and display integration h
   await expect(page.getByLabel('Entry text')).toHaveValue(title);
   await page.getByRole('button', { name: 'Close entry', exact: true }).click();
   const card = page.locator('.entry-card').filter({ hasText: title });
-  await card.getByRole('button', { name: 'History', exact: true }).click();
+  await card.getByRole('button', { name: 'Open note', exact: true }).press('Enter');
+  await page.getByRole('dialog').getByRole('button', { name: 'History', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('Alexa');
   await expect(page.getByRole('button', { name: 'Undo this change', exact: true })).toHaveCount(0);
 });
@@ -68,13 +69,13 @@ test('copied note links use titles, preserve unfinished source edits, and surviv
   const link = sourceCard.getByRole('link', { name: title, exact: true });
   await expect(link).toHaveAttribute('href', url);
   await expect(link).not.toHaveAttribute('target', '_blank');
-  await sourceCard.getByRole('button', { name: 'Edit', exact: true }).click();
+  await sourceCard.getByRole('button', { name: 'Open note', exact: true }).press('Enter');
   await expect(page.getByLabel('Entry text')).toHaveValue(sourceText);
   await page.getByLabel('Entry text').fill(sourceText + '\nUnfinished service notes');
   await page.locator('.entry-links').getByRole('link', { name: title, exact: true }).click();
   await expect(page.getByLabel('Entry text')).toHaveValue(title + '\nKeep the original photo.');
   await page.getByRole('button', { name: 'Close entry', exact: true }).click();
-  await sourceCard.getByRole('button', { name: 'Edit', exact: true }).click();
+  await sourceCard.getByRole('button', { name: 'Open note', exact: true }).press('Enter');
   await expect(page.getByLabel('Entry text')).toHaveValue(sourceText + '\nUnfinished service notes');
   await page.getByRole('button', { name: 'Close entry', exact: true }).click();
   await target
@@ -116,8 +117,8 @@ test('private note titles never carry across profiles and inaccessible deep link
   const source = page.locator('.entry-card').filter({ hasText: 'Shared pointer without a disclosed title' });
   await expect(source.getByRole('link', { name: 'Open note', exact: true })).toBeVisible();
   await expect(page.getByText(secret, { exact: true })).toHaveCount(0);
-  await source.getByRole('button', { name: 'Edit', exact: true }).click();
-  await page.locator('.entry-links').getByRole('link', { name: 'Open note', exact: true }).click();
+  await source.getByRole('button', { name: 'Open note', exact: true }).press('Enter');
+  await page.locator('.entry-links').getByRole('link', { name: 'Open note', exact: true }).press('Enter');
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('unavailable for your profile');
   await expect(page.getByLabel('Entry text')).toHaveValue('Shared pointer without a disclosed title\n' + url);
   await page.getByRole('button', { name: 'Close entry', exact: true }).click();
@@ -170,7 +171,7 @@ test('a late link lookup cannot reopen another profile’s note, and clipboard f
   await page.unrouteAll({ behavior: 'wait' });
   await expect(source.getByRole('link', { name: 'Open note', exact: true })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await source.getByRole('button', { name: 'Edit', exact: true }).click();
+  await source.getByRole('button', { name: 'Open note', exact: true }).press('Enter');
   await page.evaluate(() => {
     Object.defineProperty(navigator.clipboard, 'writeText', {
       value: () => Promise.reject(new Error('Clipboard unavailable')),

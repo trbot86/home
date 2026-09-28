@@ -52,7 +52,7 @@ import { BackupPanel } from './BackupPanel.js';
 import { SignIn } from './SignIn.js';
 import { CaptureMedia } from './CaptureMedia.js';
 import { ProfileControl } from './ProfileControl.js';
-import { FilingDialog } from './inbox/FilingDialog.js';
+import { FilingDialog, type FilingMode } from './inbox/FilingDialog.js';
 import { FilingLinks, CaptureSources } from './inbox/FilingLinks.js';
 import { filingOf } from '@our-place/contracts';
 import { widgetNavigationError, type WidgetNavigation } from '@our-place/client';
@@ -150,6 +150,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
   const [dragTarget, setDragTarget] = useState<string | null>(null);
   const [inboxFilter, setInboxFilter] = useState('unfiled');
   const [suggestionFilter, setSuggestionFilter] = useState<'active' | 'completed'>('active');
+  const [filingMode, setFilingMode] = useNavigationState<FilingMode>('App.filingMode', 'task');
   const [filingId, setFilingId] = useNavigationState<string | null>('App.filingId', null);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<{
@@ -1475,6 +1476,18 @@ function AppContent({ client }: { client: ClientPlatform }) {
                             </div>
                             <div
                               className="entry-body"
+                              role="button"
+                              tabIndex={0}
+                              aria-label="Open note"
+                              onKeyDown={(event) => {
+                                if (
+                                  event.target === event.currentTarget &&
+                                  (event.key === 'Enter' || event.key === ' ')
+                                ) {
+                                  event.preventDefault();
+                                  setSelected({ id: entry.inboxId, history: false });
+                                }
+                              }}
                               onClick={() => setSelected({ id: entry.inboxId, history: false })}
                             >
                               <p className="entry-text">
@@ -1512,12 +1525,27 @@ function AppContent({ client }: { client: ClientPlatform }) {
                                 />
                               )}
                               {view !== 'trash' && categoryOf(entry) === 'inbox' && (
-                                <button
-                                  disabled={state.pendingEdits.includes(entry.inboxId)}
-                                  onClick={() => setFilingId(entry.inboxId)}
-                                >
-                                  File
-                                </button>
+                                <>
+                                  {(
+                                    [
+                                      ['task', 'To task'],
+                                      ['project', 'Into project'],
+                                      ['shopping', 'To shopping'],
+                                      ['recipe', 'To food'],
+                                    ] as const
+                                  ).map(([mode, label]) => (
+                                    <button
+                                      key={mode}
+                                      disabled={state.pendingEdits.includes(entry.inboxId)}
+                                      onClick={() => {
+                                        setFilingMode(mode);
+                                        setFilingId(entry.inboxId);
+                                      }}
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
+                                </>
                               )}
                               {view !== 'trash' &&
                                 categoryOf(entry) === 'inbox' &&
@@ -1536,33 +1564,37 @@ function AppContent({ client }: { client: ClientPlatform }) {
                                     Back to inbox
                                   </button>
                                 )}
-                              <button
-                                disabled={
-                                  view === 'trash' &&
-                                  (!state.online || state.pendingEdits.includes(entry.inboxId))
-                                }
-                                onClick={() => {
-                                  if (view === 'trash')
-                                    void runCommand(
-                                      entry,
-                                      'RestoreInboxEntry',
-                                      { inboxId: entry.inboxId, expectedRevision: entry.revision },
-                                      'Entry restored',
-                                    );
-                                  else setSelected({ id: entry.inboxId, history: false });
-                                }}
-                              >
-                                {view === 'trash'
-                                  ? 'Restore'
-                                  : !state.online || state.pendingEdits.includes(entry.inboxId)
-                                    ? 'View'
-                                    : 'Edit'}
-                              </button>
-                              <button onClick={() => setSelected({ id: entry.inboxId, history: true })}>
-                                <Icon name="clock" size={14} />
-                                History
-                              </button>
-                              {view !== 'trash' && (
+                              {(view === 'trash' || categoryOf(entry) === 'app_suggestion') && (
+                                <>
+                                  <button
+                                    disabled={
+                                      view === 'trash' &&
+                                      (!state.online || state.pendingEdits.includes(entry.inboxId))
+                                    }
+                                    onClick={() => {
+                                      if (view === 'trash')
+                                        void runCommand(
+                                          entry,
+                                          'RestoreInboxEntry',
+                                          { inboxId: entry.inboxId, expectedRevision: entry.revision },
+                                          'Entry restored',
+                                        );
+                                      else setSelected({ id: entry.inboxId, history: false });
+                                    }}
+                                  >
+                                    {view === 'trash'
+                                      ? 'Restore'
+                                      : !state.online || state.pendingEdits.includes(entry.inboxId)
+                                        ? 'View'
+                                        : 'Edit'}
+                                  </button>
+                                  <button onClick={() => setSelected({ id: entry.inboxId, history: true })}>
+                                    <Icon name="clock" size={14} />
+                                    History
+                                  </button>
+                                </>
+                              )}
+                              {view !== 'trash' && categoryOf(entry) === 'app_suggestion' && (
                                 <button
                                   aria-label={
                                     categoryOf(entry) === 'app_suggestion'
@@ -1656,6 +1688,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
               client={client}
               state={state}
               entry={filingEntry}
+              initialMode={filingMode}
               run={runCommand}
               onError={showError}
               close={() => setFilingId(null)}
