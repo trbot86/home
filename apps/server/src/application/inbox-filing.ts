@@ -1,3 +1,4 @@
+import { isSecure } from './record-security.js';
 import { categoryOf, filingOf, type Command, type FilingDestination } from '@our-place/contracts';
 import type { Sqlite } from '../infrastructure/database.js';
 import type { AccessService, HumanRequestContext } from '../features/access/access.js';
@@ -51,6 +52,8 @@ export class InboxFiling {
             if (filing.destinations.length >= 20) throw new Rejection('inbox_destination_limit');
             created = this.create(context, source.scopeId, destination, now);
             id = destination.arguments.recordId;
+            if (isSecure(this.db, source.inboxId))
+              this.db.prepare('INSERT INTO record_security VALUES (?,1,1)').run(id);
           }
           if (!filing.destinations.some((d) => d.recordId === id)) {
             if (filing.destinations.length >= 20) throw new Rejection('inbox_destination_limit');

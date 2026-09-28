@@ -50,6 +50,38 @@ revisions hide it. Failed/stale attempts can be explicitly retried. Nothing in
 this design guarantees that a remote model will avoid retention, disclosure or
 training; provider/account policy must be reviewed before connecting it.
 
+## Secure items
+
+Secure defaults off and is an additional exclusion, never a grant of scope or
+provider access. Saved-item editors expose the flag. Inbox capture (including
+Android quick capture) can set it before submission; it persists in offline
+drafts and is committed atomically with the note, before automatic discovery.
+Existing-item changes require a connection, current recovery epoch, authorization
+and the current security revision. A failed/uncertain save must be checked again.
+
+Projects protect all their pages, nested pages and notes filed into them. A Secure
+page protects its nested pages and filed notes; shopping lists protect their
+entries. Returning a note to the inbox retains its filing links and protection
+until those links are removed. Moving a page changes its inherited protection;
+its own flag remains. Ordinary links and pins are references, not containment.
+Filing a protected note into a newly created record copies its protection.
+
+Flags are separate from content history, so edits, delete/restore and undo cannot
+clear them. Clearing a child's own flag cannot override a protected container.
+The server excludes protected sources before claiming an attempt and omits
+protected destination labels. Secure changes invalidate affected saved advice
+and conservatively discard pending advice; completion and review recheck current
+protection. Already transmitted content cannot be recalled. Secure is a model
+context exclusion, not encryption or a replacement for household visibility.
+
+Secure app suggestions or protected discussion records also block development-agent
+claims, replayed claims, status context, steering and media exports. Existing host
+copies cannot be recalled.
+
+The additive server migration preserves existing records, receipts and history.
+Android Room migration 4 to 5 defaults existing draft flags off while preserving
+frozen request bytes and hashes; it does not recreate the local database.
+
 ## Dedicated Codex worker
 
 The server adapter and standalone `filing-worker-main` entry point implement a

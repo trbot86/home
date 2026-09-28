@@ -68,6 +68,7 @@ export class FilingAdviceWorker {
           JOIN inbox_entries i ON i.inbox_id=r.record_id
           LEFT JOIN inbox_filing_suggestions a ON a.inbox_id=r.record_id
           WHERE r.scope_id=? AND r.deleted_at IS NULL AND i.category='inbox' AND i.filed_at IS NULL
+          AND r.record_id NOT IN (SELECT record_id FROM secure_records)
           AND length(trim(i.text))>0 AND length(i.text)<=8000 AND a.inbox_id IS NULL
           ORDER BY r.created_at,r.record_id LIMIT 1`,
           )
@@ -78,7 +79,8 @@ export class FilingAdviceWorker {
               this.db
                 .prepare(
                   `SELECT record_id FROM records
-          WHERE scope_id=? AND deleted_at IS NULL AND kind IN ('project','project_page','shopping_list','task')
+          WHERE record_id NOT IN (SELECT record_id FROM secure_records)
+          AND scope_id=? AND deleted_at IS NULL AND kind IN ('project','project_page','shopping_list','task')
           ORDER BY updated_at DESC,record_id LIMIT 20`,
                 )
                 .all(scopeId) as { record_id: string }[]

@@ -47,6 +47,15 @@ export class ClientError extends Error {
   }
 }
 export class BrowserClient implements ClientPlatform {
+  recordSecurity(
+    recordId: string,
+    request?: import('@our-place/contracts').RecordSecurityRequest,
+  ): Promise<import('@our-place/contracts').RecordSecurity> {
+    const path = `/records/${encodeURIComponent(recordId)}/security`;
+    return request
+      ? this.post(path, request, this.requireSession().clientId)
+      : this.request(path, {}, this.requireSession().clientId);
+  }
   filingAdviceSettings(): Promise<import('@our-place/contracts').FilingAdviceSettings> {
     return this.request('/filing-advice/settings', {}, this.requireSession().clientId);
   }
@@ -329,8 +338,9 @@ export class BrowserClient implements ClientPlatform {
     this.changed();
     return draft;
   }
-  saveDraft(id: string, text: string, scopeId: string): Promise<Draft> {
+  saveDraft(id: string, text: string, scopeId: string, secure?: boolean): Promise<Draft> {
     return this.changeDraft(id, (draft) => {
+      if (secure !== undefined) draft.secure = secure;
       draft.text = text;
       draft.scopeId = scopeId;
     });
@@ -427,6 +437,7 @@ export class BrowserClient implements ClientPlatform {
             attachments: draft.attachments,
           }
         : {
+            secure: draft.secure ?? false,
             inboxId: draft.draftId,
             scopeId: draft.scopeId,
             category: categoryOf(draft),
@@ -458,7 +469,7 @@ export class BrowserClient implements ClientPlatform {
     if (!original || original.clientId !== this.requireSession().clientId || original.state !== 'REJECTED')
       throw new ClientError('draft_unavailable');
     const draft = await this.createDraft(original.scopeId, categoryOf(original), original.replyTarget);
-    await this.saveDraft(draft.draftId, original.text, original.scopeId);
+    await this.saveDraft(draft.draftId, original.text, original.scopeId, original.secure);
     for (const attachment of original.attachments) {
       const media = await db.get('media', localKey(original.clientId, attachment.mediaId));
       if (media) await this.addPhoto(draft.draftId, media.bytes);

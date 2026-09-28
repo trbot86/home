@@ -52,7 +52,7 @@ class HouseholdPlugin : Plugin() {
             } catch (error: Exception) { call.reject("Invalid web link", error) }
             return
         }
-        val networkMethods = setOf("authenticationOptions", "login", "logout", "refresh", "sync", "command", "submitAttachmentDraft", "history", "shoppingHistory", "recordHistory", "sharingPreview", "filingAdviceSettings", "saveFilingAdviceSettings", "filingAdvice", "recipeImport", "photoPath", "storage", "backups", "createBackup", "recoverDraft", "reconcileEdits")
+        val networkMethods = setOf("authenticationOptions", "login", "logout", "refresh", "sync", "command", "submitAttachmentDraft", "history", "shoppingHistory", "recordHistory", "sharingPreview", "recordSecurity", "filingAdviceSettings", "saveFilingAdviceSettings", "filingAdvice", "recipeImport", "photoPath", "storage", "backups", "createBackup", "recoverDraft", "reconcileEdits")
         (if (method in networkMethods) network else core.executor).execute {
             try {
                 val result: Any? = when (method) {
@@ -66,7 +66,7 @@ class HouseholdPlugin : Plugin() {
                     "refresh" -> { core.refresh(); null }
                     "sync" -> { core.sync(); null }
                     "createDraft" -> core.createDraft(args.requireText("scopeId"), category = args.optString("category", "inbox"), replyTarget = args.optJSONObject("replyTarget")).json()
-                    "saveDraft" -> core.saveDraft(args.requireText("draftId"), args.requireText("text"), args.requireText("scopeId"), if (args.has("expectedRevision")) args.getInt("expectedRevision") else null).json()
+                    "saveDraft" -> core.saveDraft(args.requireText("draftId"), args.requireText("text"), args.requireText("scopeId"), if (args.has("expectedRevision")) args.getInt("expectedRevision") else null, if (args.has("secure")) args.getBoolean("secure") else null).json()
                     "discardDraft" -> { core.discardDraft(args.requireText("draftId")); null }
                     "submitDraft" -> { core.submitDraft(args.requireText("draftId"), if (args.has("requestWork")) args.getBoolean("requestWork") else null); null }
                     "suggestionMessages" -> core.suggestionMessages(args.requireText("suggestionId"), args.getLong("beforeSequence"))
@@ -84,6 +84,7 @@ class HouseholdPlugin : Plugin() {
                     "history" -> core.history(args.requireText("recordId"))
                     "shoppingHistory" -> core.shoppingHistory(args.requireText("recordId"))
                     "sharingPreview" -> core.sharingPreview(args.requireText("recordId"))
+                    "recordSecurity" -> core.recordSecurity(args.requireText("recordId"), args.optJSONObject("request"))
                     "filingAdviceSettings" -> core.filingAdviceSettings()
                     "saveFilingAdviceSettings" -> core.saveFilingAdviceSettings(args.getLong("expectedRevision"), args.getJSONObject("preferences"))
                     "filingAdvice" -> core.filingAdvice(args.requireText("inboxId"), args.optJSONObject("request"))

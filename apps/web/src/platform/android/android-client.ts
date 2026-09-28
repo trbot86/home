@@ -23,6 +23,7 @@ import type {
   SuggestionMessage,
 } from '@our-place/contracts';
 type NativeMethod =
+  | 'recordSecurity'
   | 'filingAdviceSettings'
   | 'saveFilingAdviceSettings'
   | 'filingAdvice'
@@ -77,6 +78,12 @@ const native = registerPlugin<{
 }>('Household');
 /** A typed bridge only; Android persistence and networking are owned by Kotlin. */
 export class AndroidClient implements ClientPlatform {
+  recordSecurity(
+    recordId: string,
+    request?: import('@our-place/contracts').RecordSecurityRequest,
+  ): Promise<import('@our-place/contracts').RecordSecurity> {
+    return this.invoke('recordSecurity', { recordId, ...(request ? { request } : {}) });
+  }
   filingAdviceSettings(): Promise<import('@our-place/contracts').FilingAdviceSettings> {
     return this.invoke('filingAdviceSettings');
   }
@@ -179,8 +186,8 @@ export class AndroidClient implements ClientPlatform {
   suggestionMessages(suggestionId: string, beforeSequence: number): Promise<SuggestionMessage[]> {
     return this.invoke('suggestionMessages', { suggestionId, beforeSequence });
   }
-  saveDraft(draftId: string, text: string, scopeId: string): Promise<Draft> {
-    return this.invoke('saveDraft', { draftId, text, scopeId });
+  saveDraft(draftId: string, text: string, scopeId: string, secure?: boolean): Promise<Draft> {
+    return this.invoke('saveDraft', { draftId, text, scopeId, ...(secure !== undefined ? { secure } : {}) });
   }
   discardDraft(draftId: string): Promise<void> {
     return this.invoke('discardDraft', { draftId });

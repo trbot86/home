@@ -546,3 +546,23 @@ test('old retained history, receipts and capture bytes survive the additive fili
     await f.close();
   }
 });
+
+test('filing a Secure capture into new content retains protection through undo and redo', async () => {
+  const f = await fixture();
+  try {
+    const source = f.note(),
+      destination = f.task();
+    f.db.prepare('INSERT INTO record_security VALUES (?,1,1)').run(source.inboxId);
+    const filed = applied(f.file(source, destination));
+    const id = destination.arguments.recordId;
+    assert.ok(f.db.prepare('SELECT 1 FROM secure_records WHERE record_id=?').get(id));
+    const undo = applied(f.run('UndoChangeSet', { changeSetId: filed.changeSetId }));
+    assert.ok(f.db.prepare('SELECT 1 FROM secure_records WHERE record_id=?').get(id));
+    applied(f.run('RedoChangeSet', { changeSetId: undo.changeSetId }));
+    assert.ok(f.db.prepare('SELECT 1 FROM secure_records WHERE record_id=?').get(id));
+    assert.equal(f.get(source.inboxId).text, source.text);
+    assert.deepEqual(f.db.pragma('foreign_key_check'), []);
+  } finally {
+    await f.close();
+  }
+});

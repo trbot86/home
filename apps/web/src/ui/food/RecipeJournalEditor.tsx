@@ -1,3 +1,4 @@
+import { SecureRecord } from '../SecureRecord.js';
 import { ShareRecord } from '../ShareRecord.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
@@ -138,13 +139,16 @@ export function RecipeJournalEditor({
       }}
     >
       {record && (
-        <ShareRecord
-          client={client}
-          state={state}
-          recordId={record.recordId}
-          scopeId={record.scopeId}
-          close={close}
-        />
+        <>
+          <SecureRecord client={client} state={state} recordId={record.recordId} />
+          <ShareRecord
+            client={client}
+            state={state}
+            recordId={record.recordId}
+            scopeId={record.scopeId}
+            close={close}
+          />
+        </>
       )}
       <form
         className="task-form"

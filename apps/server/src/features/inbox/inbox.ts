@@ -185,6 +185,7 @@ export class InboxRepository {
         "INSERT INTO inbox_entries(inbox_id,record_kind,text,captured_at,source_json,category) VALUES (?, 'inbox', ?,?,?,?)",
       )
       .run(args.inboxId, args.text, args.capturedAt, JSON.stringify(args.source), categoryOf(args));
+    if (args.secure) this.db.prepare('INSERT INTO record_security VALUES (?,1,1)').run(args.inboxId);
     if (context.kind !== 'integration') {
       this.attachments.replace(context, args.inboxId, args.scopeId, args.attachments, now, {
         creating: true,
