@@ -190,7 +190,7 @@ export function Food({
         </div>
         <button className="primary" onClick={() => setEditor('new')}>
           <Icon name="plus" size={18} />
-          Save a recipe
+          Add a recipe
         </button>
       </div>
       <div className="food-toolbar">
