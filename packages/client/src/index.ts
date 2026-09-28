@@ -153,6 +153,8 @@ export interface ClientPlatform {
   finishCalendarConnection?(handoffId: string): Promise<{ connectionId: string }>;
   discoverCalendars?(connectionId: string): Promise<unknown>;
   serverAddress?(): Promise<string>;
+  appVersion?(): Promise<{ version: string; sha256: string }>;
+  publishedAppVersion?(): Promise<{ sha256: string }>;
   /** Native hosts open web links outside the app so unfinished work stays in place. */
   openExternalUrl?(url: string): Promise<void>;
   configureServer?(url: string): Promise<void>;

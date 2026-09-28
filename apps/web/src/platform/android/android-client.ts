@@ -23,6 +23,8 @@ import type {
   SuggestionMessage,
 } from '@our-place/contracts';
 type NativeMethod =
+  | 'appVersion'
+  | 'publishedAppVersion'
   | 'state'
   | 'takeWidgetNavigation'
   | 'endpoint'
@@ -120,6 +122,12 @@ export class AndroidClient implements ClientPlatform {
   }
   serverAddress(): Promise<string> {
     return this.invoke('endpoint');
+  }
+  appVersion(): Promise<{ version: string; sha256: string }> {
+    return this.invoke('appVersion');
+  }
+  publishedAppVersion(): Promise<{ sha256: string }> {
+    return this.invoke('publishedAppVersion');
   }
   openExternalUrl(url: string): Promise<void> {
     return this.invoke('openExternalUrl', { url });
