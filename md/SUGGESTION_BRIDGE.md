@@ -45,6 +45,15 @@ checkout), `stateRoot` (an ignored local directory), `codexExecutable` (the
 installed executable's absolute path) and `enabled: true`. Preserve the emitted
 `serverEpoch` and `installationId`. Do not commit this configuration.
 
+Set optional `codexProjectId` to the target project's canonical ID returned by
+the installed app-server's `project/list` (match its name and root). Desktop tool
+project IDs may differ from these canonical IDs. New launch specifications retain
+this assignment; existing runs retain their original setup. Before starting work,
+the bridge reads the project and verifies `thread/start` returned that same ID.
+A deleted project or ignored assignment stops the launch instead of silently
+creating ungrouped work. Project grouping does not change the isolated worktree,
+its AGENTS.md, model, permissions, shared dependency cache or worktree limit.
+
 Run `node scripts/suggestion-bridge.mjs <configuration-file> --once` for a
 single pass, or omit `--once` to poll. `enabled: false` stops new claims while
 existing work is reconciled. The Windows helper

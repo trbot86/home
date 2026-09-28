@@ -80,6 +80,24 @@ async function fixture() {
   };
 }
 
+test('new launch specifications retain the selected project across recovery', async () => {
+  const f = await fixture();
+  try {
+    const config = { ...f.config, codexProjectId: 'suggestion-project', codexExecutable: process.execPath };
+    const runner = new SuggestionRunner(config, f.send);
+    runner.worktree = async () => f.root;
+    const spec = await runner.prepare(f.run);
+    assert.equal(spec.projectId, 'suggestion-project');
+    assert.equal(spec.cwd, f.root);
+    assert.equal(spec.model, 'gpt-6-astra');
+    assert.equal(spec.reasoningEffort, 'medium');
+    config.codexProjectId = 'different-project';
+    assert.deepEqual(await runner.prepare(f.run), spec);
+  } finally {
+    await f.close();
+  }
+});
+
 test('journal repeats identical dispatch after lost acknowledgement', async () => {
   const f = await fixture();
   try {

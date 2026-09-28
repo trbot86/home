@@ -17,6 +17,11 @@ if (
   !config.codexExecutable
 )
   throw new Error('Suggestion bridge configuration is incomplete');
+if (
+  config.codexProjectId !== undefined &&
+  (typeof config.codexProjectId !== 'string' || !config.codexProjectId.trim())
+)
+  throw new Error('codexProjectId must be a nonempty app-server project ID');
 const origin = new URL(config.origin);
 if (
   origin.origin !== config.origin ||

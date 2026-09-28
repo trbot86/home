@@ -11,7 +11,15 @@ import { writeJson, readJson } from './journal.mjs';
 
 async function fixture(
   t,
-  { wrongPermissions = false, crash = false, steer = false, rejectSteering = false } = {},
+  {
+    wrongPermissions = false,
+    crash = false,
+    steer = false,
+    rejectSteering = false,
+    projectId,
+    wrongProject = false,
+    missingProject = false,
+  } = {},
 ) {
   const root = await mkdtemp(join(tmpdir(), 'suggestion-protocol-'));
   const verified = await realpath(root);
@@ -26,6 +34,7 @@ async function fixture(
     schema: join(root, 'schema.json'),
     executable: 'fake',
     runId: 'test-run',
+    projectId,
   };
   await writeFile(spec.promptPath, 'Synthetic task');
   await writeFile(spec.schema, '{}');
@@ -43,11 +52,17 @@ async function fixture(
     if (!m.method || m.id === undefined) return;
     queueMicrotask(() => {
       if (m.method === 'initialize') emit({ id: m.id, result: {} });
+      if (m.method === 'project/read')
+        emit(
+          missingProject
+            ? { id: m.id, error: { message: 'Configured project no longer exists' } }
+            : { id: m.id, result: { project: { id: projectId } } },
+        );
       if (m.method === 'thread/start')
         emit({
           id: m.id,
           result: {
-            thread: { id: 'synthetic-thread' },
+            thread: { id: 'synthetic-thread', projectId: wrongProject ? null : projectId },
             approvalPolicy: wrongPermissions ? 'never' : 'on-request',
             approvalsReviewer: 'auto_review',
             sandbox: { type: 'workspaceWrite' },
@@ -144,6 +159,37 @@ test('implementation defaults use Astra medium without changing global Codex pre
   const params = threadParameters({ cwd: 'synthetic', packageStore: 'cache' });
   assert.equal(params.model, 'gpt-6-astra');
   assert.equal(params.config.model_reasoning_effort, 'medium');
+  assert.equal(Object.hasOwn(params, 'projectId'), false);
+});
+
+test('explicit project groups the thread without changing its isolated workspace or permissions', async (t) => {
+  const { result, requests, events } = await fixture(t, { projectId: 'suggestion-project' });
+  assert.equal(result.exitCode, 0);
+  const start = requests.find((m) => m.method === 'thread/start').params;
+  assert.equal(start.projectId, 'suggestion-project');
+  assert.ok(start.cwd.includes('suggestion-protocol-'));
+  assert.equal(start.sandbox, 'workspace-write');
+  assert.equal(start.approvalsReviewer, 'auto_review');
+  assert.equal(start.model, 'gpt-6-astra');
+  assert.ok(
+    requests.findIndex((m) => m.method === 'project/read') <
+      requests.findIndex((m) => m.method === 'thread/start'),
+  );
+  assert.ok(events.some((e) => e.type === 'project.confirmed' && e.projectId === 'suggestion-project'));
+});
+
+test('missing configured project fails before creating a thread', async (t) => {
+  const { result, requests } = await fixture(t, { projectId: 'deleted-project', missingProject: true });
+  assert.equal(result.exitCode, -1);
+  assert.match(result.failure, /no longer exists/);
+  assert.ok(!requests.some((m) => m.method === 'thread/start' || m.method === 'turn/start'));
+});
+
+test('ignored project assignment fails before starting work', async (t) => {
+  const { result, requests } = await fixture(t, { projectId: 'suggestion-project', wrongProject: true });
+  assert.equal(result.exitCode, -1);
+  assert.match(result.failure, /did not assign/);
+  assert.ok(!requests.some((m) => m.method === 'turn/start'));
 });
 
 test('discussion steering targets the current turn and waits for acknowledged delivery', async (t) => {

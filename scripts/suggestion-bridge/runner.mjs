@@ -122,6 +122,7 @@ export class SuggestionRunner {
       nonce: randomUUID(),
       runId: run.runId,
       cwd,
+      ...(this.config.codexProjectId ? { projectId: this.config.codexProjectId } : {}),
       promptPath,
       outputPath,
       executable: this.config.codexExecutable,

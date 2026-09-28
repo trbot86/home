@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 export function threadParameters(spec) {
   return {
     cwd: spec.cwd,
+    ...(spec.projectId ? { projectId: spec.projectId } : {}),
     model: spec.model ?? 'gpt-6-astra',
     approvalPolicy: 'on-request',
     approvalsReviewer: 'auto_review',
@@ -140,9 +141,19 @@ export async function runCodexTurn(spec, record, spawnProcess = spawn, steering 
       capabilities: { experimentalApi: true },
     });
     send({ method: 'initialized', params: {} });
+    if (spec.projectId) {
+      const { project } = await request('project/read', { projectId: spec.projectId });
+      if (project?.id !== spec.projectId)
+        throw new Error('Codex did not confirm the configured suggestion project');
+    }
     const thread = await request('thread/start', threadParameters(spec));
     sessionId = thread.thread.id;
     record({ type: 'thread.started', thread_id: sessionId });
+    if (spec.projectId) {
+      if (thread.thread.projectId !== spec.projectId)
+        throw new Error('Codex did not assign the suggestion to the configured project');
+      record({ type: 'project.confirmed', projectId: thread.thread.projectId });
+    }
     record({
       type: 'permissions.confirmed',
       approvalPolicy: thread.approvalPolicy,
