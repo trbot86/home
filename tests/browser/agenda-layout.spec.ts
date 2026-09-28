@@ -149,7 +149,7 @@ test('personal sections, counts, order and defaults sync across devices, retain 
     .getByRole('combobox', { name: 'Default calendar range', exact: true })
     .press('Control+Enter');
   await expect(dialog(page)).toHaveCount(0);
-  expect(await sectionOrder(page)).toEqual(['food_soon', 'tasks', 'calendar', 'project_next']);
+  await expect.poll(() => sectionOrder(page)).toEqual(['food_soon', 'tasks', 'calendar', 'project_next']);
   await expect(page.locator('.agenda-focus .agenda-task')).toHaveCount(1);
   await expect(page.locator('.agenda-recipe')).toHaveCount(1);
   await page.getByRole('button', { name: 'Show more recipes (2 remaining)', exact: true }).click();
@@ -176,12 +176,12 @@ test('personal sections, counts, order and defaults sync across devices, retain 
   const other = await browser.newPage();
   try {
     await login(other);
-    expect(await sectionOrder(other)).toEqual(['food_soon', 'tasks', 'calendar', 'project_next']);
+    await expect.poll(() => sectionOrder(other)).toEqual(['food_soon', 'tasks', 'calendar', 'project_next']);
     await expect(other.getByRole('combobox', { name: 'Show', exact: true })).toHaveValue('home');
     await expect(other.getByRole('combobox', { name: 'Days', exact: true })).toHaveValue('30');
     await other.getByLabel('Current profile').selectOption({ label: 'Sam' });
     await other.getByRole('button', { name: 'Agenda', exact: true }).click();
-    expect(await sectionOrder(other)).toEqual(['tasks', 'calendar']);
+    await expect.poll(() => sectionOrder(other)).toEqual(['tasks', 'calendar']);
     expect(await saved(other)).toBeUndefined();
     const sam = await (await other.request.get('/api/cache/inbox')).json();
     expect(JSON.stringify(sam)).not.toContain('Agenda soup');
@@ -195,7 +195,7 @@ test('personal sections, counts, order and defaults sync across devices, retain 
   await context.setOffline(true);
   await page.reload();
   await page.getByRole('button', { name: 'Agenda', exact: true }).click();
-  expect(await sectionOrder(page)).toEqual(['food_soon', 'tasks', 'calendar', 'project_next']);
+  await expect.poll(() => sectionOrder(page)).toEqual(['food_soon', 'tasks', 'calendar', 'project_next']);
   await page.getByRole('button', { name: 'Customise agenda', exact: true }).click();
   await dialog(page).getByLabel('Your tasks item limit').fill('');
   await expect(dialog(page).getByRole('button', { name: 'Save layout', exact: true })).toBeDisabled();
@@ -298,7 +298,7 @@ test('an unreadable saved layout draft can be recovered and every section can be
     await dialog(page).getByLabel(section, { exact: true }).uncheck();
   await dialog(page).getByRole('button', { name: 'Save layout', exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
-  expect(await sectionOrder(page)).toEqual([]);
+  await expect.poll(() => sectionOrder(page)).toEqual([]);
   await expect(page.locator('.agenda')).toContainText('No sections are shown');
   await setLayout(page);
   expect(errors).toEqual([]);

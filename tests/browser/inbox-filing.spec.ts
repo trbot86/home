@@ -348,6 +348,7 @@ test('private capture filing keeps destinations private and does not expose back
   await saved(page);
   dialog = await file(page, text);
   await dialog.getByLabel('Filing destination').selectOption('existing');
+  await dialog.getByLabel('Find a destination', { exact: true }).fill('Shared filing reference');
   await dialog
     .getByLabel('Saved item', { exact: true })
     .selectOption({ label: 'Shopping list: Shared filing reference' });
@@ -421,6 +422,7 @@ test('destination actions open reviewable drafts and food preserves the original
   await expect(page.getByRole('dialog').locator('img')).toHaveCount(1);
   await page.getByRole('button', { name: 'Close entry' }).click();
   await page.getByRole('button', { name: 'Inbox', exact: true }).click();
+  await expect(page.getByLabel('What’s on your mind?')).toBeEnabled();
   await page.keyboard.press('Control+z');
   await expect
     .poll(
@@ -428,6 +430,7 @@ test('destination actions open reviewable drafts and food preserves the original
         (await snapshot(page)).recipes.recipes.find((r: any) => r.title === 'Reviewed soup').deletedAt,
     )
     .not.toBeNull();
+  await expect(page.getByRole('button', { name: 'Redo', exact: true })).toBeVisible();
   await page.keyboard.press('Control+Shift+z');
   await expect
     .poll(
