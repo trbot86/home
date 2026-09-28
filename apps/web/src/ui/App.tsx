@@ -1279,6 +1279,11 @@ export function App({ client }: { client: ClientPlatform }) {
                         <article
                           className={`entry-card ${categoryOf(entry) === 'app_suggestion' ? 'suggestion-card' : ''} ${categoryOf(entry) === 'app_suggestion' && suggestionUnread(state.suggestions, entry.inboxId) ? 'has-suggestion-update' : ''}`}
                           key={entry.inboxId}
+                          data-suggestion-status={
+                            categoryOf(entry) === 'app_suggestion'
+                              ? suggestionStatus(state.suggestions, entry.inboxId)
+                              : undefined
+                          }
                         >
                           {entry.attachments[0] && (
                             <button
