@@ -35,6 +35,7 @@ export function CalendarSettings({
 }) {
   const [settings, setSettings] = useState<Settings | null>(null),
     [busy, setBusy] = useState(false),
+    [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading'),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [label, setLabel] = useState('Google account'),
@@ -65,17 +66,23 @@ export function CalendarSettings({
   }, [client, browser]);
   useEffect(() => {
     let current = true;
-    if (browser && state.online)
+    if (browser && state.online) {
+      setLoadState('loading');
       void client.calendarSettings!()
         .then((value) => {
           if (current) {
             setSettings(value);
+            setLoadState('ready');
             setError('');
           }
         })
         .catch((e) => {
-          if (current) setError(connectionError(e));
+          if (current) {
+            setLoadState('error');
+            setError(connectionError(e));
+          }
         });
+    }
     return () => {
       current = false;
     };
@@ -96,9 +103,28 @@ export function CalendarSettings({
     }
   }
   async function reload() {
-    const value = await client.calendarSettings!();
-    if (alive.current) setSettings(value);
+    setLoadState('loading');
+    try {
+      const value = await client.calendarSettings!();
+      if (alive.current) {
+        setSettings(value);
+        setLoadState('ready');
+      }
+    } catch (e) {
+      if (alive.current) setLoadState('error');
+      throw e;
+    }
   }
+  const available = state.online && loadState === 'ready' && !!settings?.configured;
+  const connectHelp = !state.online
+    ? 'Reconnect to the household server to connect a Google account.'
+    : loadState === 'loading'
+      ? 'Loading calendar settings…'
+      : loadState === 'error'
+        ? 'Calendar settings could not be loaded. Try again before connecting an account.'
+        : !settings?.configured
+          ? 'Google Calendar isn’t set up on this server yet. The household owner needs to set up Google access before you can connect an account. Entering a label cannot add a calendar until setup is complete.'
+          : 'Google opens in this browser to ask for access. Event editing stays in Google Calendar for now.';
   function clearHandoff() {
     setHandoffId(null);
     const url = new URL(window.location.href);
@@ -106,6 +132,7 @@ export function CalendarSettings({
     window.history.replaceState(null, '', url);
   }
   async function begin(reconnect?: BeginCalendarConnection['reconnect'], existingLabel?: string) {
+    if (!available || (!reconnect && !label.trim())) return;
     const result = await client.beginCalendarConnection!({
       label: existingLabel ?? (label.trim() || 'Google account'),
       ...(reconnect ? { reconnect } : {}),
@@ -165,14 +192,8 @@ export function CalendarSettings({
             </a>
           )}
         </>
-      ) : settings ? (
+      ) : (
         <>
-          {!settings.configured && (
-            <p className="calendar-message" role="status">
-              Google Calendar isn’t set up on this server yet. The household app works normally while account
-              setup is pending.
-            </p>
-          )}
           {handoffId === 'cancelled' ? (
             <p className="calendar-message" role="status">
               Google connection cancelled. No account was added.
@@ -185,7 +206,7 @@ export function CalendarSettings({
                 </p>
                 <button
                   className="primary"
-                  disabled={!state.online || busy || !settings.configured}
+                  disabled={!available || busy}
                   onClick={() =>
                     void act(async () => {
                       await client.finishCalendarConnection!(handoffId);
@@ -208,6 +229,7 @@ export function CalendarSettings({
             className="calendar-connect"
             onSubmit={(e) => {
               e.preventDefault();
+              if (!available || busy || !label.trim()) return;
               void act(() => begin());
             }}
           >
@@ -216,23 +238,30 @@ export function CalendarSettings({
               <input
                 value={label}
                 maxLength={300}
-                disabled={busy}
+                disabled={!available || busy}
+                aria-describedby="calendar-connect-help"
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder="e.g. Personal or Work"
               />
             </label>
             <button
               className="primary"
-              disabled={!state.online || busy || !settings.configured || !label.trim()}
+              aria-describedby="calendar-connect-help"
+              disabled={!available || busy || !label.trim()}
             >
               Connect Google account
             </button>
           </form>
-          <p className="fine">
-            Google opens in this browser to ask for access. Event editing stays in Google Calendar for now.
+          <p id="calendar-connect-help" className="calendar-message" role="status">
+            {connectHelp}
           </p>
+          {state.online && loadState === 'error' && (
+            <button disabled={busy} onClick={() => void act(reload)}>
+              Try loading calendar settings again
+            </button>
+          )}
           <div className="calendar-connections">
-            {settings.connections
+            {settings?.connections
               .filter((c) => c.state !== 'disconnected')
               .map((connection) => (
                 <article className="calendar-connection" key={connection.connectionId}>
@@ -255,7 +284,7 @@ export function CalendarSettings({
                   <div className="calendar-actions">
                     {connection.state === 'needs_auth' ? (
                       <button
-                        disabled={busy || !state.online || !settings.configured}
+                        disabled={busy || !available}
                         onClick={() =>
                           void act(() =>
                             begin(
@@ -269,7 +298,7 @@ export function CalendarSettings({
                       </button>
                     ) : (
                       <button
-                        disabled={busy || !state.online || !settings.configured}
+                        disabled={busy || !available}
                         onClick={() =>
                           void act(async () => {
                             await client.discoverCalendars!(connection.connectionId);
@@ -389,15 +418,6 @@ export function CalendarSettings({
               ))}
           </div>
         </>
-      ) : (
-        state.online &&
-        (error ? (
-          <button disabled={busy} onClick={() => void act(reload)}>
-            Try loading calendar settings again
-          </button>
-        ) : (
-          <p role="status">Loading calendar settings…</p>
-        ))
       )}
     </section>
   );
