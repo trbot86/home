@@ -13,6 +13,7 @@ async function createTask(
   configure?: (dialog: ReturnType<Page['getByRole']>) => Promise<void>,
 ) {
   await page.getByRole('button', { name: 'New task', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Task title', { exact: true }).fill(title);
   if (configure) await configure(dialog);
@@ -93,6 +94,7 @@ test('task editor buffers, uncertain creation, private tasks and offline viewing
 }) => {
   await openTasks(page);
   await page.getByRole('button', { name: 'New task', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
   await page.getByLabel('Task title', { exact: true }).fill('Research a surprise weekend');
   await page.getByLabel('Instructions', { exact: true }).fill('Keep these unfinished details');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
@@ -132,6 +134,7 @@ test('task editor buffers, uncertain creation, private tasks and offline viewing
   });
   await page.getByRole('button', { name: 'Tasks', exact: true }).click();
   await page.getByRole('button', { name: 'New task', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
   await expect(page.getByLabel('Task title', { exact: true })).toHaveValue('Research a surprise weekend');
   await expect(page.getByLabel('Instructions', { exact: true })).toHaveValue('Keep these unfinished details');
   await page.getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Just me' });

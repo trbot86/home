@@ -12,7 +12,7 @@ async function project(page: Page, title: string, privateOnly = false) {
   await page.getByRole('button', { name: 'New project', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'New project', exact: true });
   await dialog.getByLabel('Title', { exact: true }).fill(title);
-  if (privateOnly) await dialog.getByLabel('Visibility', { exact: true }).selectOption({ label: 'Just me' });
+  await dialog.getByLabel('Visibility', { exact: true }).selectOption({ label: privateOnly ? 'Just me' : 'Shared' });
   await dialog
     .getByLabel('Description', { exact: true })
     .fill('Plans and inspiration, with room for the details.');
@@ -131,6 +131,7 @@ test('private boards stay private and shared reference cards open the existing n
   await project(page, 'Secret present project', true);
   await child(page, 'Surprise idea');
   await page.getByRole('button', { name: 'Inbox', exact: true }).click();
+  await page.getByLabel('Who can see this capture').selectOption({ label: 'Shared' });
   await page.getByLabel('What’s on your mind?', { exact: true }).fill('A shared project reference note');
   await page.getByLabel('What’s on your mind?', { exact: true }).press('Control+Enter');
   await expect(

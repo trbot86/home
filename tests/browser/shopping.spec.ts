@@ -12,7 +12,7 @@ async function newList(page: Page, name: string, privateList = false) {
   await page.getByRole('button', { name: 'New list', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Name', { exact: true }).fill(name);
-  if (privateList) await dialog.getByLabel('Who can see this').selectOption({ label: 'Just me' });
+  await dialog.getByLabel('Who can see this', { exact: true }).selectOption({ label: privateList ? 'Just me' : 'Shared' });
   await dialog.getByLabel('Name', { exact: true }).press('Control+Enter');
   await expect(dialog).not.toBeVisible();
   await page
@@ -92,6 +92,7 @@ test('shopping purchase undo, restocking, details, privacy and narrow layouts', 
 
   await page.getByRole('button', { name: 'Restock shelf', exact: true }).click();
   await page.getByRole('button', { name: 'New product', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Name', { exact: true }).fill('Toothbrush heads');
   await dialog.getByLabel('Model or size').fill('Compatible with our electric brushes');

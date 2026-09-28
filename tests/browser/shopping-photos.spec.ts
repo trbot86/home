@@ -16,8 +16,7 @@ async function login(page: Page) {
 async function list(page: Page, name: string, privateOnly = false) {
   await page.getByRole('button', { name: 'New list', exact: true }).click();
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill(name);
-  if (privateOnly)
-    await page.getByRole('dialog').getByLabel('Who can see this').selectOption({ label: 'Just me' });
+  await page.getByRole('dialog').getByLabel('Who can see this').selectOption({ label: privateOnly ? 'Just me' : 'Shared' });
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).press('Control+Enter');
   await expect(page.getByRole('dialog')).toHaveCount(0);
 }
@@ -25,8 +24,7 @@ async function product(page: Page, name: string, privateOnly = false) {
   await page.getByRole('button', { name: 'Restock shelf', exact: true }).click();
   await page.getByRole('button', { name: 'New product', exact: true }).click();
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill(name);
-  if (privateOnly)
-    await page.getByRole('dialog').getByLabel('Who can see this').selectOption({ label: 'Just me' });
+  await page.getByRole('dialog').getByLabel('Who can see this').selectOption({ label: privateOnly ? 'Just me' : 'Shared' });
   await page.getByRole('dialog').getByLabel('Model or size').fill('Compatible size');
   await page.getByRole('dialog').getByLabel('Notes', { exact: true }).press('Control+Enter');
   await expect(page.getByRole('dialog')).toHaveCount(0);

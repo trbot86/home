@@ -5,6 +5,7 @@ async function login(page: Page, user = 'alex') {
   await expect(page.getByLabel('Password', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: user === 'alex' ? 'Alex' : 'Sam', exact: true }).click();
   await expect(page.getByLabel('What’s on your mind?')).toBeVisible();
+  await page.getByLabel('Who can see this capture').selectOption({ label: 'Shared' });
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });

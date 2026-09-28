@@ -14,8 +14,7 @@ async function addAsset(page: Page, title: string, privateAsset = false) {
   await dialog.getByLabel('Asset name', { exact: true }).fill(title);
   await dialog.getByLabel('Model', { exact: true }).fill('Fixture model 42');
   await dialog.getByLabel('Location', { exact: true }).fill('Utility room');
-  if (privateAsset)
-    await dialog.getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Just me' });
+  await dialog.getByLabel('Who can see this', { exact: true }).selectOption({ label: privateAsset ? 'Just me' : 'Shared' });
   await dialog.getByLabel('Asset notes').press('Control+Enter');
   await expect(dialog).toHaveCount(0);
   await expect(page.locator('.home-detail-heading')).toContainText(title);

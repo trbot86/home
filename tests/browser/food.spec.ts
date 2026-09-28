@@ -13,6 +13,7 @@ async function manual(page: Page, title: string) {
   const dialog = page.getByRole('dialog', { name: 'Add a recipe', exact: true });
   await dialog.getByRole('button', { name: 'Write a recipe', exact: true }).click();
   await dialog.getByLabel('Recipe name', { exact: true }).fill(title);
+  await dialog.getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
   await dialog.getByLabel('Ingredients', { exact: true }).fill('2 carrots\n1 onion');
   await dialog.getByLabel('Directions', { exact: true }).fill('Chop the vegetables.\n\nSimmer until tender.');
   await dialog.getByLabel('Directions', { exact: true }).press('Control+Enter');
@@ -29,6 +30,7 @@ async function runImport(page: Page) {
 async function shoppingList(page: Page, name: string) {
   await page.getByRole('button', { name: 'Shopping', exact: true }).click();
   await page.getByRole('button', { name: 'New list', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill(name);
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).press('Control+Enter');
   await expect(page.getByRole('dialog')).toHaveCount(0);
