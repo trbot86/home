@@ -54,6 +54,9 @@ export class ViewPreferences {
           : { kind: 'agenda' as const, layout: this.readLayout(view.layout_json) }),
       pins: this.pins(view.view_id),
     }));
+    // Upgrade rehearsals inspect saved views before applying newer migrations.
+    // The HTTP server separately requires the complete current schema at startup.
+    if (!this.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='navigation_preferences'").get()) return saved;
     const preferences = this.db
       .prepare(
         `SELECT p.* FROM navigation_preferences p JOIN visibility_scopes s USING(scope_id) WHERE s.kind='private' AND s.owner_person_id=?`,
