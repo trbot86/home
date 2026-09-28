@@ -80,6 +80,18 @@
     padding: 0.8rem;
   }
 }
+.entry-card.suggestion-card[data-suggestion-status='Working'] {
+  background: var(--bluewash);
+}
+.entry-card.suggestion-card:is(
+    [data-suggestion-status='Waiting for update'],
+    [data-suggestion-status='Preparing release'],
+    [data-suggestion-status='Ready to deploy'],
+    [data-suggestion-status='Deployment queued'],
+    [data-suggestion-status='Deploying']
+  ) {
+  background: var(--amberwash);
+}
 .entry-card.has-suggestion-update {
   border-color: var(--green);
 }

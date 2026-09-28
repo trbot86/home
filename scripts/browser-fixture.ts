@@ -228,6 +228,7 @@ const control = createServer((request, response) => {
   }
   if (
     request.url === '/suggestion-question' ||
+    request.url === '/suggestion-working' ||
     request.url === '/suggestion-ready' ||
     request.url === '/suggestion-ready-same-agent'
   ) {
@@ -264,6 +265,10 @@ const control = createServer((request, response) => {
             ? releaseFixture.agent
             : authenticateSuggestionAgent(db, credentials.secret),
         run = suggestionWork.claim(agent, randomUUID(), epoch).run!;
+      if (request.url === '/suggestion-working') {
+        response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ text }));
+        return;
+      }
       const ready = request.url !== '/suggestion-question';
       if (ready) releaseFixture = { agent, suggestionId };
       suggestionWork.report(agent, run.leaseToken, {

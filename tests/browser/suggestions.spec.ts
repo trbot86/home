@@ -1,5 +1,28 @@
 import { expect, test } from '@playwright/test';
 
+test('working suggestions have a blue card at phone width and retain it after reload', async ({
+  page,
+  request,
+}) => {
+  const seeded = await request.post('http://127.0.0.1:4174/suggestion-working', {
+    headers: { 'x-test-token': process.env['OUR_PLACE_TEST_TOKEN']! },
+  });
+  expect(seeded.ok()).toBe(true);
+  const { text } = await seeded.json();
+  await page.setViewportSize({ width: 360, height: 820 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Alex', exact: true }).click();
+  await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  const card = page.locator('.entry-card').filter({ hasText: text });
+  await expect(card.getByText('Working', { exact: true })).toBeVisible();
+  await expect(card).toHaveCSS('background-color', 'rgb(47, 61, 73)');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/suggestion-working-phone.png', fullPage: true });
+  await page.reload();
+  await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  await expect(card).toHaveCSS('background-color', 'rgb(47, 61, 73)');
+});
+
 test('completed suggestions stay behind their filter, retain discussion offline and can be reopened', async ({
   page,
   request,
@@ -18,6 +41,7 @@ test('completed suggestions stay behind their filter, retain discussion offline 
   const navCount = page.getByRole('button', { name: 'App suggestions', exact: true }).locator('.nav-count');
   const initialCount = Number(await navCount.innerText());
   await expect(card.getByText('Waiting for update', { exact: true })).toBeVisible();
+  await expect(card).toHaveCSS('background-color', 'rgb(70, 56, 41)');
   await card.getByRole('button', { name: 'Mark completed', exact: true }).click();
   await expect(card).toHaveCount(0);
   await expect(navCount).toHaveText(String(initialCount - 1));
@@ -26,6 +50,7 @@ test('completed suggestions stay behind their filter, retain discussion offline 
   await filter.getByRole('button', { name: 'Completed', exact: true }).click();
   await expect(card).toHaveCount(1);
   await expect(card.getByText('Completed', { exact: true })).toBeVisible();
+  await expect(card).not.toHaveCSS('background-color', 'rgb(70, 56, 41)');
   await page.setViewportSize({ width: 360, height: 820 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/suggestion-completed-phone.png', fullPage: true });
@@ -83,6 +108,8 @@ test('obsolete questions leave the active list and remain in discussion history'
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
   const card = page.locator('.entry-card').filter({ hasText: text });
   await expect(card.getByText('New update', { exact: true })).toBeVisible();
+  await expect(card).not.toHaveCSS('background-color', 'rgb(70, 56, 41)');
+  await expect(card).not.toHaveCSS('background-color', 'rgb(47, 61, 73)');
   await expect(card.locator('.suggestion-card-update-text')).toHaveText('An earlier step asked a question.');
   await page.reload();
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
@@ -130,6 +157,7 @@ test('one batch panel automatically prepares several suggestions and deploys onl
   );
   await page.getByRole('button', { name: 'Refresh and sync' }).click();
   await expect(card.getByText('Ready to deploy', { exact: true })).toBeVisible();
+  await expect(card).toHaveCSS('background-color', 'rgb(70, 56, 41)');
   const panel = page.getByRole('region', { name: 'Suggestion release', exact: true });
   await expect(panel.getByRole('heading')).toContainText('2 suggestions');
   await expect(panel).toContainText(text);
@@ -142,6 +170,7 @@ test('one batch panel automatically prepares several suggestions and deploys onl
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
   await panel.getByRole('button', { name: 'Deploy update', exact: true }).click();
   await expect(card.getByText('Deployment queued', { exact: true })).toBeVisible();
+  await expect(card).toHaveCSS('background-color', 'rgb(70, 56, 41)');
   await expect(page.getByRole('button', { name: 'Deploy update' })).toHaveCount(0);
   // No host worker is connected to this isolated fixture. Cancel the still-queued deployment.
   await panel.getByRole('button', { name: 'Cancel release', exact: true }).click();
