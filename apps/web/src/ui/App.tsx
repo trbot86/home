@@ -1,4 +1,6 @@
 import { NavigationOrderEditor } from './NavigationOrderEditor.js';
+import { CardOrderControls } from './inbox/CardOrderControls.js';
+import { personalCardOrder, moveVisibleCard } from './inbox/card-order.js';
 import { navigationItems } from './navigation.js';
 import { Photo } from './Photo.js';
 import { EntryDialog } from './EntryDialog.js';
@@ -122,7 +124,11 @@ export function App({ client }: { client: ClientPlatform }) {
   const [scope, setScope] = useState('all');
   const [search, setSearch] = useState('');
   const [limit, setLimit] = useState(24);
-  const [sort, setSort] = useState('newest');
+  const [sort, setSort] = useState('personal');
+  const [orderBusy, setOrderBusy] = useState(false);
+  const orderLock = useRef(false);
+  const [orderNotice, setOrderNotice] = useState('');
+  const [dragTarget, setDragTarget] = useState<string | null>(null);
   const [inboxFilter, setInboxFilter] = useState('unfiled');
   const [suggestionFilter, setSuggestionFilter] = useState<'active' | 'completed'>('active');
   const [filingId, setFilingId] = useState<string | null>(null);
@@ -363,7 +369,7 @@ export function App({ client }: { client: ClientPlatform }) {
     }
   }
   async function switchProfile(username: string) {
-    if (busy || saving || switching || photoLock.current) return;
+    if (busy || saving || switching || orderLock.current || photoLock.current) return;
     setSwitching(true);
     setError('');
     let selectionStarted = false;
@@ -535,7 +541,15 @@ export function App({ client }: { client: ClientPlatform }) {
         ),
       );
   }
-  const activeEntries = state.entries
+  const personalScope = state.session?.scopes.find((s) => s.kind === 'private')?.scopeId;
+  const orderView = state.views.find(
+    (v) => v.kind === 'card_order' && v.category === category && v.scopeId === personalScope,
+  );
+  const orderedEntries = personalCardOrder(
+    state.entries.filter((e) => categoryOf(e) === category),
+    orderView?.kind === 'card_order' ? orderView.recordIds : [],
+  );
+  const activeEntries = (sort === 'personal' && view !== 'trash' ? orderedEntries : state.entries)
     .filter(
       (entry) =>
         (view === 'trash' ? entry.deletedAt !== null : entry.deletedAt === null) &&
@@ -548,7 +562,59 @@ export function App({ client }: { client: ClientPlatform }) {
         (scope === 'all' || entry.scopeId === scope) &&
         entry.text.toLowerCase().includes(search.toLowerCase()),
     )
-    .sort((a, b) => (sort === 'newest' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt));
+    .sort((a, b) =>
+      sort === 'personal' && view !== 'trash'
+        ? 0
+        : sort === 'oldest'
+          ? a.createdAt - b.createdAt
+          : b.createdAt - a.createdAt,
+    );
+  const visibleCardIds = activeEntries.slice(0, limit).map((entry) => entry.inboxId);
+  const orderDisabled =
+    orderBusy ||
+    busy ||
+    switching ||
+    !state.online ||
+    !personalScope ||
+    state.pendingEdits.includes(personalScope);
+  useEffect(() => {
+    setOrderNotice('');
+    setDragTarget(null);
+  }, [view, state.session?.clientId, sort]);
+  async function moveCard(from: string, to: string) {
+    if (orderDisabled || orderLock.current || !personalScope) return;
+    orderLock.current = true;
+    setOrderBusy(true);
+    const owner = currentOwner.current;
+    setOrderNotice('Saving card order…');
+    try {
+      const outcome = await runCommand(
+        { recordId: personalScope },
+        'SetCardOrder',
+        {
+          scopeId: personalScope,
+          category,
+          expectedViewRevision: orderView?.revision ?? 0,
+          recordIds: moveVisibleCard(
+            orderedEntries.map((e) => e.inboxId),
+            visibleCardIds,
+            from,
+            to,
+          ),
+        },
+        'Card order saved',
+      );
+      if (owner === currentOwner.current)
+        setOrderNotice(
+          outcome?.status === 'Applied'
+            ? 'Card order saved for your profile.'
+            : 'Order not confirmed. Refresh and sync before trying again.',
+        );
+    } finally {
+      orderLock.current = false;
+      setOrderBusy(false);
+    }
+  }
   const pending = state.drafts.filter(
     (d) =>
       !d.replyTarget &&
@@ -735,7 +801,7 @@ export function App({ client }: { client: ClientPlatform }) {
                 client={client}
                 person={state.session.person}
                 online={state.online}
-                disabled={!state.online || busy || saving || !draft}
+                disabled={!state.online || busy || orderBusy || saving || !draft}
                 onSwitch={switchProfile}
                 onError={showError}
               />
@@ -1241,6 +1307,7 @@ export function App({ client }: { client: ClientPlatform }) {
                     </div>
                     <div className="list-options">
                       <select aria-label="Sort inbox" value={sort} onChange={(e) => setSort(e.target.value)}>
+                        <option value="personal">My order</option>
                         <option value="newest">Newest first</option>
                         <option value="oldest">Oldest first</option>
                       </select>
@@ -1256,6 +1323,14 @@ export function App({ client }: { client: ClientPlatform }) {
                       </select>
                     </div>
                   </div>
+                  {view !== 'trash' && sort === 'personal' && (
+                    <p className="fine" role="status">
+                      {orderNotice ||
+                        (state.online
+                          ? 'Drag the handle or use the arrows to reorder cards for your profile. New cards appear first.'
+                          : 'Reconnect to rearrange cards. Your saved order is kept.')}
+                    </p>
+                  )}
                   {activeEntries.length === 0 ? (
                     <div className="empty">
                       <span>
@@ -1294,12 +1369,23 @@ export function App({ client }: { client: ClientPlatform }) {
                         <article
                           className={`entry-card ${categoryOf(entry) === 'app_suggestion' ? 'suggestion-card' : ''} ${categoryOf(entry) === 'app_suggestion' && suggestionUnread(state.suggestions, entry.inboxId) ? 'has-suggestion-update' : ''}`}
                           key={entry.inboxId}
+                          data-card-id={entry.inboxId}
+                          data-drop-target={dragTarget === entry.inboxId || undefined}
                           data-suggestion-status={
                             categoryOf(entry) === 'app_suggestion'
                               ? suggestionStatus(state.suggestions, entry.inboxId)
                               : undefined
                           }
                         >
+                          {view !== 'trash' && sort === 'personal' && (
+                            <CardOrderControls
+                              id={entry.inboxId}
+                              ids={visibleCardIds}
+                              disabled={Boolean(orderDisabled)}
+                              move={(from, to) => void moveCard(from, to)}
+                              highlight={setDragTarget}
+                            />
+                          )}
                           {entry.attachments[0] && (
                             <button
                               className="entry-image"

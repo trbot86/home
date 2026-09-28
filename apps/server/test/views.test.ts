@@ -498,3 +498,75 @@ test('navigation order is private, validated, revision guarded and replayable wi
     await f.close();
   }
 });
+
+test('card ordering is private, category scoped, revision guarded and preserves records', async () => {
+  const f = await fixture();
+  try {
+    const first = f.note(),
+      second = f.note(),
+      secret = f.note(f.privateScope);
+    const tables = [
+      'records',
+      'inbox_entries',
+      'record_changes',
+      'change_sets',
+      'attachments',
+      'clients',
+      'installation_state',
+    ];
+    const before = tables.map((table) => f.db.prepare(`SELECT * FROM ${table}`).all());
+    const args = {
+      scopeId: f.privateScope,
+      category: 'inbox',
+      expectedViewRevision: 0,
+      recordIds: [second, secret, first],
+    };
+    rejected(f.run('SetCardOrder', { ...args, scopeId: f.shared }), 'private_view_required');
+    rejected(f.run('SetCardOrder', args, f.b), 'private_view_required');
+    const otherScope = f.service.access.scopes(f.b).find((s) => s.kind === 'private')!.scopeId;
+    rejected(f.run('SetCardOrder', { ...args, scopeId: otherScope }, f.b), 'unavailable');
+    rejected(f.run('SetCardOrder', { ...args, category: 'app_suggestion' }), 'unavailable');
+    rejected(f.run('SetCardOrder', { ...args, recordIds: [first, first] }), 'invalid_arguments');
+    rejected(f.run('SetCardOrder', { ...args, recordIds: [randomUUID()] }), 'unavailable');
+    const command = f.envelope(args);
+    const saved = applied(f.service.writes.execute(f.a, 'SetCardOrder', command));
+    assert.deepEqual(f.service.writes.execute(f.a, 'SetCardOrder', command), { ...saved, replayed: true });
+    const read = () => f.views.snapshot(f.a).find((v) => v.kind === 'card_order' && v.category === 'inbox');
+    assert.deepEqual(read(), {
+      viewId: `${f.privateScope}:inbox`,
+      scopeId: f.privateScope,
+      kind: 'card_order',
+      category: 'inbox',
+      revision: 1,
+      pins: [],
+      recordIds: args.recordIds,
+    });
+    assert.equal(
+      f.views.snapshot(f.b).some((v) => v.kind === 'card_order'),
+      false,
+    );
+    rejected(f.run('SetCardOrder', args), 'view_revision_conflict');
+    applied(f.run('SetCardOrder', { ...args, category: 'app_suggestion', recordIds: [] }));
+    f.db.exec(
+      `CREATE TRIGGER fail_card_order BEFORE UPDATE ON card_order_preferences BEGIN SELECT RAISE(ABORT,'test interruption'); END`,
+    );
+    const update = f.envelope({ ...args, expectedViewRevision: 1, recordIds: [first, secret, second] });
+    assert.throws(() => f.service.writes.execute(f.a, 'SetCardOrder', update), /test interruption/);
+    assert.equal(read()!.revision, 1);
+    f.db.exec('DROP TRIGGER fail_card_order');
+    applied(f.service.writes.execute(f.a, 'SetCardOrder', update));
+    assert.equal(read()!.revision, 2);
+    assert.deepEqual(
+      tables.map((table) => f.db.prepare(`SELECT * FROM ${table}`).all()),
+      before,
+    );
+    // A previously shared card made private must disappear even from saved-order metadata.
+    f.db.prepare('UPDATE records SET scope_id=? WHERE record_id=?').run(otherScope, second);
+    const redacted = read();
+    assert.ok(redacted?.kind === 'card_order');
+    assert.deepEqual(redacted.recordIds, [first, secret]);
+    rejected(f.run('SetCardOrder', { ...args, expectedViewRevision: 2 }), 'unavailable');
+  } finally {
+    await f.close();
+  }
+});

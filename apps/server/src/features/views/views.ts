@@ -56,7 +56,12 @@ export class ViewPreferences {
     }));
     // Upgrade rehearsals inspect saved views before applying newer migrations.
     // The HTTP server separately requires the complete current schema at startup.
-    if (!this.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='navigation_preferences'").get()) return saved;
+    if (
+      !this.db
+        .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='navigation_preferences'")
+        .get()
+    )
+      return saved;
     const preferences = this.db
       .prepare(
         `SELECT p.* FROM navigation_preferences p JOIN visibility_scopes s USING(scope_id) WHERE s.kind='private' AND s.owner_person_id=?`,
@@ -74,15 +79,46 @@ export class ViewPreferences {
         pins: [],
       });
     }
+    if (
+      this.db
+        .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='card_order_preferences'")
+        .get()
+    ) {
+      const rows = this.db
+        .prepare(
+          `SELECT p.* FROM card_order_preferences p
+        JOIN visibility_scopes s USING(scope_id) WHERE s.kind='private' AND s.owner_person_id=?`,
+        )
+        .all(context.personId) as {
+        scope_id: string;
+        category: 'inbox' | 'app_suggestion';
+        revision: number;
+        order_json: string;
+      }[];
+      for (const row of rows) {
+        const allowed = this.cardIds(context, row.category);
+        saved.push({
+          viewId: `${row.scope_id}:${row.category}`,
+          scopeId: row.scope_id,
+          kind: 'card_order',
+          category: row.category,
+          revision: row.revision,
+          pins: [],
+          recordIds: (JSON.parse(row.order_json) as string[]).filter((id) => allowed.has(id)),
+        });
+      }
+    }
     return saved;
   }
   commands(): CommandHandler {
     return {
-      kinds: ['SetNavigationOrder', 'SetRecordPin', 'SetViewPinOrder', 'SetAgendaLayout'],
+      kinds: ['SetCardOrder', 'SetNavigationOrder', 'SetRecordPin', 'SetViewPinOrder', 'SetAgendaLayout'],
       execute: (context, kind, payload) => {
         requireHuman(context);
         if (!this.db.inTransaction) throw new Error('Pins require a receipt transaction');
-        if (kind === 'SetNavigationOrder')
+        if (kind === 'SetCardOrder')
+          this.setCardOrder(context, payload as Command<'SetCardOrder'>['arguments']);
+        else if (kind === 'SetNavigationOrder')
           this.setNavigationOrder(context, payload as Command<'SetNavigationOrder'>['arguments']);
         else if (kind === 'SetAgendaLayout')
           this.setAgendaLayout(context, payload as Command<'SetAgendaLayout'>['arguments']);
@@ -92,6 +128,32 @@ export class ViewPreferences {
         return { records: [], changes: [] };
       },
     };
+  }
+  private cardIds(context: HumanRequestContext, category: string) {
+    const rows = this.db
+      .prepare(
+        `SELECT i.inbox_id FROM inbox_entries i
+      JOIN records r ON r.record_id=i.inbox_id JOIN visibility_scopes s ON s.scope_id=r.scope_id
+      WHERE i.category=? AND (s.kind='shared' OR s.owner_person_id=?)`,
+      )
+      .all(category, context.personId) as { inbox_id: string }[];
+    return new Set(rows.map((row) => row.inbox_id));
+  }
+  private setCardOrder(context: HumanRequestContext, args: Command<'SetCardOrder'>['arguments']) {
+    if (!this.access.scopes(context).some((s) => s.scopeId === args.scopeId && s.kind === 'private'))
+      throw new Rejection('private_view_required');
+    const row = this.db
+      .prepare('SELECT revision FROM card_order_preferences WHERE scope_id=? AND category=?')
+      .get(args.scopeId, args.category) as { revision: number } | undefined;
+    if ((row?.revision ?? 0) !== args.expectedViewRevision) throw new Rejection('view_revision_conflict');
+    const allowed = this.cardIds(context, args.category);
+    if (args.recordIds.some((id) => !allowed.has(id))) throw new Rejection('unavailable');
+    this.db
+      .prepare(
+        `INSERT INTO card_order_preferences(scope_id,category,revision,order_json) VALUES (?,?,1,?)
+      ON CONFLICT(scope_id,category) DO UPDATE SET revision=revision+1,order_json=excluded.order_json`,
+      )
+      .run(args.scopeId, args.category, JSON.stringify(args.recordIds));
   }
   private setNavigationOrder(context: HumanRequestContext, args: Command<'SetNavigationOrder'>['arguments']) {
     if (!this.access.scopes(context).some((s) => s.scopeId === args.scopeId && s.kind === 'private'))
