@@ -21,8 +21,9 @@ $provider = @{launcher='/app/apps/server/filing-client.mjs';workingDirectory='/t
 [IO.File]::WriteAllText((Join-Path $clientRoot 'client.json'), ($client | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
 [IO.File]::WriteAllText((Join-Path $clientRoot 'provider.json'), ($provider | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
 $nodePath = (Get-Command node).Source
-$scriptPath = Join-Path $projectRoot 'scripts/filing-worker/broker.mjs'
-$action = New-ScheduledTaskAction -Execute $nodePath -Argument ('"' + $scriptPath + '" "' + $configPath + '"') -WorkingDirectory $projectRoot
+$launcher = Join-Path $PSScriptRoot 'run-hidden.ps1'
+$scriptHost = Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe'
+$action = New-ScheduledTaskAction -Execute $scriptHost -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $launcher + '" -NodePath "' + $nodePath + '"') -WorkingDirectory $projectRoot
 $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User ([Security.Principal.WindowsIdentity]::GetCurrent().Name)
 $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited

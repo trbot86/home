@@ -1,6 +1,7 @@
 # Inbox filing suggestions
 
-Inbox cards show up to three ranked suggestions as direct filing buttons. A click
+Inbox cards show the strongest ranked suggestion as a direct filing button, with
+up to two alternatives under More options. A click
 uses the normal revision-checked command, durable receipt and compound undo.
 Tasks creates a task; a shopping list creates an item; a project or page creates
 a page containing the note and an original-capture link. Existing tasks accept a
@@ -20,7 +21,7 @@ whether automatic processing is allowed. All defaults are off. No provider is
 connected by default in the production entry point. Saving consent alone cannot send data.
 
 The Filing suggestions control on a note contains only its results and request or
-retry button. More options holds Think harder, refresh and the Settings link. Destination titles
+retry button. More options holds alternative suggestions, Think harder, refresh and the Settings link. Destination titles
 are selected automatically within the saved permissions; there is no per-note
 context checklist. The filing dialog's Settings link saves the unfinished draft
 before navigation. Changing profiles loads that profile's permissions.
@@ -242,3 +243,21 @@ attempt numbers, records and receipts remain intact.
   toolchains, without assembling or installing an APK. Distribution builds and combined release regression remain
   the release coordinator's responsibility. Native device behavior and real model
   quality are not established by browser tests.
+
+## Ranked alternatives and recipe ideas
+
+The model is offered Tasks, Shopping, Projects and Recipes alongside eligible
+existing destinations. It ranks up to three distinct plausible choices, considering
+alternative interpretations of ambiguous notes without padding the list. A named
+dish can be a recipe idea even without ingredients or directions. The strongest
+choice appears directly on the card; the remaining choices are under More options,
+alongside Think harder. Expanding options does not invoke the model again.
+
+Recipes uses the normal reversible inbox filing command to save an idea with the
+original text, visibility and capture provenance. It leaves ingredients and steps
+empty. Existing modified filing drafts are preserved. Existing saved suggestions
+are not regenerated automatically; request Think harder for a new result.
+
+Four category labels add 28 characters to the destination-title budget; the wire
+boundary allows 10,004 choices and 240,032 label characters. The three-result cap,
+validation against offered keys and isolated tool-free model boundary remain.

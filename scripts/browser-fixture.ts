@@ -44,10 +44,11 @@ const { app, access, recipeImports, media, writes, suggestionWork, suggestionRel
       failedAdviceOnce = true;
       throw new Error('Synthetic temporary provider failure');
     }
+    if (input.text === 'Synthetic broccoli cheddar soup') return ['1', '3', '0'];
     if (input.text.startsWith('Buy synthetic')) return ['1'];
     const page = input.choices.find((c) => c.label === 'Project page: Advice precise page');
     if (input.text.includes('precise advice') && page) return [page.key, '0'];
-    return input.choices.length > 3 ? ['3', '0'] : ['0'];
+    return input.choices.length > 4 ? ['4', '0'] : ['0'];
   },
   calendars: {
     secrets: new CalendarSecretBox('fixture', new Map([['fixture', randomBytes(32)]])),

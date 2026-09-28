@@ -137,7 +137,7 @@ export function FilingSuggestions({
             client={client}
             state={state}
             entry={entry}
-            review={review}
+            review={{ ...review, choices: review.choices.slice(0, 1) }}
             run={run}
             disabled={blocked}
             edit={choose}
@@ -170,6 +170,21 @@ export function FilingSuggestions({
       )}
       <details open={expanded} onToggle={(e) => setExpanded(e.currentTarget.open)}>
         <summary>More options</summary>
+        {review?.state === 'complete' && review.choices.length > 1 && (
+          <div aria-label="Alternative suggestions">
+            <span className="filing-suggestion-label">Other possibilities</span>
+            <FilingAdviceActions
+              client={client}
+              state={state}
+              entry={entry}
+              review={{ ...review, choices: review.choices.slice(1, 3) }}
+              run={run}
+              disabled={blocked}
+              edit={choose}
+              done={done}
+            />
+          </div>
+        )}
         <button
           type="button"
           disabled={blocked || secure === true || review?.state === 'attempted'}

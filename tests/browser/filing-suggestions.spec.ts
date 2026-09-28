@@ -328,3 +328,52 @@ test('project Secure control protects child pages and shows inherited protection
   }
   expect((await (await page.request.get(`/api/records/${pageId}/security`)).json()).effective).toBe(true);
 });
+
+test('ranked alternatives stay under More options; recipe filing preserves the note and supports undo', async ({
+  page,
+}) => {
+  await login(page);
+  await configure(page, false);
+  const card = await capture(page, 'Synthetic broccoli cheddar soup');
+  await card.getByRole('button', { name: 'Suggest filing', exact: true }).click();
+  await expect(card.getByRole('button', { name: 'File to Shopping', exact: true })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'File to Recipes', exact: true })).not.toBeVisible();
+  let sends = 0;
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.url().endsWith('/filing-advice')) sends++;
+  });
+  await card.getByText('More options', { exact: true }).click();
+  const alternatives = card.getByLabel('Alternative suggestions');
+  await expect(alternatives.getByRole('button', { name: 'File to Recipes', exact: true })).toBeVisible();
+  await expect(alternatives.getByRole('button', { name: 'File to Tasks', exact: true })).toBeVisible();
+  await expect(alternatives.getByRole('button')).toHaveCount(2);
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 1100 });
+    expect(await card.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
+    for (const name of ['Think harder', 'File to Recipes']) {
+      const button = card.getByRole('button', { name, exact: true });
+      expect(await button.evaluate((e) => getComputedStyle(e).borderTopStyle)).toBe('solid');
+      expect(await button.evaluate((e) => parseFloat(getComputedStyle(e).borderTopWidth))).toBeGreaterThan(0);
+    }
+  }
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await card.screenshot({ path: '.cache/filing-alternatives-phone.png' });
+  const note = (await snapshot(page)).entries.find((e: any) => e.text === 'Synthetic broccoli cheddar soup');
+  await alternatives.getByRole('button', { name: 'File to Recipes', exact: true }).click();
+  await expect(card).toHaveCount(0);
+  const data = await snapshot(page);
+  const filed = data.entries.find((e: any) => e.inboxId === note.inboxId);
+  expect(filed.text).toBe(note.text);
+  const recipe = data.recipes.recipes.find((r: any) => r.recordId === filed.destinations[0].recordId);
+  expect(recipe.title).toBe(note.text);
+  expect(recipe.description).toBe(note.text);
+  expect(recipe.scopeId).toBe(note.scopeId);
+  expect(recipe.ingredients).toEqual([]);
+  expect(recipe.steps).toEqual([]);
+  await page.keyboard.press('Control+z');
+  await expect(card).toHaveCount(1);
+  expect(
+    (await snapshot(page)).recipes.recipes.find((r: any) => r.recordId === recipe.recordId).deletedAt,
+  ).not.toBeNull();
+  expect(sends).toBe(0);
+});

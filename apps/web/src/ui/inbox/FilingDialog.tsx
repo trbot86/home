@@ -264,7 +264,9 @@ export function FilingDialog({
               } else {
                 buffer.field(
                   'mode',
-                  { tasks: 'task', shopping: 'shopping', projects: 'project' }[choice.category],
+                  { tasks: 'task', shopping: 'shopping', projects: 'project', recipes: 'recipe' }[
+                    choice.category
+                  ],
                 );
                 buffer.field('targetRevision', '');
               }

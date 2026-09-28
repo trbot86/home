@@ -222,14 +222,14 @@ test('bounded provider input excludes media, source metadata, page bodies and ID
     let input: FilingAdviceInput | undefined;
     const service = f.advice(async (value) => {
       input = value;
-      return ['3', '0'];
+      return ['4', '0'];
     }, true);
     const before = f.snapshot();
     const result = await service.suggest(f.a, note.inboxId, 1, [target]);
     assert.equal(result?.state, 'complete');
     assert.equal(result?.choices.length, 2);
     assert.deepEqual(Object.keys(input!), ['instruction', 'text', 'choices']);
-    assert.deepEqual(input!.choices.at(-1), { key: '3', label: 'Project: Synthetic project' });
+    assert.deepEqual(input!.choices.at(-1), { key: '4', label: 'Project: Synthetic project' });
     assert.ok(!JSON.stringify(input).includes(target));
     assert.ok(!JSON.stringify(input).includes('Do not export'));
     assert.deepEqual(f.snapshot(), before);
@@ -361,7 +361,7 @@ test('source changes and consent revocation discard asynchronous results; destin
     const other = f.note();
     assert.equal((await revoked.suggest(f.a, other.inboxId, 1))?.state, 'stale');
     const source = f.note(),
-      good = f.advice(async () => ['3'], true);
+      good = f.advice(async () => ['4'], true);
     await good.suggest(f.a, source.inboxId, 1, [target]);
     f.db.prepare('UPDATE records SET revision=revision+1 WHERE record_id=?').run(target);
     assert.deepEqual(good.review(f.a, source.inboxId)?.choices, []);
@@ -381,7 +381,7 @@ test('automatic worker discovers scoped destinations, processes one item per tic
   const inputs: FilingAdviceInput[] = [];
   const f = await fixture(async (input) => {
     inputs.push(input);
-    return input.choices.length > 3 ? ['3'] : ['0'];
+    return input.choices.length > 4 ? ['4'] : ['0'];
   });
   try {
     // Exclude the historical synthetic fixture from this queue scenario.
@@ -401,7 +401,7 @@ test('automatic worker discovers scoped destinations, processes one item per tic
     );
     await Promise.all([worker.tick(), worker.tick()]);
     assert.equal(inputs.length, 1);
-    assert.equal(inputs[0]!.choices.length, 4); // Three categories and one same-scope project.
+    assert.equal(inputs[0]!.choices.length, 5); // Four categories and one same-scope project.
     await worker.tick();
     assert.equal(inputs.length, 2);
     assert.equal(await worker.tick(), false);
@@ -452,7 +452,7 @@ test('automatic discovery truncates a long valid destination label without consu
   let received: FilingAdviceInput | undefined;
   const f = await fixture(async (input) => {
     received = input;
-    return ['3'];
+    return ['4'];
   });
   try {
     f.db.prepare('UPDATE inbox_entries SET filed_at=1').run();
@@ -464,7 +464,7 @@ test('automatic discovery truncates a long valid destination label without consu
       preferences: { enabled: true, automatic: true, scopeIds: [f.shared], destinationTitles: true },
     });
     assert.equal(await f.service.filingAdviceWorker.tick(), true);
-    assert.equal(received!.choices[3]!.label, ('Project: ' + title).slice(0, 200));
+    assert.equal(received!.choices[4]!.label, ('Project: ' + title).slice(0, 200));
     assert.equal(f.records.get(f.a, target).content.title, title);
     const review = f.advice(async () => []).review(f.a, n.inboxId);
     assert.equal(review?.state, 'complete');
@@ -609,12 +609,12 @@ test('Secure project protects nested pages and filed notes; own flags and safe s
     let input: FilingAdviceInput | undefined;
     const service = f.advice(async (value) => {
       input = value;
-      return ['3'];
+      return ['4'];
     }, true);
     await service.suggest(f.a, source.inboxId, 1, [childId, safe]);
     assert.deepEqual(
       input!.choices.map((c) => c.label),
-      ['tasks', 'shopping', 'projects', 'Project: Synthetic project'],
+      ['tasks', 'shopping', 'projects', 'recipes', 'Project: Synthetic project'],
     );
     assert.equal(service.review(f.a, source.inboxId)?.state, 'complete');
     await assert.rejects(service.suggest(f.a, n.inboxId, 3), /secure_record_excluded/);
@@ -661,7 +661,7 @@ test('secure capture is protected atomically; automatic discovery skips it witho
     assert.equal(await f.service.filingAdviceWorker.tick(), false);
     assert.equal(inputs.length, 1);
     assert.equal(inputs[0]!.text, 'Synthetic note to file');
-    assert.equal(inputs[0]!.choices.length, 3);
+    assert.equal(inputs[0]!.choices.length, 4);
     assert.equal(f.db.prepare('SELECT * FROM inbox_filing_suggestions WHERE inbox_id=?').get(id), undefined);
     await f.api(`/api/records/${id}/security`, {
       secure: false,
@@ -692,10 +692,10 @@ test('Secure changes invalidate saved and in-flight advice even when toggled off
     const path = `/api/records/${target}/security`;
     await f.api(path, { secure: true, expectedRevision: 0, expectedServerEpoch: 'fixture-epoch' });
     await f.api(path, { secure: false, expectedRevision: 1, expectedServerEpoch: 'fixture-epoch' });
-    finish(['3']);
+    finish(['4']);
     assert.equal((await work)?.state, 'stale');
     assert.deepEqual(service.review(f.a, n.inboxId)?.choices, []);
-    const saved = f.advice(async () => ['3'], true);
+    const saved = f.advice(async () => ['4'], true);
     await saved.suggest(f.a, n.inboxId, 1, [target], Date.now(), 1);
     assert.equal(saved.review(f.a, n.inboxId)?.state, 'complete');
     await f.api(path, { secure: true, expectedRevision: 2, expectedServerEpoch: 'fixture-epoch' });
@@ -729,8 +729,8 @@ test('manual discovery includes bounded permitted titles and excludes other scop
     });
     assert.equal(result.statusCode, 200);
     assert.equal(result.json().review.state, 'complete');
-    assert.equal(received!.choices.length, 28);
-    assert.ok(received!.choices.slice(3).every((c) => c.label.startsWith('Project: Allowed destination')));
+    assert.equal(received!.choices.length, 29);
+    assert.ok(received!.choices.slice(4).every((c) => c.label.startsWith('Project: Allowed destination')));
     await f.api('/api/filing-advice/settings', {
       expectedRevision: 1,
       preferences: { enabled: true, automatic: false, scopeIds: [f.shared], destinationTitles: false },
@@ -739,7 +739,7 @@ test('manual discovery includes bounded permitted titles and excludes other scop
     await f.api(`/api/inbox/${second.inboxId}/filing-advice`, { expectedRevision: 1, expectedAttempt: 0 });
     assert.deepEqual(
       received!.choices.map((c) => c.label),
-      ['tasks', 'shopping', 'projects'],
+      ['tasks', 'shopping', 'projects', 'recipes'],
     );
   } finally {
     await f.close();
@@ -763,7 +763,7 @@ test('recent discovery offers 1000 titles; explicit broader search includes olde
     });
     const path = `/api/inbox/${note.inboxId}/filing-advice`;
     const recent = (await f.api(path, { expectedRevision: 1, expectedAttempt: 0 })).json().review;
-    assert.equal(inputs[0]!.choices.length, 1003);
+    assert.equal(inputs[0]!.choices.length, 1004);
     assert.deepEqual(recent.context, {
       mode: 'recent',
       eligibleCount: 1001,
@@ -772,7 +772,7 @@ test('recent discovery offers 1000 titles; explicit broader search includes olde
     });
     const request = { expectedRevision: 1, expectedAttempt: 1, search: 'all' };
     const broader = (await f.api(path, request)).json().review;
-    assert.equal(inputs[1]!.choices.length, 1004);
+    assert.equal(inputs[1]!.choices.length, 1005);
     assert.deepEqual(broader.choices, [{ kind: 'existing', recordId: old, revision: 1 }]);
     assert.deepEqual(broader.context, {
       mode: 'all',
@@ -794,7 +794,7 @@ test('broader context is bounded and reports omitted titles honestly', async () 
     for (let i = 0; i < 1205; i++) f.project(f.shared, `${i} ` + 'Long title '.repeat(25));
     const note = f.note();
     const service = f.advice(async (input) => {
-      assert(input.choices.reduce((n, c) => n + c.label.length, 0) <= 240024);
+      assert(input.choices.reduce((n, c) => n + c.label.length, 0) <= 240032);
       return ['1'];
     }, true);
     const selection = service.discover(f.a, note.inboxId, 'all');
@@ -864,12 +864,40 @@ test('completed and cancelled tasks are excluded; a recurring task with another 
       'Applied',
     );
     const n = f.note(),
-      s = f.advice(async () => ['3'], true);
+      s = f.advice(async () => ['4'], true);
     const ids = s.discover(f.a, n.inboxId).ids;
     assert.deepEqual(new Set(ids), new Set([tasks[0]!.recordId, tasks[3]!.recordId]));
     await s.suggest(f.a, n.inboxId, 1, [tasks[0]!.recordId]);
     complete(0);
     assert.equal(s.review(f.a, n.inboxId)?.state, 'stale');
+  } finally {
+    await f.close();
+  }
+});
+
+test('recipe alternatives preserve provider ranking in reviews and cached cards without filing', async () => {
+  const f = await fixture(async (input) => {
+    assert.equal(input.choices.find((c) => c.label === 'recipes')?.key, '3');
+    return ['1', '3', '0'];
+  });
+  try {
+    const note = f.note();
+    await f.api('/api/filing-advice/settings', {
+      expectedRevision: 0,
+      preferences: { enabled: true, automatic: false, scopeIds: [f.shared], destinationTitles: false },
+    });
+    const path = `/api/inbox/${note.inboxId}/filing-advice`;
+    const result = (await f.api(path, { expectedRevision: 1, expectedAttempt: 0 })).json().review;
+    assert.deepEqual(
+      result.choices,
+      ['shopping', 'recipes', 'tasks'].map((category) => ({ kind: 'category', category })),
+    );
+    assert.deepEqual((await f.api(path)).json().review, result);
+    const cached = (await f.api('/api/cache/inbox'))
+      .json()
+      .entries.find((e: any) => e.inboxId === note.inboxId);
+    assert.deepEqual(cached.filingAdvice.choices, result.choices);
+    assert.equal(cached.filedAt, null);
   } finally {
     await f.close();
   }

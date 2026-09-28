@@ -43,7 +43,7 @@ test('large title contexts and four-digit choice keys pass, while aggregate over
   assert.throws(() =>
     boundedInput({
       ...input,
-      choices: Array.from({ length: 10004 }, (_, i) => ({ key: String(i), label: 'x' })),
+      choices: Array.from({ length: 10005 }, (_, i) => ({ key: String(i), label: 'x' })),
     }),
   );
 });

@@ -1524,9 +1524,12 @@ function AppContent({ client }: { client: ClientPlatform }) {
                                   choose={(choice) => {
                                     setFilingMode(
                                       choice.kind === 'category'
-                                        ? ({ tasks: 'task', shopping: 'shopping', projects: 'project' }[
-                                            choice.category
-                                          ] as FilingMode)
+                                        ? ({
+                                            tasks: 'task',
+                                            shopping: 'shopping',
+                                            projects: 'project',
+                                            recipes: 'recipe',
+                                          }[choice.category] as FilingMode)
                                         : 'project',
                                     );
                                     setFilingId(entry.inboxId);

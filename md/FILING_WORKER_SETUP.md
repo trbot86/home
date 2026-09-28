@@ -93,3 +93,11 @@ filing and undo, and Secure exclusion. The cleanup rehearsal uses a shortened
 deadline and deliberately loses its Docker transport while the worker ignores
 SIGTERM. Never replace these synthetic fixtures with household data. Verify the
 container-to-host client separately before activating the provider in the app.
+
+
+The Windows broker task starts through `run-hidden.ps1` with PowerShell hidden.
+It launches Node with `-WindowStyle Hidden` and waits for its exit code, so the task
+stays running and restart/duplicate controls work without opening a terminal.
+Docker subprocesses also use `windowsHide`. Re-run setup after stopping an idle
+broker to update an older task that launches Node directly. Never close unrelated
+terminal windows as part of this update.

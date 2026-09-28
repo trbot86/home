@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
+import { emptyRecipeFields } from '@our-place/contracts';
 import type { FilingAdvice, FilingAdviceReview, FilingDestination, InboxEntry } from '@our-place/contracts';
 import { recordReferences } from '../RecordReferences.js';
 
@@ -34,7 +35,9 @@ export function FilingAdviceActions({
   );
   function label(choice: FilingAdvice) {
     if (choice.kind === 'category')
-      return { tasks: 'Tasks', shopping: 'Shopping', projects: 'Projects' }[choice.category];
+      return { tasks: 'Tasks', shopping: 'Shopping', projects: 'Projects', recipes: 'Recipes' }[
+        choice.category
+      ];
     const target = refs.find((r) => r.recordId === choice.recordId);
     return target ? `${target.label}: ${target.title}` : 'Unavailable destination';
   }
@@ -58,7 +61,7 @@ export function FilingAdviceActions({
       )
         throw Error('Suggestions changed. Refresh before filing.');
       let choice = selected ?? offered;
-      if (choice.kind === 'category' && choice.category !== 'tasks') {
+      if (choice.kind === 'category' && (choice.category === 'shopping' || choice.category === 'projects')) {
         const targets = choice.category === 'shopping' ? lists : projects;
         if (targets.length !== 1) {
           setPicker(offered);
@@ -73,7 +76,19 @@ export function FilingAdviceActions({
         choice.kind === 'existing'
           ? { recordId: choice.recordId, expectedRevision: choice.revision }
           : undefined;
-      if (choice.kind === 'category') {
+      if (choice.kind === 'category' && choice.category === 'recipes') {
+        destination = {
+          kind: 'CreateRecipe',
+          arguments: {
+            ...emptyRecipeFields(),
+            recordId: id,
+            scopeId: entry.scopeId,
+            title,
+            description: entry.text,
+            collectionIds: [],
+          },
+        };
+      } else if (choice.kind === 'category') {
         destination = {
           kind: 'CreateTask',
           arguments: {

@@ -24,7 +24,7 @@ export const FilingAdviceRequest = object({
 });
 export type FilingAdviceRequest = Static<typeof FilingAdviceRequest>;
 export type FilingAdvice =
-  | { kind: 'category'; category: 'tasks' | 'shopping' | 'projects' }
+  | { kind: 'category'; category: 'tasks' | 'shopping' | 'projects' | 'recipes' }
   | { kind: 'existing'; recordId: string; revision: number };
 export type FilingAdviceReview = {
   state: 'attempted' | 'complete' | 'failed' | 'stale';

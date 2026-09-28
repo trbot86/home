@@ -112,3 +112,24 @@
   padding-left: 10px;
   margin-top: 8px;
 }
+
+/* Quiet actions still need a visible boundary on cards and in note panes. */
+.filing-suggestions button,
+.filing-suggestions summary,
+.entry-dialog button:not(.primary):not([role='tab']),
+.entry-actions button {
+  border: 1px solid var(--line);
+}
+.filing-suggestions summary {
+  width: fit-content;
+  border-radius: 9px;
+  padding: 8px 12px;
+  min-height: 44px;
+}
+.filing-suggestions summary:hover {
+  background: var(--wash);
+}
+.filing-suggestions summary:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
