@@ -18,7 +18,7 @@ live identity/data and publishes the signed Android update. Uncertain deployment
 outcomes require host inspection; no replacement is launched automatically.
 Build/host-control changes still require coordinated developer review.
 
-Validation: 240 package tests in Linux, 56 browser tests, 15 bridge tests and
+Validation: 240 package tests in Linux, 56 browser tests, 16 bridge tests and
 15 Android unit tests pass. A verified secondary backup restored into an isolated
 Linux volume preserves all 59 existing tables and four media files through the
 two additive migrations. Runtime configuration and rehearsal reports are ignored.

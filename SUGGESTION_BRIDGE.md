@@ -88,7 +88,9 @@ The app server does not receive a Docker socket or repository mount. The bridge
 credential stays outside coding sessions and release supervisors. Requests carry
 identifiers and approval of an immutable manifest, never shell commands or paths.
 There is one active release slot and one retained release checkout. Source branches
-remain in Git. SDKs and caches are shared. Unused coordinator-built images are
+remain in Git. The checkout is reused without traversing dependency junctions;
+ignored local files are retained and collisions with incoming source are refused.
+SDKs and caches are shared. Unused coordinator-built images are
 removed without force; live and previous images are retained. Journals and shared
 build caches still occupy storage. Preparation failures leave the running app
 unchanged. An interrupted process or failed deployment remains uncertain and

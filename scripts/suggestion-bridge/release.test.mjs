@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, symlink, lstat, rm } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
@@ -9,6 +11,43 @@ import { ReleaseRunner } from './release-runner.mjs';
 import { writeJson, readJson } from './journal.mjs';
 const hash = (b) => createHash('sha256').update(b).digest('hex');
 const temp = () => mkdtemp(join(tmpdir(), 'our-place-release-test-'));
+test('one release checkout reuses caches without traversing junctions or deleting ignored notes', async () => {
+  const root = await temp(),
+    repo = join(root, 'repo');
+  try {
+    await mkdir(repo);
+    const git = async (...args) =>
+      (await promisify(execFile)('git', args, { cwd: repo, windowsHide: true })).stdout.trim();
+    await git('init', '-q');
+    await git('config', 'user.name', 'Release fixture');
+    await git('config', 'user.email', 'fixture@example.invalid');
+    await writeFile(join(repo, '.gitignore'), 'node_modules/\n.cache/\n');
+    await writeFile(join(repo, 'source.txt'), 'committed fixture');
+    await git('add', '.');
+    await git('commit', '-qm', 'Fixture base');
+    const base = await git('rev-parse', 'HEAD'),
+      config = { repository: repo, stateRoot: join(root, 'state') };
+    const job = () => ({ releaseId: randomUUID(), suggestionId: randomUUID(), runId: randomUUID() });
+    const first = new ReleaseExecutor(config, job(), join(root, 'commands.log'));
+    await first.workspace(base);
+    await mkdir(join(first.cwd, 'node_modules'));
+    await symlink(
+      first.cwd,
+      join(first.cwd, 'node_modules', 'cycle'),
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
+    await mkdir(join(first.cwd, '.cache'));
+    await writeFile(join(first.cwd, '.cache', 'note.txt'), 'preserve this');
+    const second = new ReleaseExecutor(config, job(), join(root, 'commands.log'));
+    await second.workspace(base);
+    assert.equal(await readFile(join(second.cwd, '.cache', 'note.txt'), 'utf8'), 'preserve this');
+    assert.equal((await lstat(join(second.cwd, 'node_modules', 'cycle'))).isSymbolicLink(), true);
+    assert.equal(await second.treeGit('symbolic-ref', '--short', 'HEAD'), second.branch);
+    assert.equal(await git('rev-parse', first.branch), base, 'earlier source branch remains');
+  } finally {
+    await cleanup(root);
+  }
+});
 async function cleanup(root) {
   if (!resolve(root).startsWith(resolve(tmpdir()) + sep) || !root.includes('our-place-release-test-'))
     throw new Error('Unsafe test cleanup');

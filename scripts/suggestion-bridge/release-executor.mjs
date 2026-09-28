@@ -102,7 +102,7 @@ export class ReleaseExecutor {
       }
     }
   }
-  async workspace() {
+  async workspace(baseCommit) {
     await mkdir(this.root, { recursive: true });
     const previous = await readJson(join(this.root, 'slot.json'));
     const exists = await lstat(this.cwd).catch((e) => {
@@ -124,24 +124,12 @@ export class ReleaseExecutor {
       const common = resolve(this.cwd, await this.treeGit('rev-parse', '--git-common-dir'));
       if (!same(common, resolve(this.repo, await this.git('rev-parse', '--git-common-dir'))))
         throw new ReleaseCheckError('Release workspace repository mismatch.');
-      const ignored = (await this.treeGit('ls-files', '--others', '--ignored', '--exclude-standard', '-z'))
-        .split('\0')
-        .filter(Boolean);
-      if (
-        ignored.some(
-          (p) =>
-            !/^(?:node_modules\/|\.cache\/|\.pnpm-store\/|test-results\/|playwright-report\/|(?:apps|packages)\/[^/]+\/(?:node_modules|dist|build)\/|apps\/android\/(?:\.gradle|build|app\/build)\/|apps\/android\/app\/src\/main\/assets\/(?:public\/|capacitor\.(?:config|plugins)\.json$))/.test(
-              p,
-            ),
-        )
-      )
-        throw new ReleaseCheckError(
-          'Unrecognised local files in the release workspace were preserved for review.',
-        );
-      // Delete only this validated owned checkout; its branch and commits remain in Git.
-      await this.git('worktree', 'remove', '--force', this.cwd);
+      // Reuse dependency caches without traversing Windows pnpm junction cycles.
+      // Refuse to overwrite ignored files if a new source path would collide with them.
+      await this.treeGit('checkout', '--no-overwrite-ignore', '-b', this.branch, baseCommit);
+    } else {
+      await this.git('worktree', 'add', '-b', this.branch, this.cwd, baseCommit);
     }
-    await this.git('worktree', 'add', '-b', this.branch, this.cwd, 'HEAD');
     await writeJson(join(this.root, 'slot.json'), { releaseId: this.job.releaseId, branch: this.branch });
   }
   async prepare() {
@@ -163,7 +151,7 @@ export class ReleaseExecutor {
       throw new ReleaseCheckError(
         'This suggestion changes build or host configuration. It needs coordinated developer review before release.',
       );
-    await this.workspace();
+    await this.workspace(baseCommit);
     try {
       await this.treeGit('merge', '--no-ff', '--no-edit', sourceCommit);
     } catch {
