@@ -38,7 +38,9 @@ export function ShoppingEditor({
   const initial = (): Form => ({
     recordId: record?.recordId ?? crypto.randomUUID(),
     scopeId:
-      record?.scopeId ?? list?.scopeId ?? session.scopes.find((scope) => scope.kind === 'shared')!.scopeId,
+      record?.scopeId ??
+      (mode === 'entry' || mode === 'group' ? list?.scopeId : undefined) ??
+      session.scopes.find((scope) => scope.kind === 'private')!.scopeId,
     name: record && 'name' in record ? record.name : mode === 'list' ? 'Groceries' : '',
     label: record?.kind === 'shopping_entry' ? record.label : '',
     quantity: record && 'quantity' in record ? record.quantity : '',

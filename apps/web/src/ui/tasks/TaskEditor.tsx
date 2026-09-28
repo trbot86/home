@@ -49,7 +49,7 @@ export function TaskEditor({
       task?.scopeId ??
       asset?.scopeId ??
       recipe?.scopeId ??
-      session.scopes.find((scope) => scope.kind === 'shared')!.scopeId,
+      session.scopes.find((scope) => scope.kind === 'private')!.scopeId,
     title: task?.title ?? template?.title ?? (recipe ? `Make ${recipe.title}`.slice(0, 300) : ''),
     instructions: task?.instructions ?? template?.instructions ?? '',
     context: task?.context ?? 'home',

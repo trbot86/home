@@ -32,7 +32,7 @@ export function ProjectEditor({
     isPage = record?.kind === 'project_page' || !!project;
   const initial = () => ({
     recordId: record?.recordId ?? crypto.randomUUID(),
-    scopeId: record?.scopeId ?? project?.scopeId ?? session.scopes.find((s) => s.kind === 'shared')!.scopeId,
+    scopeId: record?.scopeId ?? project?.scopeId ?? session.scopes.find((s) => s.kind === 'private')!.scopeId,
     title: record?.title ?? '',
     description: record?.kind === 'project' ? record.description : '',
     blocks: JSON.stringify(record?.kind === 'project_page' ? record.blocks : []),

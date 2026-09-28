@@ -30,7 +30,7 @@ export function HomeEditor({
     record = mode === 'asset' ? asset : service;
   const initial = () => ({
     recordId: record?.recordId ?? crypto.randomUUID(),
-    scopeId: asset?.scopeId ?? session.scopes.find((scope) => scope.kind === 'shared')!.scopeId,
+    scopeId: asset?.scopeId ?? session.scopes.find((scope) => scope.kind === 'private')!.scopeId,
     name: asset?.name ?? '',
     model: asset?.model ?? '',
     serial: asset?.serial ?? '',

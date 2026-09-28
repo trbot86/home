@@ -43,7 +43,7 @@ class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
         status = TextView(this).apply { text = "Opening your capture…"; setTextColor(getColor(R.color.household_muted)); setPadding(0, 18, 0, 18) }; layout.addView(status)
         editor = EditText(this).apply { hint = "Something to remember…"; minLines = 4; gravity = android.view.Gravity.TOP; inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE; isEnabled = false }; layout.addView(editor)
         mic = Button(this).apply { text = "Start dictation"; isEnabled = false; setOnClickListener { if (listening) { recognizer?.stopListening(); text = "Finishing…"; isEnabled = false } else listen() } }; layout.addView(mic)
-        save = Button(this).apply { text = "Save to shared inbox"; isEnabled = false; setOnClickListener { submit(false) } }; layout.addView(save)
+        save = Button(this).apply { text = "Save to inbox"; isEnabled = false; setOnClickListener { submit(false) } }; layout.addView(save)
         layout.addView(Button(this).apply { text = "Open inbox"; setOnClickListener { startActivity(Intent(this@QuickCaptureActivity, MainActivity::class.java)); finish() } })
         setContentView(layout)
         speech = TextToSpeech(this) { result -> speechReady = result == TextToSpeech.SUCCESS; if (speechReady) { speech?.language = Locale.getDefault(); queuedSpeech?.let(::speak) } }
@@ -57,14 +57,14 @@ class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
         })
         core.executor.execute {
             try {
-                val session = core.requireSession(); val scopes = session.getJSONArray("scopes"); val shared = (0 until scopes.length()).map { scopes.getJSONObject(it) }.first { it.getString("kind") == "shared" }.getString("scopeId")
+                val session = core.requireSession(); val scopes = session.getJSONArray("scopes"); val privateScope = (0 until scopes.length()).map { scopes.getJSONObject(it) }.first { it.getString("kind") == "private" }.getString("scopeId")
                 val savedId = savedInstanceState?.getString("draftId")
-                val current = if (savedId == null) core.createDraft(shared, if (intent.getBooleanExtra("voice", false)) "voice" else if (intent.hasExtra("sharedText")) "share" else "typed", intent.getStringExtra("category") ?: "inbox") else core.captures.draft(core.clientId(), savedId)
+                val current = if (savedId == null) core.createDraft(privateScope, if (intent.getBooleanExtra("voice", false)) "voice" else if (intent.hasExtra("sharedText")) "share" else "typed", intent.getStringExtra("category") ?: "inbox") else core.captures.draft(core.clientId(), savedId)
                 draft = current
                 val initial = if (savedId == null) intent.getStringExtra("sharedText")?.take(20000) ?: current.text else current.text
                 runOnUiThread {
                     editor.setText(initial); editor.isEnabled = current.state == "DRAFT"; save.isEnabled = current.state == "DRAFT"; mic.isEnabled = current.state == "DRAFT"
-                    status.text = if (current.state == "DRAFT") "Saved drafts stay on this phone. Dictation will save and read back the final words." else "Saved on this phone. Waiting for confirmation from the server."
+                    status.text = if (current.state == "DRAFT") "Visibility: ${if (current.scopeId == privateScope) "Just me" else "Shared"}. Saved drafts stay on this phone. Dictation will save and read back the final words." else "Saved on this phone. Waiting for confirmation from the server."
                     if (savedId == null && intent.getBooleanExtra("voice", false)) listen()
                 }
             } catch (_: Exception) { runOnUiThread { status.text = "Open the app and choose your profile before capturing." } }
@@ -92,7 +92,7 @@ class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
                 network.execute {
                     runCatching { core.sync() }
                     val accepted = core.captures.draft(current.clientId, current.draftId).state == "ACKNOWLEDGED"
-                    if (accepted) runOnUiThread { status.text = "Saved to your shared inbox. Open the inbox to edit." }
+                    if (accepted) runOnUiThread { status.text = "Saved to your inbox. Open the inbox to edit." }
                 }
             } catch (error: Exception) {
                 val stillEditable = runCatching { core.captures.draft(current.clientId, current.draftId).state == "DRAFT" }.getOrDefault(false)

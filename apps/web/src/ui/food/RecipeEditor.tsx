@@ -39,7 +39,7 @@ export function RecipeEditor({
     importId: crypto.randomUUID(),
     wantToTryId: crypto.randomUUID(),
     favouritesId: crypto.randomUUID(),
-    scopeId: recipe?.scopeId ?? session.scopes.find((s) => s.kind === 'shared')!.scopeId,
+    scopeId: recipe?.scopeId ?? session.scopes.find((s) => s.kind === 'private')!.scopeId,
     mode: recipe ? 'manual' : 'link',
     title: recipe?.title ?? '',
     sourceUrl: recipe?.sourceUrl ?? '',
