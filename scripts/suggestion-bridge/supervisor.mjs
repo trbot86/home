@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createOnce, readJson, writeJson } from './journal.mjs';
 import { runCodexTurn } from './app-server.mjs';
+import { steeringMailbox } from './steering.mjs';
 
 /** Detached from the polling bridge. Its journal remains inspectable across bridge restarts. */
 export async function supervise(directory) {
@@ -24,7 +25,10 @@ export async function supervise(directory) {
     }
   }
   if (spec.transport === 'app-server') {
-    await writeJson(join(directory, 'terminal.json'), await runCodexTurn(spec, record));
+    await writeJson(
+      join(directory, 'terminal.json'),
+      await runCodexTurn(spec, record, spawn, spec.liveSteering ? steeringMailbox(directory) : null),
+    );
     return;
   }
   // Reconcile already-dispatched legacy runs without changing their launch contract.

@@ -1,5 +1,33 @@
 import { expect, test } from '@playwright/test';
 
+test('discussion notes steer active work and show acknowledged delivery without queuing a new round', async ({
+  page,
+  request,
+}) => {
+  const headers = { 'x-test-token': process.env['OUR_PLACE_TEST_TOKEN']! };
+  const seeded = await request.post('http://127.0.0.1:4174/suggestion-working', { headers });
+  expect(seeded.ok()).toBe(true);
+  const { text } = await seeded.json();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Alex', exact: true }).click();
+  await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  await page.locator('.entry-card').filter({ hasText: text }).locator('.entry-text').click();
+  const discussion = page.getByRole('region', { name: 'Suggestion discussion' });
+  await expect(discussion.getByRole('button', { name: 'Send to working agent', exact: true })).toBeVisible();
+  await discussion.getByLabel('Add a follow-up').fill('Please use the green layout');
+  await discussion.getByLabel('Add a follow-up').press('Control+Enter');
+  await expect(
+    discussion.locator('.suggestion-timeline').getByText('Please use the green layout', { exact: true }),
+  ).toBeVisible();
+  expect((await request.post('http://127.0.0.1:4174/deliver-synthetic-steering', { headers })).ok()).toBe(
+    true,
+  );
+  await expect(discussion.getByText('Delivered to the working agent', { exact: true })).toBeVisible({
+    timeout: 20000,
+  });
+  await expect(discussion.getByText('Queued', { exact: true })).toHaveCount(0);
+});
+
 test('completed suggestions stay behind their filter, retain discussion offline and can be reopened', async ({
   page,
   request,

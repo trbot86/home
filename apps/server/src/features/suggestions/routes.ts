@@ -100,6 +100,40 @@ export function registerSuggestionAgentRoutes(
     { leaseToken: Id, report: SuggestionAgentReport },
     { additionalProperties: false },
   );
+  const steering = Type.Object(
+    {
+      runId: Id,
+      leaseToken: Id,
+      expectedServerEpoch: Id,
+      updates: Type.Array(
+        Type.Object(
+          {
+            messageId: Id,
+            state: Type.Union([Type.Literal('accepted'), Type.Literal('uncertain'), Type.Literal('missed')]),
+          },
+          { additionalProperties: false },
+        ),
+        { maxItems: 2000 },
+      ),
+      finish: Type.Boolean(),
+    },
+    { additionalProperties: false },
+  );
+  app.post<{ Body: typeof steering.static }>(
+    '/api/suggestion-agent/steering',
+    { schema: { body: steering } },
+    async (request) => {
+      const b = request.body;
+      return work.steering(
+        authenticate(request),
+        b.runId,
+        b.leaseToken,
+        b.expectedServerEpoch,
+        b.updates,
+        b.finish,
+      );
+    },
+  );
   app.post<{ Body: typeof report.static }>(
     '/api/suggestion-agent/report',
     { schema: { body: report } },

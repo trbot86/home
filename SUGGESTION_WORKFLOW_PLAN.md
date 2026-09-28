@@ -93,8 +93,10 @@ Receiving an answer and accepting it as resolving the question are distinct.
 Keep both people's answers if they respond independently.
 
 Capture a stable sequence boundary when preparing a turn. Record exactly which
-messages and versions were supplied. Messages arriving after that boundary stay
-pending for the next turn; finishing the earlier run cannot consume them.
+messages and versions were supplied. Ordinary discussion comments arriving after
+that boundary steer a supporting active turn. Explicit follow-up requests wait
+for another round. Delivery must be acknowledged; comments that arrive too late
+or have ambiguous delivery remain visible and hold automatic release.
 Repeated clicks can join an already queued request without losing the new
 messages or starting concurrent turns for the same suggestion.
 

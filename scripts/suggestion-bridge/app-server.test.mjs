@@ -6,8 +6,13 @@ import { mkdtemp, writeFile, rm, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { runCodexTurn, threadParameters } from './app-server.mjs';
+import { steeringMailbox } from './steering.mjs';
+import { writeJson, readJson } from './journal.mjs';
 
-async function fixture(t, { wrongPermissions = false, crash = false } = {}) {
+async function fixture(
+  t,
+  { wrongPermissions = false, crash = false, steer = false, rejectSteering = false } = {},
+) {
   const root = await mkdtemp(join(tmpdir(), 'suggestion-protocol-'));
   const verified = await realpath(root);
   t.after(async () => {
@@ -50,8 +55,17 @@ async function fixture(t, { wrongPermissions = false, crash = false } = {}) {
             reasoningEffort: 'medium',
           },
         });
-      if (m.method === 'turn/start') {
-        emit({ id: m.id, result: { turn: { id: 'synthetic-turn' } } });
+      if (m.method === 'turn/start' || m.method === 'turn/steer') {
+        if (m.method === 'turn/start') {
+          emit({ id: m.id, result: { turn: { id: 'synthetic-turn' } } });
+          if (steer) return;
+        } else {
+          emit(
+            rejectSteering
+              ? { id: m.id, error: { message: 'Turn has finished' } }
+              : { id: m.id, result: { turnId: 'synthetic-turn' } },
+          );
+        }
         if (crash) {
           child.emit('close', 1);
           return;
@@ -82,12 +96,25 @@ async function fixture(t, { wrongPermissions = false, crash = false } = {}) {
       }
     });
   });
+  const deliveries = [];
+  let supplied = false;
+  const mailbox = {
+    async next() {
+      if (supplied) return null;
+      supplied = true;
+      return { message: { recordId: 'comment-one', text: 'Please use green' } };
+    },
+    async complete(item, state) {
+      deliveries.push(state);
+    },
+  };
   const result = await runCodexTurn(
     spec,
     (event) => events.push(event),
     () => child,
+    steer ? mailbox : null,
   );
-  return { result, requests, events };
+  return { result, requests, events, deliveries };
 }
 test('app-server verifies permissions and declines any unhandled approval request', async (t) => {
   const { result, requests } = await fixture(t);
@@ -117,4 +144,37 @@ test('implementation defaults use Astra medium without changing global Codex pre
   const params = threadParameters({ cwd: 'synthetic', packageStore: 'cache' });
   assert.equal(params.model, 'gpt-6-astra');
   assert.equal(params.config.model_reasoning_effort, 'medium');
+});
+
+test('discussion steering targets the current turn and waits for acknowledged delivery', async (t) => {
+  const f = await fixture(t, { steer: true });
+  assert.equal(f.result.exitCode, 0);
+  const steers = f.requests.filter((r) => r.method === 'turn/steer');
+  assert.equal(steers.length, 1);
+  assert.equal(steers[0].params.expectedTurnId, 'synthetic-turn');
+  assert.equal(steers[0].params.threadId, 'synthetic-thread');
+  assert.match(steers[0].params.input[0].text, /Please use green/);
+  assert.deepEqual(f.deliveries, ['accepted']);
+});
+test('rejected steering is not reported as delivered or retried as another turn', async (t) => {
+  const f = await fixture(t, { steer: true, rejectSteering: true });
+  assert.deepEqual(f.deliveries, ['uncertain']);
+  assert.equal(f.requests.filter((r) => r.method === 'turn/start').length, 1);
+  assert.equal(f.requests.filter((r) => r.method === 'turn/steer').length, 1);
+});
+test('durable steering mailbox never resends an ambiguous dispatch after restart', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'steering-mailbox-'));
+  const verified = await realpath(root);
+  t.after(async () => {
+    assert.equal(await realpath(root), verified);
+    await rm(root, { recursive: true, force: true });
+  });
+  await writeJson(join(root, 'steering-feed.json'), {
+    messages: [{ recordId: 'comment-one', text: 'Correction' }],
+  });
+  const first = await steeringMailbox(root).next();
+  assert.equal((await readJson(first.path)).state, 'uncertain');
+  assert.equal(await steeringMailbox(root).next(), null);
+  await steeringMailbox(root).complete(first, 'accepted');
+  assert.equal(await steeringMailbox(root).next(), null);
 });

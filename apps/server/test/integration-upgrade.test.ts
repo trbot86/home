@@ -66,6 +66,7 @@ test('verified 006 upgrade preserves golden requests, identity, media, human his
       '024_suggestion_releases.sql',
       '025_suggestion_completion.sql',
       '026_suggestion_release_batches.sql',
+      '027_suggestion_steering.sql',
     ]);
     assert.deepEqual(f.snapshot(), before);
     assert.deepEqual(installation(f.db), state);

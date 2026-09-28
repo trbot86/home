@@ -283,6 +283,21 @@ export function SuggestionDiscussion({
                   <LinkedText client={client} text={m.text || 'Requested another round of work.'} />
                 </p>
                 <AttachmentGallery client={client} attachments={m.attachments} />
+                {m.steering && (
+                  <p className="fine">
+                    {
+                      {
+                        pending: 'Waiting to reach the working agent',
+                        accepted: 'Delivered to the working agent',
+                        included: 'Included in a later round’s starting context',
+                        uncertain:
+                          'Delivery could not be confirmed. Request another round to ensure this is addressed.',
+                        missed:
+                          'The agent finished before receiving this. Request another round to address it.',
+                      }[m.steering]
+                    }
+                  </p>
+                )}
               </>
             )}
           </li>
@@ -380,6 +395,9 @@ function ReplyComposer({
     [notice, setNotice] = useState('');
   const current = useRef(initial),
     queue = useRef<Promise<unknown>>(Promise.resolve());
+  const working = state.suggestions.work.some(
+    (w) => w.suggestionId === entry.inboxId && w.state === 'running' && w.liveSteering,
+  );
   function serial<T>(work: () => Promise<T>): Promise<T> {
     const next = queue.current.then(work);
     queue.current = next.catch(() => {});
@@ -446,12 +464,12 @@ function ReplyComposer({
       {...transfer.handlers}
       onSubmit={(e) => {
         e.preventDefault();
-        void submit(true);
+        void submit(!working);
       }}
       onKeyDown={(e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !e.nativeEvent.isComposing) {
           e.preventDefault();
-          void submit(true);
+          void submit(!working);
         }
       }}
     >
@@ -530,15 +548,22 @@ function ReplyComposer({
             void submit(false);
           }}
         >
-          Add note
+          {working ? 'Send to working agent' : 'Add note'}
         </button>
-        <button className="primary" disabled={busy || (!text.trim() && !displayed?.attachments.length)}>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => void submit(true)}
+          disabled={busy || (!text.trim() && !displayed?.attachments.length)}
+        >
           {busy ? 'Saving…' : 'Reply & continue work'}
         </button>
       </div>
       <p className="fine" role="status">
         {notice ||
-          'Unfinished replies and photos are kept on this device. Ctrl+Enter sends a reply and requests work.'}
+          (working
+            ? 'Discussion notes steer the working agent. Ctrl+Enter sends a note; Reply & continue work requests another round.'
+            : 'Unfinished replies and photos are kept on this device. Add note saves context without starting work. Ctrl+Enter requests work.')}
       </p>
     </form>
   );

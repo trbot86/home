@@ -20,7 +20,7 @@ export function threadParameters(spec) {
 }
 
 /** Local stdio only. Codex's reviewer handles escalations; this adapter never approves them. */
-export async function runCodexTurn(spec, record, spawnProcess = spawn) {
+export async function runCodexTurn(spec, record, spawnProcess = spawn, steering = null) {
   const child = spawnProcess(spec.executable, ['app-server', '--listen', 'stdio://'], {
     cwd: spec.cwd,
     windowsHide: true,
@@ -33,6 +33,9 @@ export async function runCodexTurn(spec, record, spawnProcess = spawn) {
     sessionId = null,
     finalText = null,
     finished = false;
+  let activeTurn = null,
+    steeringTimer,
+    steeringWork = Promise.resolve();
   const pending = new Map();
   let complete, fail;
   const completion = new Promise((resolve, reject) => {
@@ -102,6 +105,7 @@ export async function runCodexTurn(spec, record, spawnProcess = spawn) {
     if (message.method === 'item/autoApprovalReview/completed')
       record({ type: 'approval.reviewed', review: p });
     if (message.method === 'turn/completed') {
+      activeTurn = null;
       record({ type: 'turn.completed', status: p.turn.status });
       if (p.turn.status === 'completed') {
         finished = true;
@@ -158,13 +162,56 @@ export async function runCodexTurn(spec, record, spawnProcess = spawn) {
       thread.reasoningEffort !== (spec.reasoningEffort ?? 'medium')
     )
       throw new Error('Codex did not select the requested implementation model and reasoning effort');
-    await request('turn/start', {
+    const started = await request('turn/start', {
       threadId: sessionId,
       effort: spec.reasoningEffort ?? 'medium',
       input: [{ type: 'text', text: await readFile(spec.promptPath, 'utf8'), text_elements: [] }],
       outputSchema: JSON.parse(await readFile(spec.schema, 'utf8')),
     });
+    if (!finished) activeTurn = started.turn.id;
+    async function steer() {
+      if (!activeTurn) return;
+      const item = await steering.next();
+      if (!item) return;
+      if (!activeTurn) {
+        await steering.complete(item, 'missed');
+        return;
+      }
+      const turnId = activeTurn;
+      let state = 'uncertain';
+      try {
+        const accepted = await request('turn/steer', {
+          threadId: sessionId,
+          expectedTurnId: turnId,
+          input: [
+            {
+              type: 'text',
+              text:
+                'New discussion comment for this suggestion. Incorporate it into the current work; existing scope and safety constraints still apply.\n' +
+                JSON.stringify(item.message),
+              text_elements: [],
+            },
+          ],
+        });
+        if (accepted.turnId === turnId) state = 'accepted';
+      } catch (error) {
+        record({ type: 'steering.failed', messageId: item.message.recordId, issue: error.message });
+      }
+      await steering.complete(item, state);
+      record({ type: 'steering.delivery', messageId: item.message.recordId, state });
+    }
+    if (steering) {
+      const tick = () => {
+        steeringWork = steeringWork
+          .then(steer)
+          .catch((error) => record({ type: 'steering.error', issue: error.message }));
+      };
+      tick();
+      steeringTimer = setInterval(tick, spec.steeringPollMs ?? 1000);
+    }
     await completion;
+    clearInterval(steeringTimer);
+    await steeringWork;
     return {
       exitCode: 0,
       sessionId,
@@ -176,6 +223,8 @@ export async function runCodexTurn(spec, record, spawnProcess = spawn) {
   } catch (error) {
     return { exitCode: -1, sessionId, output: null, failure: error.message, stderr, finishedAt: Date.now() };
   } finally {
+    activeTurn = null;
+    clearInterval(steeringTimer);
     for (const p of pending.values()) clearTimeout(p.timer);
     child.stdin.end();
     // The turn is finished or failed; stop this dedicated local server only.

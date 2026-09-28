@@ -154,6 +154,16 @@ export class SuggestionsRepository {
                 .prepare('SELECT sequence FROM suggestion_messages WHERE message_id=?')
                 .get(recordId) as { sequence: number }
             ).sequence,
+            steering: (
+              this.db
+                .prepare(
+                  `SELECT CASE WHEN EXISTS(SELECT 1 FROM suggestion_run_inputs x JOIN suggestion_runs n ON n.run_id=x.run_id
+                    WHERE x.message_id=s.message_id AND n.rowid>r.rowid) THEN 'included' ELSE s.state END AS state
+                    FROM suggestion_steering s JOIN suggestion_runs r ON r.run_id=s.run_id
+                    WHERE s.message_id=? ORDER BY s.updated_at DESC,s.rowid DESC LIMIT 1`,
+                )
+                .get(recordId) as { state: string } | undefined
+            )?.state,
           }
         : {}),
     } as SuggestionRecord;
@@ -194,13 +204,16 @@ export class SuggestionsRepository {
         })),
       );
       snapshot.work.push(
-        ...(this.db
-          .prepare(
-            `SELECT q.request_id AS requestId,q.suggestion_id AS suggestionId,q.requested_at AS requestedAt,
-        CASE WHEN q.state='running' AND r.lease_until<=? THEN 'uncertain' ELSE q.state END AS state,q.run_id AS runId,r.issue
+        ...(
+          this.db
+            .prepare(
+              `SELECT q.request_id AS requestId,q.suggestion_id AS suggestionId,q.requested_at AS requestedAt,
+        CASE WHEN q.state='running' AND r.lease_until<=? THEN 'uncertain' ELSE q.state END AS state,q.run_id AS runId,r.issue,
+        json_extract(r.context_json,'$.liveSteering') AS liveSteering
         FROM suggestion_work_requests q LEFT JOIN suggestion_runs r USING(run_id) WHERE q.suggestion_id=? ORDER BY q.requested_at DESC,q.rowid DESC LIMIT 30`,
-          )
-          .all(Date.now(), workflow.suggestionId) as SuggestionSnapshot['work']),
+            )
+            .all(Date.now(), workflow.suggestionId) as SuggestionSnapshot['work']
+        ).map((row) => ({ ...row, liveSteering: !!row.liveSteering })),
       );
       snapshot.activity!.push(this.activity(context, workflow.suggestionId));
       snapshot.releases!.push(...suggestionReleases(this.db, workflow.suggestionId));

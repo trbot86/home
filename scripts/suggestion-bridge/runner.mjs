@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, readdir } from 'node:fs/promises';
 import { openSync, closeSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
@@ -126,6 +126,7 @@ export class SuggestionRunner {
       outputPath,
       executable: this.config.codexExecutable,
       transport: 'app-server',
+      liveSteering: true,
       model: this.config.implementationModel ?? 'gpt-6-astra',
       reasoningEffort: this.config.implementationReasoningEffort ?? 'medium',
       schema,
@@ -274,7 +275,7 @@ export class SuggestionRunner {
               {
                 messageId: randomUUID(),
                 kind: 'progress',
-                text: 'Started a new round of work. Follow-ups posted now will wait for the next round.',
+                text: 'Started a new round of work. Discussion notes can steer this run; explicit follow-up requests wait for the next round.',
                 choices: [],
               },
             ],
@@ -283,6 +284,58 @@ export class SuggestionRunner {
         }),
         (request) => this.send('report', { ...request, leaseToken: run.leaseToken }),
       );
+    const spec = await readJson(join(directory, 'launch.json'));
+    if (spec?.liveSteering) {
+      const updates = [];
+      // Only consume a journal after the supervisor closes the turn: while alive,
+      // an uncertain dispatch marker may still be waiting for its acknowledgement.
+      for (const file of await readdir(join(directory, 'steering')).catch((e) => {
+        if (e.code === 'ENOENT') return [];
+        throw e;
+      })) {
+        if (file.endsWith('.json')) {
+          const update = await readJson(join(directory, 'steering', file));
+          if (terminal || update.state !== 'uncertain') updates.push(update);
+        }
+      }
+      const feed = await this.send('steering', {
+        runId: run.runId,
+        leaseToken: run.leaseToken,
+        expectedServerEpoch: this.config.serverEpoch,
+        updates,
+        finish: !!terminal,
+      });
+      for (const message of feed.messages) {
+        const imagePaths = [];
+        for (const a of message.attachments) {
+          const bytes = await this.send(
+            'media',
+            {
+              runId: run.runId,
+              leaseToken: run.leaseToken,
+              expectedServerEpoch: this.config.serverEpoch,
+              mediaId: a.mediaId,
+            },
+            true,
+          );
+          if (bytes.length !== a.byteLength || createHash('sha256').update(bytes).digest('hex') !== a.digest)
+            throw new Error('Steering photo integrity mismatch');
+          const path = join(
+            spec.cwd,
+            '.local',
+            'suggestion-input',
+            safeId(run.runId),
+            safeId(a.mediaId) +
+              '.' +
+              ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[a.mimeType] ?? 'bin'),
+          );
+          await writeFile(path, bytes, { mode: 0o600 });
+          imagePaths.push(path);
+        }
+        message.imagePaths = imagePaths;
+      }
+      await writeJson(join(directory, 'steering-feed.json'), feed);
+    }
     if (!terminal) return 'running';
     if (terminal.exitCode !== 0 || terminal.failure) {
       await this.action(run, 'failed', 'transition', {
