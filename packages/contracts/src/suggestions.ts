@@ -101,6 +101,7 @@ export const suggestionCommands = {
   }),
   RequestSuggestionWork: object({ recordId: Id, suggestionId: Id }),
   CancelSuggestionWork: object({ requestId: Id }),
+  DismissSuggestionQuestion: object({ recordId: Id, suggestionId: Id, questionId: Id }),
 } as const;
 
 /** Agent reports are persisted as a whole before publishing; retries keep these IDs. */

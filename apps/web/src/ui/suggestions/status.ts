@@ -6,6 +6,11 @@ export function suggestionStatus(snapshot: SuggestionSnapshot, id: string): stri
   if (work.some((w) => w.state === 'queued')) return 'Queued';
   if (work[0]?.state === 'failed') return 'Needs attention';
   const status = snapshot.workflows.find((w) => w.suggestionId === id)?.status ?? 'new';
+  if (
+    status === 'needs_input' &&
+    !snapshot.questions.some((q) => q.suggestionId === id && q.state !== 'resolved')
+  )
+    return 'Ready to continue';
   return {
     new: 'New',
     queued: 'Queued',

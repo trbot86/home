@@ -15,6 +15,10 @@ import { calendarDateAt, addCalendarDate } from '../packages/contracts/src/index
 import { RecipeImportWorker } from '../apps/server/src/features/recipes/import-worker.js';
 import { extractRecipeMetadata } from '../apps/server/src/features/recipes/extractor.js';
 import { sha256 } from '../apps/server/src/features/media/file-media-store.js';
+import {
+  provisionSuggestionAgent,
+  authenticateSuggestionAgent,
+} from '../apps/server/src/features/suggestions/agent-access.js';
 
 const dataRoot = await mkdtemp(join(tmpdir(), 'our-place-browser-'));
 const db = openDatabase(join(dataRoot, 'db/household.sqlite'));
@@ -24,7 +28,7 @@ await provisionHousehold(db, [
   { username: 'sam', displayName: 'Sam', password: 'local-demo-sam-2026' },
 ]);
 // UI flows intentionally run much faster than household traffic; rate limits have separate HTTP tests.
-const { app, access, recipeImports, media } = await buildApp({
+const { app, access, recipeImports, media, writes, suggestionWork } = await buildApp({
   db,
   dataRoot,
   development: true,
@@ -175,6 +179,61 @@ const control = createServer((request, response) => {
     simulatedOutage = request.url === '/offline';
     if (simulatedOutage) app.server.closeAllConnections();
     response.writeHead(200).end('ok');
+    return;
+  }
+  if (request.url === '/suggestion-question') {
+    try {
+      const login = access.selectProfile('alex', 'browser'),
+        actor = access.authenticate(login.secret);
+      const suggestionId = randomUUID(),
+        questionId = randomUUID(),
+        epoch = installation(db).recovery_epoch;
+      const scopeId = access.scopes(actor).find((s) => s.kind === 'shared')!.scopeId;
+      const execute = (kind: 'CreateInboxEntry' | 'RequestSuggestionWork', args: unknown) => {
+        const result = writes.execute(actor, kind, {
+          operationId: randomUUID(),
+          contractVersion: 1,
+          expectedServerEpoch: epoch,
+          arguments: args,
+        });
+        if (result.status !== 'Applied') throw new Error('Fixture command failed');
+      };
+      const text = 'Obsolete question trial ' + suggestionId;
+      execute('CreateInboxEntry', {
+        inboxId: suggestionId,
+        scopeId,
+        category: 'app_suggestion',
+        text,
+        capturedAt: Date.now(),
+        source: { kind: 'typed' },
+        attachments: [],
+      });
+      execute('RequestSuggestionWork', { recordId: randomUUID(), suggestionId });
+      const credentials = provisionSuggestionAgent(db, 'Synthetic question agent', Date.now());
+      const agent = authenticateSuggestionAgent(db, credentials.secret),
+        run = suggestionWork.claim(agent, randomUUID(), epoch).run!;
+      suggestionWork.report(agent, run.leaseToken, {
+        reportId: randomUUID(),
+        expectedServerEpoch: epoch,
+        runId: run.runId,
+        status: 'needs_input',
+        summary: 'An earlier step asked a question.',
+        messages: [
+          {
+            messageId: questionId,
+            text: 'Do we still need the old environment?',
+            kind: 'question',
+            choices: [],
+          },
+        ],
+        resolvedQuestionIds: [],
+      });
+      response
+        .writeHead(200, { 'content-type': 'application/json' })
+        .end(JSON.stringify({ text, questionId }));
+    } catch {
+      response.writeHead(500).end();
+    }
     return;
   }
   if (request.url === '/run-recipe-import') {

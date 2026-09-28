@@ -337,6 +337,53 @@ export class SuggestionsRepository {
     now: number,
   ): RecordMutation {
     requireHuman(context);
+    if (kind === 'DismissSuggestionQuestion') {
+      const args = payload as Command<'DismissSuggestionQuestion'>['arguments'];
+      const suggestion = this.requireSuggestion(context, args.suggestionId, true);
+      const question = this.db
+        .prepare(
+          `SELECT 1 FROM suggestion_messages m JOIN records r ON r.record_id=m.message_id
+        WHERE m.message_id=? AND m.suggestion_id=? AND m.message_type='question' AND r.deleted_at IS NULL`,
+        )
+        .get(args.questionId, args.suggestionId);
+      if (!question) throw new Rejection('question_unavailable');
+      if (
+        this.db
+          .prepare(
+            `SELECT 1 FROM suggestion_question_resolutions q JOIN records r ON r.record_id=q.message_id
+        WHERE q.question_id=? AND r.deleted_at IS NULL`,
+          )
+          .get(args.questionId)
+      )
+        return { records: [], changes: [] };
+      const person = this.db
+        .prepare('SELECT display_name FROM people WHERE person_id=?')
+        .get(context.personId) as { display_name: string };
+      const message = this.create(
+        context,
+        'suggestion_message',
+        args.recordId,
+        {
+          scopeId: suggestion.scope_id,
+          deletedAt: null,
+          suggestionId: args.suggestionId,
+          text: 'Marked this question as no longer relevant.',
+          messageType: 'resolution',
+          authorKind: 'person',
+          authorId: context.personId,
+          authorName: person.display_name,
+          runId: null,
+          replyToQuestionId: args.questionId,
+          choices: [],
+          attachments: [],
+        },
+        now,
+      );
+      this.db
+        .prepare('INSERT INTO suggestion_question_resolutions VALUES (?,?,?,?)')
+        .run(args.questionId, args.recordId, args.suggestionId, suggestion.scope_id);
+      return { records: [message], changes: [{ before: null, after: message }] };
+    }
     if (kind === 'CancelSuggestionWork') {
       const { requestId } = payload as Command<'CancelSuggestionWork'>['arguments'];
       const row = this.db

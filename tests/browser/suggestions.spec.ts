@@ -1,5 +1,36 @@
 import { expect, test } from '@playwright/test';
 
+test('obsolete questions leave the active list and remain in discussion history', async ({
+  page,
+  request,
+}) => {
+  const seeded = await request.post('http://127.0.0.1:4174/suggestion-question', {
+    headers: { 'x-test-token': process.env['OUR_PLACE_TEST_TOKEN']! },
+  });
+  expect(seeded.ok()).toBe(true);
+  const { text } = await seeded.json();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Alex', exact: true }).click();
+  await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  await page.locator('.entry-card').filter({ hasText: text }).locator('.entry-text').click();
+  await expect(page.getByRole('region', { name: 'Questions', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'No longer relevant', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Questions', exact: true })).toHaveCount(0);
+  await expect(
+    page.locator('.suggestion-summary').getByText('Ready to continue', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator('.suggestion-timeline').getByText('Do we still need the old environment?', { exact: true }),
+  ).toHaveCount(1);
+  await expect(page.getByText('Marked this question as no longer relevant.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Cancel queued work', exact: true })).toHaveCount(0);
+  await page.reload();
+  await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  await page.locator('.entry-card').filter({ hasText: text }).locator('.entry-text').click();
+  await expect(page.getByRole('region', { name: 'Questions', exact: true })).toHaveCount(0);
+  await expect(page.getByText('Marked this question as no longer relevant.', { exact: true })).toBeVisible();
+});
+
 test('suggestion discussion saves an offline reply once without turning it into an inbox entry', async ({
   page,
   context,

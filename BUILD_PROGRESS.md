@@ -472,3 +472,22 @@ branches; active, ambiguous and uncommitted work remains protected. Twelve
 isolated protocol, restart and worktree-retention tests pass. The Windows restart
 helper also handles a Node process surviving its scheduled PowerShell wrapper.
 These are host-worker changes; no household migration or Android update is needed.
+
+The live retry subsequently implemented its requested label change, passed six
+isolated Food browser tests and committed on its suggestion branch. Both obsolete
+execution-permission questions were resolved in the saved discussion.
+
+## Obsolete suggestion questions (2026-09-27)
+
+No longer relevant removes a question from the active list while retaining the
+question and a person-attributed resolution in the discussion. It does not queue
+work. Resolution receipts replay safely, inherit suggestion privacy and support
+normal guarded undo/redo. With all questions closed, an otherwise waiting
+suggestion reads Ready to continue. Subsequent agent runs receive the resolved
+state. No database migration is required.
+
+Seven server suggestion tests and three browser suggestion flows pass, including
+cross-profile visibility, privacy, history, reload and offline replies. The Linux
+release image passes its full package suite, and the Android build and unit tests
+pass. The update is published through the normal guarded host upgrade and APK
+download process.

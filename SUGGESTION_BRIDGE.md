@@ -14,6 +14,13 @@ worktree is reused across rounds of the same suggestion. This deliberately
 keeps recovery independent of a surviving desktop conversation. Questions and
 answers remain available after the agent process exits.
 
+Resolved questions leave the active Questions list and remain in the discussion
+history. A person can also choose No longer relevant to record a resolution
+without answering or dispatching work. That action uses the normal per-user
+history and can be undone before a subsequent agent consumes it. Future runs
+receive the resolved state. Merely starting a later round does not discard a
+question; the agent must establish that it has been answered or made obsolete.
+
 ## Private setup
 
 After a verified server upgrade, run the server's administrative command

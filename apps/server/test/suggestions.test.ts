@@ -292,3 +292,61 @@ test('lease expiry fences writes without releasing work; reconciliation rotates 
     await f.close();
   }
 });
+
+test('obsolete questions can be dismissed without dispatch, with scoped history, replay and undo', async () => {
+  const f = await suggestionFixture();
+  try {
+    const credentials = provisionSuggestionAgent(f.db, 'Test agent', f.now());
+    const agent = authenticateSuggestionAgent(f.db, credentials.secret),
+      work = f.service.suggestionWork;
+    const id = f.suggestion();
+    applied(f.run('RequestSuggestionWork', { recordId: randomUUID(), suggestionId: id }));
+    const run = work.claim(agent, randomUUID(), 'fixture-epoch').run!;
+    const questionId = randomUUID();
+    work.report(agent, run.leaseToken, {
+      reportId: randomUUID(),
+      expectedServerEpoch: 'fixture-epoch',
+      runId: run.runId,
+      summary: 'Old environment question',
+      status: 'needs_input',
+      messages: [
+        { messageId: questionId, kind: 'question', text: 'Is the old environment available?', choices: [] },
+      ],
+      resolvedQuestionIds: [],
+    });
+    const command = f.envelope({ recordId: randomUUID(), suggestionId: id, questionId });
+    const result = applied(f.service.writes.execute(f.b, 'DismissSuggestionQuestion', command));
+    assert.equal(applied(f.service.writes.execute(f.b, 'DismissSuggestionQuestion', command)).replayed, true);
+    let view = f.features.suggestions.snapshot(f.a);
+    assert.equal(view.questions[0]!.state, 'resolved');
+    assert.equal(view.messages.filter((m) => m.messageType === 'resolution').length, 1);
+    assert.equal(view.messages.find((m) => m.recordId === questionId)!.deletedAt, null);
+    assert.equal(view.work.length, 1);
+    const undo = applied(f.run('UndoChangeSet', { changeSetId: result.changeSetId }, f.b));
+    assert.equal(f.features.suggestions.snapshot(f.a).questions[0]!.state, 'unanswered');
+    applied(f.run('RedoChangeSet', { changeSetId: undo.changeSetId }, f.b));
+    assert.equal(f.features.suggestions.snapshot(f.a).questions[0]!.state, 'resolved');
+    const otherId = f.suggestion();
+    assert.equal(
+      f.run('DismissSuggestionQuestion', { recordId: randomUUID(), suggestionId: otherId, questionId })
+        .status,
+      'Rejected',
+    );
+    const privateId = f.suggestion(f.privateScope);
+    assert.throws(() =>
+      f.run(
+        'DismissSuggestionQuestion',
+        { recordId: randomUUID(), suggestionId: privateId, questionId },
+        f.b,
+      ),
+    );
+    applied(f.run('RequestSuggestionWork', { recordId: randomUUID(), suggestionId: id }));
+    assert.equal(
+      work.claim(agent, randomUUID(), 'fixture-epoch').run!.context.questions[0]!.state,
+      'resolved',
+    );
+    assert.deepEqual(f.db.pragma('foreign_key_check'), []);
+  } finally {
+    await f.close();
+  }
+});

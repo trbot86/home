@@ -68,6 +68,28 @@ export function SuggestionDiscussion({
       setBusy(false);
     }
   }
+  async function dismissQuestion(id: string) {
+    setBusy(true);
+    try {
+      const result = await client.command(
+        entry.inboxId,
+        'DismissSuggestionQuestion',
+        {
+          recordId: crypto.randomUUID(),
+          suggestionId: entry.inboxId,
+          questionId: id,
+        },
+        state.session!.serverEpoch,
+      );
+      if (result.status === 'Rejected') throw new Error(result.code.replaceAll('_', ' '));
+      if (questionId === id) setQuestionId(null);
+      await client.refresh();
+    } catch (e) {
+      onError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <section className="suggestion-discussion" aria-label="Suggestion discussion">
       <div className="suggestion-original">
@@ -149,7 +171,17 @@ export function SuggestionDiscussion({
                   </ul>
                 )}
                 {active && (
-                  <button onClick={() => setQuestionId(q.questionId)}>Reply to this question</button>
+                  <div className="suggestion-reply-actions">
+                    <button onClick={() => setQuestionId(q.questionId)}>Reply to this question</button>
+                    <button
+                      disabled={!state.online || busy}
+                      onClick={() => {
+                        void dismissQuestion(q.questionId);
+                      }}
+                    >
+                      No longer relevant
+                    </button>
+                  </div>
                 )}
               </article>
             ))}
