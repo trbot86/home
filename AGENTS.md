@@ -8,6 +8,8 @@ Never embed a live address in source or documentation. Android's build helper
 reads its private default from ignored `.local/phone-trial/host.json`.
 Use meaningful Git commits as development proceeds; do not accumulate untracked
 application changes. Keep the privacy pre-commit hook enabled.
+Before committing or pushing, run `pnpm stats:cloc`; include any updated
+`CODE_STATS.md` in the commit. It is linked from the README; no report dump needed.
 
 The Tailscale household is in real use. Preserve its database, media, profiles,
 history, queued phone captures and installation identity throughout development.

@@ -173,3 +173,5 @@ Mount an isolated empty test volume at `/data` for the first rehearsal. Verify t
 Windows direct development uses `--development` for operations because it cannot establish Linux directory-fsync semantics. Production never silently downgrades those checks. Copying exports to the configured the secondary disk drive and restoring from that copy have been verified; Windows VSS integration and host power-loss behavior have not been validated.
 
 See [BUILD_PROGRESS.md](BUILD_PROGRESS.md) for measured results and limits, [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the bounded slice, and [PLANNING.md](PLANNING.md) for future household features.
+
+[Code statistics (cloc)](CODE_STATS.md)

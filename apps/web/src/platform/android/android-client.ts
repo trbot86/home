@@ -23,6 +23,9 @@ import type {
   SuggestionMessage,
 } from '@our-place/contracts';
 type NativeMethod =
+  | 'filingAdviceSettings'
+  | 'saveFilingAdviceSettings'
+  | 'filingAdvice'
   | 'appVersion'
   | 'publishedAppVersion'
   | 'state'
@@ -74,6 +77,21 @@ const native = registerPlugin<{
 }>('Household');
 /** A typed bridge only; Android persistence and networking are owned by Kotlin. */
 export class AndroidClient implements ClientPlatform {
+  filingAdviceSettings(): Promise<import('@our-place/contracts').FilingAdviceSettings> {
+    return this.invoke('filingAdviceSettings');
+  }
+  saveFilingAdviceSettings(
+    expectedRevision: number,
+    preferences: import('@our-place/contracts').FilingAdvicePreferences,
+  ): Promise<import('@our-place/contracts').FilingAdviceSettings> {
+    return this.invoke('saveFilingAdviceSettings', { expectedRevision, preferences });
+  }
+  filingAdvice(
+    inboxId: string,
+    request?: import('@our-place/contracts').FilingAdviceRequest,
+  ): Promise<{ review: import('@our-place/contracts').FilingAdviceReview | null }> {
+    return this.invoke('filingAdvice', { inboxId, ...(request ? { request } : {}) });
+  }
   private readonly backListeners = new Set<{
     listener: () => boolean;
     priority: 'dialog' | 'detail' | undefined;

@@ -97,6 +97,15 @@ export type RunRecordCommand = (
   epoch?: string,
 ) => Promise<CommandOutcome | null>;
 export interface ClientPlatform {
+  filingAdviceSettings(): Promise<import('@our-place/contracts').FilingAdviceSettings>;
+  saveFilingAdviceSettings(
+    expectedRevision: number,
+    preferences: import('@our-place/contracts').FilingAdvicePreferences,
+  ): Promise<import('@our-place/contracts').FilingAdviceSettings>;
+  filingAdvice(
+    inboxId: string,
+    request?: import('@our-place/contracts').FilingAdviceRequest,
+  ): Promise<{ review: import('@our-place/contracts').FilingAdviceReview | null }>;
   /** Consume one native widget shortcut. This requests navigation only, never a mutation. */
   takeWidgetNavigation?(): Promise<WidgetNavigation | null>;
   /** Dialogs dismiss first, then nested detail navigation, then the app-level fallback. */

@@ -45,6 +45,8 @@ export class InboxFiling {
             id = destination.recordId;
             if (id === source.inboxId) throw new Rejection('cannot_file_into_itself');
             this.links.validate(context, source.scopeId, id);
+            if (destination.expectedRevision !== undefined)
+              this.records.requireRevision(context, id, destination.expectedRevision);
           } else {
             if (filing.destinations.length >= 20) throw new Rejection('inbox_destination_limit');
             created = this.create(context, source.scopeId, destination, now);

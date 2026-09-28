@@ -18,7 +18,7 @@ export function filingOf(entry: InboxFiling) {
   return { filedAt: entry.filedAt ?? null, destinations: entry.destinations ?? [] };
 }
 export const FilingDestination = Type.Union([
-  object({ kind: Type.Literal('existing'), recordId: Id }),
+  object({ kind: Type.Literal('existing'), recordId: Id, expectedRevision: Type.Optional(Revision) }),
   object({ kind: Type.Literal('CreateRecipe'), arguments: recipeCommands.CreateRecipe }),
   object({ kind: Type.Literal('CreateTask'), arguments: taskCommands.CreateTask }),
   object({ kind: Type.Literal('AddShoppingEntry'), arguments: shoppingCommands.AddShoppingEntry }),

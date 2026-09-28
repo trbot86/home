@@ -181,6 +181,8 @@ export type BackupStatus = {
   running: boolean;
 };
 export type InboxEntry = InboxFiling & {
+  /** Read-only advisory metadata; omitted in older caches and immutable history. */
+  filingAdvice?: { state: import('./filing-advice.js').FilingAdviceReview['state']; count: number };
   inboxId: string;
   scopeId: string;
   revision: number;
@@ -234,3 +236,4 @@ export function isValid<T extends TSchema>(schema: T, value: unknown): value is 
 export function invalidFields(schema: TSchema, value: unknown): string[] {
   return [...new Set([...Value.Errors(schema, value)].map((error) => error.path))].slice(0, 20);
 }
+export * from './filing-advice.js';

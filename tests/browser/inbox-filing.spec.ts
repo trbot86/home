@@ -74,7 +74,7 @@ test('filing a photo note into a task keeps its draft, original, links and compo
   dialog = await file(page, text);
   await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue('Fit the photographed filter');
   await expect(dialog.getByLabel('Details', { exact: true })).toHaveValue(text);
-  await dialog.locator('summary').click();
+  await dialog.getByText('Original capture', { exact: true }).click();
   await expect(dialog.locator('img')).toHaveCount(1);
   for (const width of [320, 390, 820, 1440]) {
     await page.setViewportSize({ width, height: 1100 });

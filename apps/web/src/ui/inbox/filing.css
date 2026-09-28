@@ -59,3 +59,20 @@
   color: var(--muted);
   font-size: 0.8rem;
 }
+.filing-suggestions label:has(input[type='checkbox']) {
+  display: flex;
+  align-items: start;
+  gap: 0.6rem;
+  margin: 0.6rem 0;
+}
+.filing-suggestions input[type='checkbox'] {
+  width: 1.2rem;
+  height: 1.2rem;
+  flex-shrink: 0;
+}
+.filing-suggestions button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  margin: 0.3rem 0.3rem 0.3rem 0;
+}

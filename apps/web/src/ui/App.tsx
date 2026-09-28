@@ -1545,6 +1545,25 @@ function AppContent({ client }: { client: ClientPlatform }) {
                                       {label}
                                     </button>
                                   ))}
+                                  <button
+                                    disabled={
+                                      state.pendingEdits.includes(entry.inboxId) ||
+                                      filingOf(entry).filedAt !== null
+                                    }
+                                    onClick={() => setFilingId(entry.inboxId)}
+                                  >
+                                    {entry.filingAdvice?.state === 'complete'
+                                      ? entry.filingAdvice.count
+                                        ? `Review ${entry.filingAdvice.count} filing suggestions`
+                                        : 'No filing match'
+                                      : entry.filingAdvice?.state === 'attempted'
+                                        ? 'Filing suggestions pending'
+                                        : entry.filingAdvice?.state === 'stale'
+                                          ? 'Filing suggestions changed'
+                                          : entry.filingAdvice?.state === 'failed'
+                                            ? 'Retry filing suggestions'
+                                            : 'Filing suggestions'}
+                                  </button>
                                 </>
                               )}
                               {view !== 'trash' &&

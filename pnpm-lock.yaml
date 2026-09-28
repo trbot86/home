@@ -33,6 +33,9 @@ importers:
       '@types/react-dom':
         specifier: 19.3.0
         version: 19.3.0(@types/react@19.3.0)
+      cloc:
+        specifier: 2.6.0-cloc
+        version: 2.6.0-cloc
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
@@ -737,6 +740,10 @@ packages:
   chownr@3.0.0:
     resolution: {integrity: sha512-+IxzY9BZOQd/XuYPRmrvEVjF/nqj5kgT4kEq7VofrDoM1MxoRjEWkrCC3EtLi59TVawxTAn+orJwFQcrqEN1+g==}
     engines: {node: '>=18'}
+
+  cloc@2.6.0-cloc:
+    resolution: {integrity: sha512-fCHPvFN6I7WmC005u99WqLxqWnWhEra0YCppc2k8lpRZrPFIEaHaNxgJ+funlSRIZMSIOqxwpt7pmEKDPFCz2g==}
+    hasBin: true
 
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
@@ -1920,6 +1927,8 @@ snapshots:
   buffer-equal-constant-time@1.0.1: {}
 
   chownr@3.0.0: {}
+
+  cloc@2.6.0-cloc: {}
 
   color-convert@2.0.1:
     dependencies:
