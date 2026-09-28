@@ -66,3 +66,10 @@ reviewing the actual diff, a developer may record exact source commits and paths
 in ignored `.local/suggestion-bridge/releases/reviewed-changes.json`, an array of
 `{ "sourceCommit": "<full commit>", "paths": ["<reviewed source path>"] }`.
 Exceptions do not apply to later commits or other paths, and never skip tests.
+
+When source branches conflict, a developer can resolve the merge in the isolated
+release checkout and record `baseCommit`, ordered `sources` (suggestionId, runId,
+sourceCommit), and `candidateCommit` in ignored
+`.local/suggestion-bridge/releases/reviewed-integration.json`. The coordinator
+accepts it only for those exact inputs, verifies all are ancestors of the resolved
+commit, and runs the normal full release checks. A changed input invalidates it.
