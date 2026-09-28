@@ -15,6 +15,24 @@ async function capture(page: Page, text: string) {
   await card.getByRole('button', { name: 'Filing suggestions', exact: true }).click();
   return page.getByRole('dialog', { name: 'File this note', exact: true });
 }
+
+async function configure(page: Page, dialog: any, text: string, titles = false, automatic = false) {
+  await expect(dialog.getByLabel('Allow requests from this profile')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Manage note suggestions in Settings' }).click();
+  const settings = page.getByRole('region', { name: 'Note suggestion settings' });
+  await settings.getByLabel('Allow requests from this profile').check();
+  await settings.getByLabel('Shared inbox text', { exact: true }).check();
+  if (titles) await settings.getByLabel('Allow selected destination titles with the same visibility').check();
+  if (automatic) await settings.getByLabel('Automatically suggest filing for unfiled inbox items').check();
+  await settings.getByRole('button', { name: 'Save suggestion permissions' }).click();
+  await expect(settings.getByText('Suggestion permissions saved.')).toBeVisible();
+  await page.getByRole('navigation').getByRole('button', { name: 'Inbox', exact: true }).click();
+  await page
+    .locator('.entry-card')
+    .filter({ hasText: text })
+    .getByRole('button', { name: /filing suggestions|Filing suggestions/ })
+    .click();
+}
 async function command(page: Page, kind: string, args: object) {
   const session = await (await page.request.get('/api/session')).json();
   const result = await page.request.post(`/api/commands/${kind}`, {
@@ -53,12 +71,7 @@ test('consent setup, synthetic suggestions, explicit existing-page filing, reloa
   await page.getByRole('button', { name: 'Refresh and sync' }).click();
   let dialog = await capture(page, 'Synthetic filing advice capture');
   await expect(dialog.getByRole('button', { name: 'Suggest filing', exact: true })).toBeDisabled();
-  await dialog.getByText('Suggestion setup', { exact: true }).click();
-  await dialog.getByLabel('Allow requests from this profile').check();
-  await dialog.getByLabel('Shared inbox text', { exact: true }).check();
-  await dialog.getByLabel('Allow selected destination titles with the same visibility').check();
-  await dialog.getByRole('button', { name: 'Save suggestion permissions' }).click();
-  await expect(dialog.getByText('Suggestion permissions saved.')).toBeVisible();
+  await configure(page, dialog, 'Synthetic filing advice capture', true, false);
   await dialog.getByLabel('Suggestion destination context').selectOption(pageId);
   await dialog.getByRole('button', { name: 'Suggest filing', exact: true }).click();
   await expect(
@@ -98,11 +111,7 @@ test('consent setup, synthetic suggestions, explicit existing-page filing, reloa
 test('changed notes hide old suggestions and explicit retries produce a new attempt', async ({ page }) => {
   await login(page);
   const dialog = await capture(page, 'Synthetic stale advice capture');
-  await dialog.getByText('Suggestion setup', { exact: true }).click();
-  await dialog.getByLabel('Allow requests from this profile').check();
-  await dialog.getByLabel('Shared inbox text', { exact: true }).check();
-  await dialog.getByRole('button', { name: 'Save suggestion permissions' }).click();
-  await expect(dialog.getByText('Suggestion permissions saved.')).toBeVisible();
+  await configure(page, dialog, 'Synthetic stale advice capture', false, false);
   await dialog.getByRole('button', { name: 'Suggest filing', exact: true }).click();
   await expect(dialog.getByRole('button', { name: 'Review suggestion: tasks', exact: true })).toBeVisible();
   const snapshot = await (await page.request.get('/api/cache/inbox')).json();
@@ -139,13 +148,7 @@ test('automatic consent discovers destinations and updates the inbox card withou
 }) => {
   await login(page);
   const dialog = await capture(page, 'Synthetic automatic filing advice');
-  await dialog.getByText('Suggestion setup', { exact: true }).click();
-  await dialog.getByLabel('Allow requests from this profile').check();
-  await dialog.getByLabel('Shared inbox text', { exact: true }).check();
-  await dialog.getByLabel('Allow selected destination titles with the same visibility').check();
-  await dialog.getByLabel('Automatically suggest filing for unfiled inbox items').check();
-  await dialog.getByRole('button', { name: 'Save suggestion permissions' }).click();
-  await expect(dialog.getByText('Suggestion permissions saved.')).toBeVisible();
+  await configure(page, dialog, 'Synthetic automatic filing advice', true, true);
   await expect(dialog.getByRole('button', { name: /Review suggestion: Project/ })).toBeVisible({
     timeout: 25000,
   });
@@ -160,10 +163,11 @@ test('automatic consent discovers destinations and updates the inbox card withou
   const note = snapshot.entries.find((e: any) => e.text === 'Synthetic automatic filing advice');
   expect(note.filedAt).toBeNull();
   expect(note.revision).toBe(1);
-  await dialog.getByText('Suggestion setup', { exact: true }).click();
-  await dialog.getByLabel('Allow requests from this profile').uncheck();
-  await dialog.getByRole('button', { name: 'Save suggestion permissions' }).click();
-  await expect(dialog.getByText('Suggestion permissions saved.')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Manage note suggestions in Settings' }).click();
+  const settings = page.getByRole('region', { name: 'Note suggestion settings' });
+  await settings.getByLabel('Allow requests from this profile').uncheck();
+  await settings.getByRole('button', { name: 'Save suggestion permissions' }).click();
+  await expect(settings.getByText('Suggestion permissions saved.')).toBeVisible();
 });
 
 test('Secure capture persists offline and excludes requests; existing-note toggle survives reload', async ({

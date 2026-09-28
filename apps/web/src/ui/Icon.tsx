@@ -19,10 +19,20 @@ export function Icon({
     | 'close'
     | 'search'
     | 'lock'
-    | 'refresh';
+    | 'refresh'
+    | 'shared'
+    | 'edit'
+    | 'working'
+    | 'attention'
+    | 'deploy';
   size?: number;
 }) {
   const paths = {
+    shared: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21v-3a7 7 0 0 1 14 0v3M17 4a4 4 0 0 1 0 8m1 3a6 6 0 0 1 4 6',
+    edit: 'm4 16 12-12 4 4-12 12-5 1Zm10-10 4 4',
+    working: 'm8 5-6 7 6 7m8-14 6 7-6 7M14 3l-4 18',
+    attention: 'M12 3 2 21h20ZM12 9v5m0 3v1',
+    deploy: 'M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6',
     home: 'M3 10 12 3l9 7v11h-6v-7H9v7H3Z',
     food: 'M4 3v5a3 3 0 0 0 6 0V3M7 3v18M17 3c-4 3-4 9 1 9V3m0 9v9',
     projects: 'M3 4h7v7H3ZM14 4h7v11h-7ZM3 15h7v6H3Zm11 4h7v2h-7Z',

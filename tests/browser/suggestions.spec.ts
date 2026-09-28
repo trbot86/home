@@ -14,7 +14,7 @@ test('working suggestions have a blue card at phone width and retain it after re
   await page.getByRole('button', { name: 'Alex', exact: true }).click();
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
   const card = page.locator('.entry-card').filter({ hasText: text });
-  await expect(card.getByText('Working', { exact: true })).toBeVisible();
+  await expect(card.getByRole('img', { name: 'Working', exact: true })).toBeVisible();
   await expect(card).toHaveCSS('background-color', 'rgb(47, 61, 73)');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/suggestion-working-phone.png', fullPage: true });
@@ -68,7 +68,7 @@ test('completed suggestions stay behind their filter, retain discussion offline 
   const filter = page.locator('[aria-label="Suggestion status filter"]');
   const navCount = page.getByRole('button', { name: 'App suggestions', exact: true }).locator('.nav-count');
   const initialCount = Number(await navCount.innerText());
-  await expect(card.getByText('Waiting for update', { exact: true })).toBeVisible();
+  await expect(card.getByRole('img', { name: 'Waiting for update', exact: true })).toBeVisible();
   await expect(card).toHaveCSS('background-color', 'rgb(70, 56, 41)');
   await card.getByRole('button', { name: 'Mark completed', exact: true }).click();
   await expect(card).toHaveCount(0);
@@ -77,7 +77,7 @@ test('completed suggestions stay behind their filter, retain discussion offline 
   await expect(card).toHaveCount(0);
   await filter.getByRole('button', { name: 'Completed', exact: true }).click();
   await expect(card).toHaveCount(1);
-  await expect(card.getByText('Completed', { exact: true })).toBeVisible();
+  await expect(card.getByRole('img', { name: 'Completed', exact: true })).toBeVisible();
   await expect(card).not.toHaveCSS('background-color', 'rgb(70, 56, 41)');
   await page.setViewportSize({ width: 360, height: 820 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -108,7 +108,7 @@ test('completed suggestions stay behind their filter, retain discussion offline 
   await expect(card).toHaveCount(0);
   await filter.getByRole('button', { name: 'Active', exact: true }).click();
   await expect(card).toHaveCount(1);
-  await expect(card.getByText('Waiting for update', { exact: true })).toBeVisible();
+  await expect(card.getByRole('img', { name: 'Waiting for update', exact: true })).toBeVisible();
   await expect(navCount).toHaveText(String(initialCount));
   await card.locator('.entry-text').click();
   await discussion.getByRole('button', { name: 'Mark completed', exact: true }).click();
@@ -117,7 +117,7 @@ test('completed suggestions stay behind their filter, retain discussion offline 
   await expect(discussion.getByRole('button', { name: 'Mark completed', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Close entry' }).click();
   await expect(card).toHaveCount(1);
-  await expect(card.getByText('Queued', { exact: true })).toBeVisible();
+  await expect(card.getByRole('img', { name: 'Queued', exact: true })).toBeVisible();
   await card.locator('.entry-text').click();
   await discussion.getByRole('button', { name: 'Cancel queued work', exact: true }).click();
 });
@@ -136,7 +136,7 @@ test('obsolete questions leave the active list and remain in discussion history'
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
   const card = page.locator('.entry-card').filter({ hasText: text });
   await expect(card.getByText('New update', { exact: true })).toBeVisible();
-  await expect(card.getByText('Needs your input', { exact: true })).toBeVisible();
+  await expect(card.getByRole('img', { name: 'Needs your input', exact: true })).toBeVisible();
   await expect(card).toHaveCSS('background-color', 'rgb(72, 51, 43)');
   await expect(card).not.toHaveCSS('background-color', 'rgb(70, 56, 41)');
   await expect(card).not.toHaveCSS('background-color', 'rgb(47, 61, 73)');
@@ -195,7 +195,7 @@ test('one batch panel prepares selected suggestions and deploys only the tested 
     true,
   );
   await page.getByRole('button', { name: 'Refresh and sync' }).click();
-  await expect(card.getByText('Ready to deploy', { exact: true })).toBeVisible();
+  await expect(card.getByRole('img', { name: 'Ready to deploy', exact: true })).toBeVisible();
   await expect(card).toHaveCSS('background-color', 'rgb(70, 56, 41)');
   const panel = page.getByRole('region', { name: 'Suggestion release', exact: true });
   await expect(panel.getByRole('heading')).toContainText('2 suggestions');
@@ -208,7 +208,7 @@ test('one batch panel prepares selected suggestions and deploys only the tested 
   await page.reload();
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
   await panel.getByRole('button', { name: 'Deploy update', exact: true }).click();
-  await expect(card.getByText('Deployment queued', { exact: true })).toBeVisible();
+  await expect(card.getByRole('img', { name: 'Deployment queued', exact: true })).toBeVisible();
   await expect(card).toHaveCSS('background-color', 'rgb(70, 56, 41)');
   await expect(page.getByRole('button', { name: 'Deploy update' })).toHaveCount(0);
   // No host worker is connected to this isolated fixture. Cancel the still-queued deployment.
@@ -258,7 +258,7 @@ test('suggestion discussion saves an offline reply once without turning it into 
   await expect(page.locator('.entry-card').filter({ hasText: reply })).toHaveCount(0);
 });
 
-test('suggestions keep separate drafts and counts through offline reload, move and undo', async ({
+test('suggestions keep separate drafts, counts and history through offline reload', async ({
   page,
   context,
 }) => {
@@ -294,12 +294,8 @@ test('suggestions keep separate drafts and counts through offline reload, move a
     initialCount,
   );
   await expect(card.locator('.entry-text')).toHaveText(suggestion);
-  await card.getByRole('button', { name: 'Move to inbox', exact: true }).click();
-  await expect(card).toHaveCount(0);
-  await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(card).toHaveCount(1);
+  await expect(card.getByRole('button', { name: 'Move to inbox', exact: true })).toHaveCount(0);
   await card.getByRole('button', { name: 'History', exact: true }).click();
-  await expect(page.getByText('Moved to inbox', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Close entry' }).click();
   await page.setViewportSize({ width: 360, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

@@ -1,4 +1,5 @@
 import { useNavigationState } from '../NavigationHistory.js';
+import { usePagePreference } from '../usePagePreference.js';
 import { useRef, useState } from 'react';
 import { CaptureSources } from '../inbox/FilingLinks.js';
 import {
@@ -91,8 +92,22 @@ export function Tasks({
             ? 'all'
             : 'focus',
     ),
-    [person, setPerson] = useState(initial ? 'everyone' : 'mine'),
-    [context, setContext] = useState('both'),
+    [person, setPerson] = usePagePreference<string>(
+      state,
+      'tasks.person',
+      initial ? 'everyone' : 'mine',
+      (v): v is string =>
+        typeof v === 'string' &&
+        (['everyone', 'mine'].includes(v) || state.tasks.people.some((p) => p.personId === v)),
+      Boolean(initial),
+    ),
+    [context, setContext] = usePagePreference<string>(
+      state,
+      'tasks.context',
+      'both',
+      (v): v is string => ['both', 'home', 'work'].includes(String(v)),
+      Boolean(initial),
+    ),
     [search, setSearch] = useState(''),
     [limit, setLimit] = useState(30);
   const [editor, setEditor] = useNavigationState<Editor | null>(

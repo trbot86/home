@@ -9,11 +9,17 @@ unchanged by categorization.
 
 ## Setup and processing
 
-The Filing suggestions control on an inbox card opens Suggestion setup. Each
+Settings > Note suggestions contains the profile-wide controls. Each
 profile separately saves whether processing is allowed, which of its shared or
 private scopes may be used, whether destination titles may be included, and
 whether automatic processing is allowed. All defaults are off. No provider is
 connected by default in the production entry point. Saving consent alone cannot send data.
+
+The Filing suggestions control on a note contains only that note's request, retry,
+results and optional destination context. Its Settings link saves the unfinished
+filing draft before navigation. Changing profiles loads that profile's permissions.
+Agenda day-range/context and task person/context choices are remembered per
+profile and installation on each device; they do not store note contents.
 
 Automatic mode discovers both existing and new unfiled inbox entries in permitted
 scopes. The server polls every three seconds after the previous attempt finishes,
@@ -140,7 +146,7 @@ The worker has its own deadline. Test both disconnect and process-death cleanup
 when provisioning the actual host. An interrupted model request may already have
 been sent, so the existing durable attempt stays consumed until explicit retry.
 
-Data scope is a deferred runtime choice in Suggestion setup, not a prerequisite
+Data scope is a deferred runtime choice in Settings > Note suggestions, not a prerequisite
 for developing the adapter with synthetic data. Keep the production provider
 disconnected until both host configuration and saved scope consent are present.
 

@@ -14,12 +14,14 @@ export function FilingSuggestions({
   entry,
   choose,
   disabled,
+  onSettings,
 }: {
   client: ClientPlatform;
   state: ClientState;
   entry: InboxEntry;
   choose: (choice: FilingAdvice) => void;
   disabled: boolean;
+  onSettings: () => void;
 }) {
   const [secure, setSecure] = useState<boolean | null>(null);
   const [settings, setSettings] = useState<FilingAdviceSettings | null>(null);
@@ -114,86 +116,9 @@ export function FilingSuggestions({
           {!settings.configured && (
             <p role="status">No provider is connected. Processing stays off even if you save permission.</p>
           )}
-          <details>
-            <summary>Suggestion setup</summary>
-            <p>
-              Choose what this profile may send. Text and titles can contain secrets. Photos, captions, page
-              contents, history and other notes are excluded. Using a model does not by itself guarantee
-              confidentiality or no training. Secure items and items inside Secure containers are always
-              excluded.
-            </p>
-            <fieldset disabled={blocked}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={settings.enabled}
-                  onChange={(e) => setSettings({ ...settings, enabled: e.target.checked })}
-                />
-                Allow requests from this profile
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={settings.automatic}
-                  onChange={(e) => setSettings({ ...settings, automatic: e.target.checked })}
-                />
-                Automatically suggest filing for unfiled inbox items
-              </label>
-              <p>
-                Automatic mode includes existing and new items in the scopes below. It checks every few
-                seconds and sends one item at a time. If destination titles are allowed, it discovers up to 20
-                recently updated destinations with the same visibility. Failed or changed items require an
-                explicit retry. Signing out or session expiry pauses automatic processing; save permissions
-                again after signing in.
-              </p>
-              {state.session!.scopes.map((scope) => (
-                <label key={scope.scopeId}>
-                  <input
-                    type="checkbox"
-                    checked={settings.scopeIds.includes(scope.scopeId)}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        scopeIds: e.target.checked
-                          ? [...settings.scopeIds, scope.scopeId]
-                          : settings.scopeIds.filter((id) => id !== scope.scopeId),
-                      })
-                    }
-                  />
-                  {scope.kind === 'shared' ? 'Shared inbox text' : 'My private inbox text'}
-                </label>
-              ))}
-              <label>
-                <input
-                  type="checkbox"
-                  checked={settings.destinationTitles}
-                  onChange={(e) => setSettings({ ...settings, destinationTitles: e.target.checked })}
-                />
-                Allow selected destination titles with the same visibility
-              </label>
-              <button
-                type="button"
-                disabled={settings.enabled && !settings.scopeIds.length}
-                onClick={() =>
-                  void act(async () => {
-                    const { enabled, automatic, scopeIds, destinationTitles } = settings;
-                    const saved = await client.saveFilingAdviceSettings(settings.revision, {
-                      enabled,
-                      automatic,
-                      scopeIds,
-                      destinationTitles,
-                    });
-                    if (alive.current) {
-                      setSettings(saved);
-                      setNotice('Suggestion permissions saved.');
-                    }
-                  })
-                }
-              >
-                Save suggestion permissions
-              </button>
-            </fieldset>
-          </details>
+          <button type="button" onClick={onSettings}>
+            Manage note suggestions in Settings
+          </button>
           {!settings.enabled && <p>Suggestions are off for this profile.</p>}
           {settings.destinationTitles && (
             <label>

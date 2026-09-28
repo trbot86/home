@@ -18,6 +18,7 @@ import { SuggestionReleasePanel } from './suggestions/SuggestionReleasePanel.js'
 import { Storage } from './Storage.js';
 import { AppUpdates } from './AppUpdates.js';
 import { useAppVersion } from './useAppVersion.js';
+import { FilingSettings } from './inbox/FilingSettings.js';
 import { CalendarSettings } from './calendars/CalendarSettings.js';
 import { PersonalAgenda } from './calendars/PersonalAgenda.js';
 import { LinkedText } from './LinkedText.js';
@@ -836,7 +837,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                 }}
               >
                 <Icon name="plus" />
-                App suggestions
+                <span className="suggestion-label">App suggestions</span>
                 <span className="nav-count">
                   {
                     state.entries.filter(
@@ -870,53 +871,11 @@ function AppContent({ client }: { client: ClientPlatform }) {
             )}
             <header className="page-header">
               <div>
-                <p className="eyebrow">Your household, together</p>
                 <h1>
-                  {view === 'activity'
-                    ? 'The things we got done.'
-                    : view === 'agenda'
-                      ? 'A little room for today.'
-                      : view === 'inbox'
-                        ? 'A place for the little things.'
-                        : view === 'suggestions'
-                          ? 'Make our place a little better.'
-                          : view === 'shopping'
-                            ? 'A little less to remember.'
-                            : view === 'tasks'
-                              ? 'Tasks, at your pace.'
-                              : view === 'projects'
-                                ? 'Room for the bigger ideas.'
-                                : view === 'food'
-                                  ? 'Good food, good company.'
-                                  : view === 'home'
-                                    ? 'Care for the place we call home.'
-                                    : view === 'trash'
-                                      ? 'Room for second thoughts.'
-                                      : 'Your household settings.'}
+                  {view === 'suggestions'
+                    ? 'App suggestions'
+                    : (navigationItems.find((item) => item.id === view)?.label ?? 'Our place')}
                 </h1>
-                <p>
-                  {view === 'activity'
-                    ? 'A quiet record of everyday effort, together.'
-                    : view === 'agenda'
-                      ? 'Your calendar, your priorities, and what needs a little attention.'
-                      : view === 'inbox'
-                        ? 'Catch a thought now. Figure out the details later.'
-                        : view === 'suggestions'
-                          ? 'Ideas, rough edges, and things you’d like this app to do.'
-                          : view === 'shopping'
-                            ? 'What we need, what we love, and what’s running low.'
-                            : view === 'tasks'
-                              ? 'A plan for what matters, and a record of what got done.'
-                              : view === 'projects'
-                                ? 'Plans, inspiration and the next small step, all together.'
-                                : view === 'food'
-                                  ? 'Recipes to try, favourites to return to, and notes that make them ours.'
-                                  : view === 'home'
-                                    ? 'The details worth keeping, and the care that keeps things going.'
-                                    : view === 'trash'
-                                      ? 'Deleted entries keep their history. Bring one back when you need it.'
-                                      : 'Calendar connections, storage, backups and app updates.'}
-                </p>
               </div>
               <div className="connection">
                 <span className={`status-dot ${state.online ? '' : 'offline'}`} />
@@ -1057,6 +1016,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                     onError={showError}
                   />
                 )}
+                <FilingSettings key={state.session.person.personId} client={client} state={state} />
                 <CalendarSettings client={client} state={state} run={runCommand} />
                 <Storage client={client} state={state} onError={showError} />
                 <AppUpdates client={client} online={state.online} onError={showError} version={appVersion} />
@@ -1443,15 +1403,6 @@ function AppContent({ client }: { client: ClientPlatform }) {
                               : undefined
                           }
                         >
-                          {view !== 'trash' && sort === 'personal' && (
-                            <CardOrderControls
-                              id={entry.inboxId}
-                              ids={visibleCardIds}
-                              disabled={Boolean(orderDisabled)}
-                              move={(from, to) => void moveCard(from, to)}
-                              highlight={setDragTarget}
-                            />
-                          )}
                           {entry.attachments[0] && (
                             <button
                               className="entry-image"
@@ -1467,28 +1418,50 @@ function AppContent({ client }: { client: ClientPlatform }) {
                           <div className="entry-content">
                             <div className="entry-meta">
                               {categoryOf(entry) === 'app_suggestion' && (
-                                <span className="scope-badge">
-                                  {suggestionStatus(state.suggestions, entry.inboxId)}
+                                <span
+                                  className="scope-badge"
+                                  role="img"
+                                  aria-label={suggestionStatus(state.suggestions, entry.inboxId)}
+                                  title={suggestionStatus(state.suggestions, entry.inboxId)}
+                                >
+                                  <Icon
+                                    name={
+                                      suggestionStatus(state.suggestions, entry.inboxId) === 'Working'
+                                        ? 'working'
+                                        : suggestionStatus(state.suggestions, entry.inboxId) === 'New'
+                                          ? 'plus'
+                                          : ['Completed', 'Deployed'].includes(
+                                                suggestionStatus(state.suggestions, entry.inboxId),
+                                              )
+                                            ? 'check'
+                                            : /attention|input|interrupted/.test(
+                                                  suggestionStatus(state.suggestions, entry.inboxId),
+                                                )
+                                              ? 'attention'
+                                              : /deploy|update/i.test(
+                                                    suggestionStatus(state.suggestions, entry.inboxId),
+                                                  )
+                                                ? 'deploy'
+                                                : 'clock'
+                                    }
+                                    size={16}
+                                  />
                                 </span>
                               )}
                               {categoryOf(entry) === 'app_suggestion' &&
                                 suggestionUnread(state.suggestions, entry.inboxId) && (
                                   <span className="suggestion-unread">
                                     <span aria-hidden="true">●</span>
-                                    <span>New update</span>
+                                    <span className="sr-only">New update</span>
                                   </span>
                                 )}
                               <span
                                 className={`scope-badge ${entry.scopeId === sharedScope ? '' : 'private'}`}
+                                role="img"
+                                aria-label={entry.scopeId === sharedScope ? 'Shared with us' : 'Just me'}
+                                title={entry.scopeId === sharedScope ? 'Shared with us' : 'Just me'}
                               >
-                                {entry.scopeId === sharedScope ? (
-                                  'Shared with us'
-                                ) : (
-                                  <>
-                                    <Icon name="lock" size={12} />
-                                    Just me
-                                  </>
-                                )}
+                                <Icon name={entry.scopeId === sharedScope ? 'shared' : 'lock'} size={16} />
                               </span>
                               <time dateTime={new Date(entry.createdAt).toISOString()}>
                                 {date(entry.createdAt)}
@@ -1542,6 +1515,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                                   state={state}
                                   id={entry.inboxId}
                                   onError={showError}
+                                  compact
                                 />
                               )}
                               {view !== 'trash' && categoryOf(entry) === 'inbox' && (
@@ -1606,6 +1580,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                               {(view === 'trash' || categoryOf(entry) === 'app_suggestion') && (
                                 <>
                                   <button
+                                    title={view === 'trash' ? 'Restore' : 'Edit'}
                                     disabled={
                                       view === 'trash' &&
                                       (!state.online || state.pendingEdits.includes(entry.inboxId))
@@ -1621,44 +1596,32 @@ function AppContent({ client }: { client: ClientPlatform }) {
                                       else setSelected({ id: entry.inboxId, history: false });
                                     }}
                                   >
-                                    {view === 'trash'
-                                      ? 'Restore'
-                                      : !state.online || state.pendingEdits.includes(entry.inboxId)
-                                        ? 'View'
-                                        : 'Edit'}
+                                    <Icon name={view === 'trash' ? 'refresh' : 'edit'} size={18} />
+                                    <span className="sr-only">
+                                      {view === 'trash'
+                                        ? 'Restore'
+                                        : !state.online || state.pendingEdits.includes(entry.inboxId)
+                                          ? 'View'
+                                          : 'Edit'}
+                                    </span>
                                   </button>
-                                  <button onClick={() => setSelected({ id: entry.inboxId, history: true })}>
+                                  <button
+                                    title="History"
+                                    onClick={() => setSelected({ id: entry.inboxId, history: true })}
+                                  >
                                     <Icon name="clock" size={14} />
-                                    History
+                                    <span className="sr-only">History</span>
                                   </button>
                                 </>
                               )}
-                              {view !== 'trash' && categoryOf(entry) === 'app_suggestion' && (
-                                <button
-                                  aria-label={
-                                    categoryOf(entry) === 'app_suggestion'
-                                      ? 'Move to inbox'
-                                      : 'Move to app suggestions'
-                                  }
-                                  disabled={!state.online || state.pendingEdits.includes(entry.inboxId)}
-                                  onClick={() => {
-                                    void runCommand(
-                                      entry,
-                                      'SetInboxEntryCategory',
-                                      {
-                                        inboxId: entry.inboxId,
-                                        expectedRevision: entry.revision,
-                                        category:
-                                          categoryOf(entry) === 'app_suggestion' ? 'inbox' : 'app_suggestion',
-                                      },
-                                      categoryOf(entry) === 'app_suggestion'
-                                        ? 'Moved to inbox'
-                                        : 'Moved to app suggestions',
-                                    );
-                                  }}
-                                >
-                                  {categoryOf(entry) === 'app_suggestion' ? 'To inbox' : 'Suggest'}
-                                </button>
+                              {view !== 'trash' && sort === 'personal' && (
+                                <CardOrderControls
+                                  id={entry.inboxId}
+                                  ids={visibleCardIds}
+                                  disabled={Boolean(orderDisabled)}
+                                  move={(from, to) => void moveCard(from, to)}
+                                  highlight={setDragTarget}
+                                />
                               )}
                               <span className="action-spacer" />
                               {state.pendingEdits.includes(entry.inboxId) ? (
@@ -1723,6 +1686,10 @@ function AppContent({ client }: { client: ClientPlatform }) {
           )}
           {filingEntry && (
             <FilingDialog
+              onSettings={() => {
+                setFilingId(null);
+                setView('storage');
+              }}
               key={`${state.session.clientId}:${filingEntry.inboxId}`}
               client={client}
               state={state}

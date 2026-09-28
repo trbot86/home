@@ -1,17 +1,20 @@
 import { useRef, useState } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import { suggestionCompleted } from './status.js';
+import { Icon } from '../Icon.js';
 
 export function SuggestionCompletionButton({
   client,
   state,
   id,
   onError,
+  compact = false,
 }: {
   client: ClientPlatform;
   state: ClientState;
   id: string;
   onError: (error: unknown) => void;
+  compact?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -67,11 +70,14 @@ export function SuggestionCompletionButton({
       title={
         !completed && (working || releasing)
           ? 'Finish or cancel the current work before completing this suggestion.'
-          : undefined
+          : completed
+            ? 'Reopen'
+            : 'Mark completed'
       }
       onClick={() => void toggle()}
     >
-      {completed ? 'Reopen' : 'Mark completed'}
+      {compact && <Icon name={completed ? 'refresh' : 'check'} size={18} />}
+      <span className={compact ? 'sr-only' : undefined}>{completed ? 'Reopen' : 'Mark completed'}</span>
     </button>
   );
 }

@@ -1,5 +1,6 @@
 import { useNavigationState } from '../NavigationHistory.js';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { usePagePreference } from '../usePagePreference.js';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
 import {
   addCalendarDate,
@@ -42,13 +43,27 @@ export function PersonalAgenda({
   const layout = view?.layout ?? defaultAgendaLayout(),
     today = calendarDateAt(Date.now(), state.tasks.timeZone);
   const [start, setStart] = useState(today),
-    [count, setCount] = useState<number>(layout.days),
-    [context, setContext] = useState<AgendaLayout['context']>(layout.context),
+    [count, setCount] = usePagePreference<number>(
+      state,
+      'agenda.days',
+      layout.days,
+      (v): v is number => v === 7 || v === 30,
+    ),
+    [context, setContext] = usePagePreference<AgendaLayout['context']>(
+      state,
+      'agenda.context',
+      layout.context,
+      (v): v is AgendaLayout['context'] => ['home', 'work', 'both'].includes(String(v)),
+    ),
     [editing, setEditing] = useNavigationState('PersonalAgenda.editing', false);
+  const previousLayout = useRef({ id: view?.viewId, days: layout.days, context: layout.context });
   useEffect(() => {
-    setCount(layout.days);
-    setContext(layout.context);
-  }, [view?.revision]);
+    if (previousLayout.current.id && previousLayout.current.id === view?.viewId) {
+      if (previousLayout.current.days !== layout.days) setCount(layout.days);
+      if (previousLayout.current.context !== layout.context) setContext(layout.context);
+    }
+    previousLayout.current = { id: view?.viewId, days: layout.days, context: layout.context };
+  }, [view?.viewId, layout.days, layout.context]);
   const calendars = state.agenda.calendars.filter((c) => context === 'both' || c.context === context);
   const sections = layout.sections.filter(
     (s) => s.enabled && (context !== 'work' || !['food_soon', 'project_next'].includes(s.kind)),
@@ -91,7 +106,7 @@ export function PersonalAgenda({
         <button onClick={onSettings}>Manage calendars</button>
         <button onClick={() => setEditing(true)}>Customise agenda</button>
       </div>
-      <p className="fine">
+      <p className="fine agenda-help">
         Times shown in {state.tasks.timeZone}. Calendars refresh automatically about every ten minutes.
       </p>
       {!state.online && (
@@ -101,7 +116,7 @@ export function PersonalAgenda({
         </p>
       )}
       {!state.agenda.configured && (
-        <p className="calendar-message">
+        <p className="calendar-message agenda-help">
           Calendar connection is optional. Your tasks appear without a connected calendar.
         </p>
       )}

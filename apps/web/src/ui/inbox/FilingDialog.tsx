@@ -18,6 +18,7 @@ export function FilingDialog({
   run,
   close,
   onError,
+  onSettings,
 }: {
   client: ClientPlatform;
   state: ClientState;
@@ -26,6 +27,7 @@ export function FilingDialog({
   run: RunRecordCommand;
   close: () => void;
   onError: (error: unknown) => void;
+  onSettings: () => void;
 }) {
   const session = state.session!;
   const initial = () => ({
@@ -246,6 +248,7 @@ export function FilingDialog({
         <summary>Get filing suggestions</summary>
         {filingOf(entry).filedAt === null && (
           <FilingSuggestions
+            onSettings={() => void buffer.flush().then(onSettings).catch(onError)}
             key={entry.revision}
             client={client}
             state={state}

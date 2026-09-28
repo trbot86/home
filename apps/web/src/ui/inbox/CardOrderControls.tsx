@@ -35,6 +35,7 @@ export function CardOrderControls({
         type="button"
         className="card-drag-handle"
         aria-label="Drag to reorder card"
+        title="Drag to reorder card"
         aria-pressed={dragging}
         disabled={disabled}
         onKeyDown={(event) => {
@@ -70,6 +71,7 @@ export function CardOrderControls({
       <button
         type="button"
         aria-label="Move card up"
+        title="Move card up"
         disabled={disabled || index <= 0}
         onClick={() => move(id, ids[index - 1]!)}
       >
@@ -78,6 +80,7 @@ export function CardOrderControls({
       <button
         type="button"
         aria-label="Move card down"
+        title="Move card down"
         disabled={disabled || index >= ids.length - 1}
         onClick={() => move(id, ids[index + 1]!)}
       >
