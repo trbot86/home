@@ -1,3 +1,5 @@
+import { NavigationOrderEditor } from './NavigationOrderEditor.js';
+import { navigationItems } from './navigation.js';
 import { Photo } from './Photo.js';
 import { EntryDialog } from './EntryDialog.js';
 import { suggestionCompleted, suggestionStatus } from './suggestions/status.js';
@@ -89,10 +91,19 @@ function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
 
 export function App({ client }: { client: ClientPlatform }) {
   const [state, setState] = useState<ClientState>(emptyState);
+  const [switching, setSwitching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>(() =>
     new URL(window.location.href).searchParams.get('settings') === 'calendars' ? 'storage' : 'inbox',
   );
+  const [editingNavigation, setEditingNavigation] = useState(false);
+  const navigationView = state.views.find(
+    (v) =>
+      v.kind === 'navigation' &&
+      v.scopeId === state.session?.scopes.find((s) => s.kind === 'private')?.scopeId,
+  );
+  const navigationOrder =
+    navigationView?.kind === 'navigation' ? navigationView.order : navigationItems.map((item) => item.id);
   const navigationRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const reveal = () => {
@@ -103,7 +114,7 @@ export function App({ client }: { client: ClientPlatform }) {
     reveal();
     window.addEventListener('resize', reveal);
     return () => window.removeEventListener('resize', reveal);
-  }, [view]);
+  }, [view, navigationOrder.join(), switching, loading]);
   const category: EntryCategory = view === 'suggestions' ? 'app_suggestion' : 'inbox';
   const navigationLock = useRef(false);
   const [scope, setScope] = useState('all');
@@ -152,7 +163,6 @@ export function App({ client }: { client: ClientPlatform }) {
   const [captureScope, setCaptureScope] = useState('');
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [switching, setSwitching] = useState(false);
   const [localError, setLocalError] = useState(false);
   const submitLock = useRef(false);
   const photoLock = useRef(false);
@@ -662,45 +672,35 @@ export function App({ client }: { client: ClientPlatform }) {
             </a>
             <p className="sidebar-caption">Room for everyday life</p>
             <nav ref={navigationRef} aria-label="Main navigation">
-              {(
-                [
-                  { id: 'inbox', label: 'Inbox', compactLabel: 'Inbox', icon: 'inbox' },
-                  { id: 'shopping', label: 'Shopping', compactLabel: 'Shopping', icon: 'shopping' },
-                  { id: 'tasks', label: 'Tasks', compactLabel: 'Tasks', icon: 'tasks' },
-                  { id: 'agenda', label: 'Agenda', compactLabel: 'Agenda', icon: 'tasks' },
-                  { id: 'home', label: 'Home', compactLabel: 'Home', icon: 'home' },
-                  { id: 'food', label: 'Food', compactLabel: 'Food', icon: 'food' },
-                  { id: 'projects', label: 'Projects', compactLabel: 'Projects', icon: 'projects' },
-                  { id: 'activity', label: 'Recently done', compactLabel: 'Done', icon: 'check' },
-                  { id: 'trash', label: 'Recently deleted', compactLabel: 'Deleted', icon: 'trash' },
-                  { id: 'storage', label: 'Settings', compactLabel: 'Settings', icon: 'settings' },
-                ] as const
-              ).map((item) => (
-                <button
-                  key={item.id}
-                  aria-label={item.label}
-                  aria-current={view === item.id ? 'page' : undefined}
-                  disabled={busy || switching}
-                  onClick={() => {
-                    void navigate(item.id);
-                  }}
-                >
-                  <Icon name={item.icon} />
-                  <span className="nav-label-full">{item.label}</span>
-                  <span className="nav-label-compact" aria-hidden="true">
-                    {item.compactLabel}
-                  </span>
-                  {item.id === 'inbox' && (
-                    <span className="nav-count">
-                      {
-                        state.entries.filter(
-                          (e) => !e.deletedAt && categoryOf(e) === 'inbox' && filingOf(e).filedAt === null,
-                        ).length
-                      }
+              {navigationItems
+                .slice()
+                .sort((a, b) => navigationOrder.indexOf(a.id) - navigationOrder.indexOf(b.id))
+                .map((item) => (
+                  <button
+                    key={item.id}
+                    aria-label={item.label}
+                    aria-current={view === item.id ? 'page' : undefined}
+                    disabled={busy || switching}
+                    onClick={() => {
+                      void navigate(item.id);
+                    }}
+                  >
+                    <Icon name={item.icon} />
+                    <span className="nav-label-full">{item.label}</span>
+                    <span className="nav-label-compact" aria-hidden="true">
+                      {item.compactLabel}
                     </span>
-                  )}
-                </button>
-              ))}
+                    {item.id === 'inbox' && (
+                      <span className="nav-count">
+                        {
+                          state.entries.filter(
+                            (e) => !e.deletedAt && categoryOf(e) === 'inbox' && filingOf(e).filedAt === null,
+                          ).length
+                        }
+                      </span>
+                    )}
+                  </button>
+                ))}
             </nav>
             <div className="sidebar-bottom">
               <button
@@ -910,6 +910,21 @@ export function App({ client }: { client: ClientPlatform }) {
               />
             ) : view === 'storage' ? (
               <>
+                <section className="storage">
+                  <h2>Navigation order</h2>
+                  <p>Arrange the sections for your profile. Your order syncs across your devices.</p>
+                  <button onClick={() => setEditingNavigation(true)}>Reorder navigation</button>
+                </section>
+                {editingNavigation && (
+                  <NavigationOrderEditor
+                    client={client}
+                    state={state}
+                    view={navigationView?.kind === 'navigation' ? navigationView : undefined}
+                    run={runCommand}
+                    close={() => setEditingNavigation(false)}
+                    onError={showError}
+                  />
+                )}
                 <CalendarSettings client={client} state={state} run={runCommand} />
                 <Storage client={client} state={state} onError={showError} />
                 <AppUpdates client={client} online={state.online} onError={showError} />
