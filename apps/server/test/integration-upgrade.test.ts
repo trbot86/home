@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { copyFile, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, readFile, writeFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { integrationFixture } from './integration-fixture.js';
 import { installation, migrate, requireCurrentSchema } from '../src/infrastructure/database.js';
@@ -45,29 +45,13 @@ test('verified 006 upgrade preserves golden requests, identity, media, human his
     });
     await backups.initialise();
     const upgraded = await upgradeDatabase(f.db, backups);
-    assert.deepEqual(upgraded?.migrations, [
-      '007_integration_principals.sql',
-      '008_home_maintenance.sql',
-      '009_recipes.sql',
-      '010_worker_principals.sql',
-      '011_recipe_imports.sql',
-      '012_view_pins.sql',
-      '013_recipe_tasks.sql',
-      '014_shopping_groups.sql',
-      '015_projects.sql',
-      '016_project_views.sql',
-      '017_calendar_cache.sql',
-      '018_calendar_authorization.sql',
-      '019_calendar_browser_handoff.sql',
-      '020_agenda_layouts.sql',
-      '021_inbox_filing.sql',
-      '022_suggestion_discussions.sql',
-      '023_suggestion_read_positions.sql',
-      '024_suggestion_releases.sql',
-      '025_suggestion_completion.sql',
-      '026_suggestion_release_batches.sql',
-      '027_suggestion_steering.sql',
-    ]);
+    // Every shipped migration after the golden 006 fixture must run. Keep the
+    // preservation assertions below independent of the number of newer features.
+    const expected = (await readdir(migrationsRoot))
+      .filter((name) => /^\d+_.*\.sql$/.test(name) && Number(name.split('_')[0]) > 6)
+      .sort();
+    assert.ok(expected.length > 0);
+    assert.deepEqual(upgraded?.migrations, expected);
     assert.deepEqual(f.snapshot(), before);
     assert.deepEqual(installation(f.db), state);
     assert.deepEqual(f.db.pragma('foreign_key_check'), []);

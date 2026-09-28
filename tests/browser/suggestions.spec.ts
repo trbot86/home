@@ -136,7 +136,7 @@ test('obsolete questions leave the active list and remain in discussion history'
   await expect(page.getByText('Marked this question as no longer relevant.', { exact: true })).toBeVisible();
 });
 
-test('one batch panel automatically prepares several suggestions and deploys only the tested candidate', async ({
+test('one batch panel prepares selected suggestions and deploys only the tested candidate', async ({
   page,
   request,
 }) => {
@@ -153,6 +153,10 @@ test('one batch panel automatically prepares several suggestions and deploys onl
   const card = page.locator('.entry-card').filter({ hasText: text });
   await expect(page.getByRole('button', { name: 'Prepare release', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Deploy update' })).toHaveCount(0);
+  await page.getByRole('checkbox', { name: text, exact: true }).check();
+  await page.getByRole('checkbox', { name: secondText, exact: true }).check();
+  await page.getByRole('button', { name: 'Prepare selected (2)', exact: true }).click();
+  await expect(page.getByRole('heading', { name: /^App update.*2 suggestions$/ })).toBeVisible();
   expect((await request.post('http://127.0.0.1:4174/prepare-synthetic-release', { headers })).ok()).toBe(
     true,
   );
@@ -173,7 +177,7 @@ test('one batch panel automatically prepares several suggestions and deploys onl
   await expect(page.getByRole('button', { name: 'Deploy update' })).toHaveCount(0);
   // No host worker is connected to this isolated fixture. Cancel the still-queued deployment.
   await panel.getByRole('button', { name: 'Cancel release', exact: true }).click();
-  await expect(panel).toHaveCount(0);
+  await expect(panel.getByRole('heading')).toHaveText('Ready for update');
   await card.locator('.entry-text').click();
   await expect(page.getByRole('button', { name: 'Retry update checks', exact: true })).toBeVisible();
 });

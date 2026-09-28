@@ -144,7 +144,8 @@ export function SuggestionDiscussion({
         </p>
         {workflow?.status === 'ready' && (
           <p className="fine">
-            Implemented changes enter the next update automatically. The update is tested before deployment.
+            Select implemented suggestions in the App suggestions list to prepare an update. The combined
+            update is tested before deployment.
           </p>
         )}
         {queued.length > 0 && (
