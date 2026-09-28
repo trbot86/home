@@ -47,6 +47,28 @@ export class ClientError extends Error {
   }
 }
 export class BrowserClient implements ClientPlatform {
+  filingAdviceSettings(): Promise<import('@our-place/contracts').FilingAdviceSettings> {
+    return this.request('/filing-advice/settings', {}, this.requireSession().clientId);
+  }
+  saveFilingAdviceSettings(
+    expectedRevision: number,
+    preferences: import('@our-place/contracts').FilingAdvicePreferences,
+  ): Promise<import('@our-place/contracts').FilingAdviceSettings> {
+    return this.post(
+      '/filing-advice/settings',
+      { expectedRevision, preferences },
+      this.requireSession().clientId,
+    );
+  }
+  filingAdvice(
+    inboxId: string,
+    request?: import('@our-place/contracts').FilingAdviceRequest,
+  ): Promise<{ review: import('@our-place/contracts').FilingAdviceReview | null }> {
+    const path = `/inbox/${encodeURIComponent(inboxId)}/filing-advice`;
+    return request
+      ? this.post(path, request, this.requireSession().clientId)
+      : this.request(path, {}, this.requireSession().clientId);
+  }
   private readonly attachmentDrafts = new AttachmentDraftStore();
   private session: Session | null = null;
   private online = navigator.onLine;

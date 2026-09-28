@@ -37,6 +37,8 @@ const { app, access, recipeImports, media, writes, suggestionWork, suggestionRel
   webRoot: resolve('apps/web/dist'),
   authenticationMode: 'trusted-network',
   requestLimit: 10000,
+  // Synthetic provider: no network or real model account is used by browser tests.
+  filingAdviceProvider: async (input) => input.choices.length > 3 ? ['3', '0'] : ['0'],
   calendars: {
     secrets: new CalendarSecretBox('fixture', new Map([['fixture', randomBytes(32)]])),
     authorization: {

@@ -1382,6 +1382,27 @@ export function App({ client }: { client: ClientPlatform }) {
                               )}
                               {view !== 'trash' && categoryOf(entry) === 'inbox' && (
                                 <button
+                                  disabled={
+                                    state.pendingEdits.includes(entry.inboxId) ||
+                                    filingOf(entry).filedAt !== null
+                                  }
+                                  onClick={() => setFilingId(entry.inboxId)}
+                                >
+                                  {entry.filingAdvice?.state === 'complete'
+                                    ? entry.filingAdvice.count
+                                      ? `Review ${entry.filingAdvice.count} filing suggestions`
+                                      : 'No filing match'
+                                    : entry.filingAdvice?.state === 'attempted'
+                                      ? 'Filing suggestions pending'
+                                      : entry.filingAdvice?.state === 'stale'
+                                        ? 'Filing suggestions changed'
+                                        : entry.filingAdvice?.state === 'failed'
+                                          ? 'Retry filing suggestions'
+                                          : 'Filing suggestions'}
+                                </button>
+                              )}
+                              {view !== 'trash' && categoryOf(entry) === 'inbox' && (
+                                <button
                                   disabled={state.pendingEdits.includes(entry.inboxId)}
                                   onClick={() => setFilingId(entry.inboxId)}
                                 >

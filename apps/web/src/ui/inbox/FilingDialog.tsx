@@ -6,6 +6,7 @@ import { useSavedForm } from '../useSavedForm.js';
 import { recordReferences } from '../RecordReferences.js';
 import { AttachmentGallery } from '../AttachmentGallery.js';
 import './filing.css';
+import { FilingSuggestions } from './FilingSuggestions.js';
 
 export function FilingDialog({
   client,
@@ -39,6 +40,7 @@ export function FilingDialog({
     projectId: '',
     parentPageId: '',
     targetId: '',
+    targetRevision: '',
     search: '',
   });
   const buffer = useSavedForm(
@@ -48,6 +50,7 @@ export function FilingDialog({
       entry.revision,
       session.serverEpoch,
       onError,
+      (saved) => ({ targetRevision: '', ...saved }),
     ),
     form = buffer.values;
   const [busy, setBusy] = useState(false),
@@ -104,7 +107,12 @@ export function FilingDialog({
       void finish();
   }, [buffer.ready, pending, entry, buffer.baseRevision, buffer.epoch, session.serverEpoch, destinationId]);
   function destination(): FilingDestination {
-    if (form.mode === 'existing') return { kind: 'existing', recordId: form.targetId };
+    if (form.mode === 'existing')
+      return {
+        kind: 'existing',
+        recordId: form.targetId,
+        ...(form.targetRevision ? { expectedRevision: Number(form.targetRevision) } : {}),
+      };
     if (form.mode === 'shopping')
       return {
         kind: 'AddShoppingEntry',
@@ -202,6 +210,31 @@ export function FilingDialog({
         The original note and photos stay saved in Filed. New items keep the same visibility, with a link back
         to this capture.
       </p>
+      <details open>
+        <summary>Get filing suggestions</summary>
+        {filingOf(entry).filedAt === null && (
+          <FilingSuggestions
+            key={entry.revision}
+            client={client}
+            state={state}
+            entry={entry}
+            disabled={!buffer.ready || busy || pending || stale}
+            choose={(choice) => {
+              if (choice.kind === 'existing') {
+                buffer.field('mode', 'existing');
+                buffer.field('targetId', choice.recordId);
+                buffer.field('targetRevision', String(choice.revision));
+              } else {
+                buffer.field(
+                  'mode',
+                  { tasks: 'task', shopping: 'shopping', projects: 'project' }[choice.category],
+                );
+                buffer.field('targetRevision', '');
+              }
+            }}
+          />
+        )}
+      </details>
       <details>
         <summary>Original capture</summary>
         <p className="filing-original">{entry.text || 'Photo note'}</p>
@@ -260,7 +293,10 @@ export function FilingDialog({
                 <select
                   aria-label="Saved item"
                   value={form.targetId}
-                  onChange={(e) => buffer.field('targetId', e.target.value)}
+                  onChange={(e) => {
+                    buffer.field('targetId', e.target.value);
+                    buffer.field('targetRevision', '');
+                  }}
                   required
                 >
                   <option value="">Choose an item</option>

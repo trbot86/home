@@ -1,4 +1,6 @@
 import { RecordSharing } from './application/record-sharing.js';
+import { registerFilingAdviceRoutes } from './application/inbox-filing-advice-routes.js';
+import type { FilingAdviceProvider } from './application/inbox-filing-suggestions.js';
 import Fastify, { type FastifyRequest } from 'fastify';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
@@ -46,6 +48,8 @@ import { registerClientDownloads } from './features/operations/client-downloads.
 import { webRoot as defaultWebRoot } from './paths.js';
 
 export type AppOptions = {
+  /** Explicit host injection only; no production provider is connected by default. */
+  filingAdviceProvider?: FilingAdviceProvider;
   dataRoot: string;
   publicOrigin: string;
   development?: boolean;
@@ -196,6 +200,16 @@ export async function buildApp(options: AppOptions) {
     return reply.code(503).send({ code: 'temporarily_unavailable' });
   });
   app.get('/health', async () => ({ status: 'ok', contractVersion: 1, development: !!options.development }));
+  const filingAdvice = registerFilingAdviceRoutes(
+    app,
+    db,
+    access,
+    inbox,
+    records,
+    authenticate,
+    now,
+    options.filingAdviceProvider,
+  );
   registerSuggestionAgentRoutes(app, db, suggestionWork, files, suggestionRelease);
   app.get('/api/auth/options', async (): Promise<AuthenticationOptions> =>
     options.authenticationMode === 'trusted-network'
@@ -260,8 +274,17 @@ export async function buildApp(options: AppOptions) {
     const context = authenticate(request);
     const taskSnapshot = tasks.snapshot(context);
     const sampledAt = now();
+    const snapshot = inbox.snapshot(context, sampledAt);
+    const entries = snapshot.entries.map((entry) => {
+      if (entry.deletedAt !== null || entry.category !== 'inbox' || entry.filedAt !== null) return entry;
+      const advice = filingAdvice.review(context, entry.inboxId);
+      return advice
+        ? { ...entry, filingAdvice: { state: advice.state, count: advice.choices.length } }
+        : entry;
+    });
     return {
-      ...inbox.snapshot(context, sampledAt),
+      ...snapshot,
+      entries,
       shopping: { ...shopping.snapshot(context), groups: shoppingGroups.snapshot(context) },
       tasks: taskSnapshot,
       taskWidget: taskWidgetSnapshot(
@@ -414,6 +437,7 @@ export async function buildApp(options: AppOptions) {
     db,
     access,
     inbox,
+    filingAdviceWorker: filingAdvice.worker,
     history,
     writes,
     media,
