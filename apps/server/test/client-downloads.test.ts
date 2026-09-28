@@ -39,6 +39,13 @@ test('installer serves only named artifacts, preserves APK bytes and never expos
       assert.equal((await app.inject(path)).statusCode, 404, path);
     await mkdir(join(directory, 'build.json'));
     assert.equal((await app.inject('/install/build.json')).statusCode, 404, 'directory is not a file');
+    await rm(join(directory, 'build.json'), { recursive: true });
+    const metadata = { sha256: 'a'.repeat(64), bytes: apk.length, builtAt: '2026-01-01T00:00:00Z' };
+    await writeFile(join(directory, 'build.json'), JSON.stringify(metadata));
+    const build = await app.inject('/install/build.json');
+    assert.equal(build.statusCode, 200);
+    assert.deepEqual(build.json(), metadata);
+    assert.equal(build.headers['cache-control'], 'no-store');
   } finally {
     await app.close();
     await rm(root, { recursive: true, force: true });

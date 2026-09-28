@@ -8,6 +8,7 @@ import { SuggestionCardUpdate, suggestionUnread } from './suggestions/Suggestion
 import { SuggestionReleasePanel } from './suggestions/SuggestionReleasePanel.js';
 import { Storage } from './Storage.js';
 import { AppUpdates } from './AppUpdates.js';
+import { useAppVersion } from './useAppVersion.js';
 import { CalendarSettings } from './calendars/CalendarSettings.js';
 import { PersonalAgenda } from './calendars/PersonalAgenda.js';
 import { LinkedText } from './LinkedText.js';
@@ -91,7 +92,11 @@ function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
 
 export function App({ client }: { client: ClientPlatform }) {
   const [state, setState] = useState<ClientState>(emptyState);
+<<<<<<< HEAD
   const [switching, setSwitching] = useState(false);
+=======
+  const appVersion = useAppVersion(client, state.online);
+>>>>>>> 01a7b6966e1481cc917d3ab454fb47e14d015fde
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>(() =>
     new URL(window.location.href).searchParams.get('settings') === 'calendars' ? 'storage' : 'inbox',
@@ -736,6 +741,15 @@ export function App({ client }: { client: ClientPlatform }) {
             </div>
           </aside>
           <main className={`main main-${view}`}>
+            {view === 'inbox' && (
+              <AppUpdates
+                client={client}
+                online={state.online}
+                onError={showError}
+                version={appVersion}
+                notice
+              />
+            )}
             <header className="page-header">
               <div>
                 <p className="eyebrow">Your household, together</p>
@@ -927,7 +941,7 @@ export function App({ client }: { client: ClientPlatform }) {
                 )}
                 <CalendarSettings client={client} state={state} run={runCommand} />
                 <Storage client={client} state={state} onError={showError} />
-                <AppUpdates client={client} online={state.online} onError={showError} />
+                <AppUpdates client={client} online={state.online} onError={showError} version={appVersion} />
                 {state.session.isAdministrator && (
                   <BackupPanel client={client} online={state.online} onError={showError} />
                 )}

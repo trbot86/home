@@ -10,6 +10,7 @@ import dev.ourplace.household.capture.PhotoCaptureActivity
 import dev.ourplace.household.capture.QuickCaptureActivity
 import dev.ourplace.household.storage.json
 import dev.ourplace.household.platform.WebLinks
+import dev.ourplace.household.platform.AppVersion
 import dev.ourplace.household.widgets.WidgetNavigation
 import org.json.JSONObject
 import java.util.concurrent.Executors
@@ -31,6 +32,16 @@ class HouseholdPlugin : Plugin() {
     @PluginMethod fun invoke(call: PluginCall) {
         val method = call.getString("method") ?: return call.reject("method_required")
         val args = call.getObject("args") ?: JSObject()
+        if (method == "appVersion" || method == "publishedAppVersion") {
+            network.execute {
+                try {
+                    val value = if (method == "appVersion") AppVersion.installed(context)
+                        else AppVersion.published(core.endpoint())
+                    call.resolve(JSObject().put("value", value))
+                } catch (error: Exception) { call.reject("Could not check app version", error) }
+            }
+            return
+        }
         if (method == "openExternalUrl") {
             try {
                 val intent = WebLinks.intent(args.requireText("url"))
