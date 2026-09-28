@@ -236,6 +236,21 @@ for (const unavailable of ['loading', 'unconfigured', 'error', 'offline'] as con
         }[unavailable],
       );
       await expect(label).toHaveAttribute('aria-describedby', 'calendar-connect-help');
+      if (unavailable === 'unconfigured') {
+        await page.getByRole('button', { name: 'Set up Google Calendar', exact: true }).click();
+        const guide = page.getByRole('region', { name: 'Google Calendar setup guide' });
+        await expect(guide).toBeVisible();
+        await expect(guide).toContainText('Web application');
+        await expect(guide).toContainText('/oauth/calendar/callback');
+        await guide.getByText('Server configuration details', { exact: true }).click();
+        await expect(guide).toContainText('CALENDAR_CONFIG_FILE');
+        await page.setViewportSize({ width: 320, height: 900 });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await page.screenshot({ path: '.cache/calendar-setup-guide.png', fullPage: true });
+        await guide.getByRole('button', { name: 'Check setup again', exact: true }).click();
+        await expect(connect).toBeDisabled();
+      }
+
       // Bypass disabled controls to exercise the submit handler itself.
       await page.locator('.calendar-connect').dispatchEvent('submit');
       await expect(help).toBeVisible();

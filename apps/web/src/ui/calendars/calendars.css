@@ -99,3 +99,21 @@
     flex-wrap: wrap;
   }
 }
+
+.calendar-setup-guide section {
+  margin-top: 1rem;
+}
+.calendar-setup-guide li {
+  margin-block: 0.8rem;
+}
+.calendar-setup-guide input {
+  width: 100%;
+  min-width: 0;
+  margin-top: 0.5rem;
+}
+.calendar-setup-guide code {
+  overflow-wrap: anywhere;
+}
+.calendar-setup-guide details {
+  margin-block: 1rem;
+}

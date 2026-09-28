@@ -1,3 +1,4 @@
+import { CalendarSetupGuide } from './CalendarSetupGuide.js';
 import { useEffect, useRef, useState } from 'react';
 import type { CalendarSettings as Settings, BeginCalendarConnection } from '@our-place/contracts';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
@@ -255,6 +256,9 @@ export function CalendarSettings({
           <p id="calendar-connect-help" className="calendar-message" role="status">
             {connectHelp}
           </p>
+          {state.online && loadState === 'ready' && !settings?.configured && (
+            <CalendarSetupGuide busy={busy} reload={() => void act(reload)} />
+          )}
           {state.online && loadState === 'error' && (
             <button disabled={busy} onClick={() => void act(reload)}>
               Try loading calendar settings again
