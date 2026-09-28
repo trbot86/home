@@ -1,9 +1,11 @@
 # Self-hosted Alexa receiver
 
-2026-09-27. The receiver, Docker image and isolated network rehearsal are implemented.
-No public endpoint, live integration credential, capture listener or household
-connection has been enabled by this work. The existing development skill can use
-an HTTPS endpoint; an AWS account is not needed.
+2026-09-27. The receiver, Docker images, isolated network rehearsal and staged
+Tailscale ingress configuration are implemented. Deployment begins with an
+unbound account-setup receiver, then a synthetic inbox trial, before any explicit
+connection to the live household. Keep actual deployment status and credentials
+in ignored local storage. The existing development skill can use an HTTPS
+endpoint; an AWS account is not needed.
 
 ## Container arrangement
 
@@ -81,6 +83,30 @@ is enabled; changes to Amazon's signing requirements need a code review.
 
 ## Local build and private configuration
 
+The `capture-admin` entry point provisions a capture-only credential using an
+existing administrator's password. Run it locally in the **current server image**
+with networking disabled, `CAPTURE_PROVISION_ENABLED=1`, the existing `DATA_ROOT`,
+and an absolute `CAPTURE_CREDENTIAL_OUTPUT` path in private storage. Supply JSON on
+stdin containing `expectedInstallationId`, `expectedServerEpoch`, `username`,
+`password`, `displayName`, and an explicit future `expiresAt` in epoch milliseconds.
+Never put credentials in command arguments or logs. It requires the current schema,
+matching installation/epoch, normal recovery state and an administrator login;
+it neither bootstraps nor migrates. It refuses an existing output file or active
+integration label. The short-lived administrative login is revoked before exit.
+The output file is created mode 0600 and contains the integration credential and
+binding metadata. Do not mount that administrative input or password into the
+receiver. Record the integration's expiry and rotate/revoke it explicitly through
+the administrative integration service. If provisioning is interrupted, inspect
+the actor and output before retrying; do not blindly create a second actor.
+
+Before live capture activation, the app's deployment path must manage the capture
+helper as a companion: stop it before backup/upgrade/restore, and recreate it with
+the new app image after a successful upgrade, retaining its socket volume and
+installation binding. Resume the old helper only when rollback leaves the old
+schema intact. A restore requires explicit epoch review before resuming capture.
+Keep capture disabled if its image/schema cannot be verified. Coordinate this
+with any deployment already in progress; do not independently replace the app.
+
 From the repository root:
 
 ```powershell
@@ -94,8 +120,10 @@ exposes internal port 3000. Building it neither runs it nor publishes a port.
 At deployment, use a read-only filesystem, no added capabilities, no-new-privileges
 and bounded memory/process resources. Do not attach it to the household app's
 ordinary Docker network. The kernel network boundary has passed a rehearsal on
-the deployment host. The Tailscale identity and tailnet policy still need review
-before preparing the live Compose configuration.
+the deployment host. An enrollment-only Compose configuration is now available
+in `ops/alexa-ingress.compose.yaml`; follow `ops/ALEXA_INGRESS.md` to review the
+tailnet policy and enroll the dedicated identity. It starts only the guard and
+Tailscale daemon, with no receiver, public service or household connection.
 
 The executable requires `ALEXA_ENABLED=1`, `ALEXA_PORT`, and `ALEXA_CONFIG_FILE`
 pointing to a private mounted JSON file containing exactly:
@@ -200,7 +228,7 @@ The production Linux image build also passed all 74 tests (55 server, 14 Alexa,
 Tailscale overlay policy, public Funnel ingress, genuine Amazon-signed skill
 traffic, or device/account phrase recognition.
 
-## Deployment work still required
+## Deployment sequence
 
 1. Review the tailnet policy and prepare a dedicated restricted ingress identity.
    Amazon requires a

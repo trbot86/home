@@ -1,0 +1,53 @@
+# Combine with alexa-ingress.compose.yaml after enrollment and policy verification.
+# This stage has no capture socket or household data mount.
+services:
+  receiver:
+    image: our-place-alexa:local
+    build:
+      context: ..
+      dockerfile: ops/alexa.Dockerfile
+    container_name: our-place-alexa-receiver
+    labels:
+      com.our-place.role: alexa-ingress
+    depends_on:
+      network:
+        condition: service_healthy
+        restart: true
+      ingress:
+        condition: service_healthy
+    network_mode: service:network
+    environment:
+      ALEXA_ENABLED: '1'
+      ALEXA_HOST: 127.0.0.1
+      ALEXA_PORT: '3000'
+      ALEXA_CONFIG_FILE: /run/alexa/receiver.json
+    user: '1000:1000'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - type: bind
+        source: ../.local/alexa/receiver-config
+        target: /run/alexa
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:size=16m,uid=1000,gid=1000,mode=0700
+    mem_limit: 192m
+    pids_limit: 32
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const s=require('node:net').connect(3000,'127.0.0.1');s.on('connect',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1));s.setTimeout(1000,()=>process.exit(1))"
+      interval: 5s
+      timeout: 2s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
