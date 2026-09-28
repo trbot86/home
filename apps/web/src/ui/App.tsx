@@ -92,11 +92,8 @@ function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
 
 export function App({ client }: { client: ClientPlatform }) {
   const [state, setState] = useState<ClientState>(emptyState);
-<<<<<<< HEAD
   const [switching, setSwitching] = useState(false);
-=======
   const appVersion = useAppVersion(client, state.online);
->>>>>>> 01a7b6966e1481cc917d3ab454fb47e14d015fde
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>(() =>
     new URL(window.location.href).searchParams.get('settings') === 'calendars' ? 'storage' : 'inbox',
