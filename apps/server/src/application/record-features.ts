@@ -37,6 +37,7 @@ export function createRecordFeatures(db: Sqlite, access: AccessService, househol
     CreateTask: tasks.commands(),
     AddShoppingEntry: shopping.commands(),
     CreateProjectPage: projects.commands(),
+    CreateProject: projects.commands(),
   });
   return { inbox, shopping, shoppingGroups, tasks, home, recipes, projects, suggestions, records, filing };
 }

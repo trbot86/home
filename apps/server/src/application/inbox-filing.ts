@@ -9,7 +9,7 @@ import type { RecordRegistry } from '../features/records/record-registry.js';
 import type { CommandHandler, RecordMutation } from '../features/records/command-handler.js';
 import { NotFound, Rejection } from './errors.js';
 
-type CreationKind = Exclude<FilingDestination['kind'], 'existing'>;
+type CreationKind = Exclude<FilingDestination['kind'], 'existing'> | 'CreateProject';
 /** Compose existing synchronous feature commands under one history/receipt boundary. */
 export class InboxFiling {
   private readonly links: RecordLinkPolicy;
@@ -80,6 +80,17 @@ export class InboxFiling {
     now: number,
   ) {
     const args = destination.arguments;
+    let project: RecordMutation = { records: [], changes: [] };
+    if (destination.kind === 'CreateProjectPage' && destination.newProject) {
+      if (destination.newProject.scopeId !== scopeId) throw new Rejection('filing_requires_same_visibility');
+      if (
+        destination.newProject.recordId !== destination.arguments.projectId ||
+        destination.arguments.parentPageId !== null
+      )
+        throw new Rejection('invalid_filing_project');
+      project = this.creators.CreateProject.execute(context, 'CreateProject', destination.newProject, now);
+      if (project.afterHistory) throw new Error('Filing creator requires unsupported post-history work');
+    }
     let destinationScope: string;
     try {
       destinationScope =
@@ -102,6 +113,9 @@ export class InboxFiling {
     const target = mutation.records.find((r) => r.recordId === args.recordId);
     if (!target || target.content.scopeId !== scopeId)
       throw new Error('Filing creator returned the wrong target');
-    return mutation;
+    return {
+      records: [...project.records, ...mutation.records],
+      changes: [...project.changes, ...mutation.changes],
+    };
   }
 }

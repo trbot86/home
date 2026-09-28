@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import {
+  addCalendarDate,
   calendarDateAt,
   defaultAgendaLayout,
   emptyRecipeFields,
@@ -127,7 +128,7 @@ test('personal sections, counts, order and defaults sync across devices, retain 
   await edit(page);
   await dialog(page).getByLabel('Make soon recipes', { exact: true }).check();
   await dialog(page).getByLabel('Project priorities', { exact: true }).check();
-  for (const section of ['Your tasks today', 'Calendar events', 'Make soon recipes', 'Project priorities'])
+  for (const section of ['Your tasks', 'Calendar events', 'Make soon recipes', 'Project priorities'])
     await dialog(page).getByLabel(`${section} item limit`, { exact: true }).fill('1');
   await dialog(page)
     .getByRole('button', { name: 'Move Make soon recipes up', exact: true })
@@ -170,7 +171,7 @@ test('personal sections, counts, order and defaults sync across devices, retain 
     await page.setViewportSize({ width, height: 1000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (width === 390 || width === 1440)
-      await page.screenshot({ path: `.local/agenda-layout-${width}.png`, fullPage: true });
+      await page.screenshot({ path: `.cache/agenda-layout-${width}.png`, fullPage: true });
   }
   const other = await browser.newPage();
   try {
@@ -196,14 +197,14 @@ test('personal sections, counts, order and defaults sync across devices, retain 
   await page.getByRole('button', { name: 'Agenda', exact: true }).click();
   expect(await sectionOrder(page)).toEqual(['food_soon', 'tasks', 'calendar', 'project_next']);
   await page.getByRole('button', { name: 'Customise agenda', exact: true }).click();
-  await dialog(page).getByLabel('Your tasks today item limit').fill('');
+  await dialog(page).getByLabel('Your tasks item limit').fill('');
   await expect(dialog(page).getByRole('button', { name: 'Save layout', exact: true })).toBeDisabled();
   await dialog(page).getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.reload();
   await page.getByRole('button', { name: 'Agenda', exact: true }).click();
   await page.getByRole('button', { name: 'Customise agenda', exact: true }).click();
-  await expect(dialog(page).getByLabel('Your tasks today item limit')).toHaveValue('');
-  await dialog(page).getByLabel('Your tasks today item limit').fill('2');
+  await expect(dialog(page).getByLabel('Your tasks item limit')).toHaveValue('');
+  await dialog(page).getByLabel('Your tasks item limit').fill('2');
   await context.setOffline(false);
   await expect(dialog(page).getByRole('button', { name: 'Save layout', exact: true })).toBeEnabled();
   await dialog(page).getByRole('button', { name: 'Save layout', exact: true }).click();
@@ -269,7 +270,7 @@ test('an unreadable saved layout draft can be recovered and every section can be
   await login(page);
   await setLayout(page);
   await edit(page);
-  await dialog(page).getByLabel('Your tasks today item limit').fill('2');
+  await dialog(page).getByLabel('Your tasks item limit').fill('2');
   await dialog(page).getByRole('button', { name: 'Close dialog', exact: true }).click();
   const session = await (await page.request.get('/api/session')).json();
   await page.evaluate(async (clientId: string) => {
@@ -292,8 +293,8 @@ test('an unreadable saved layout draft can be recovered and every section can be
   await page.getByRole('button', { name: 'Customise agenda', exact: true }).click();
   await expect(dialog(page)).toContainText('cannot be opened');
   await dialog(page).getByRole('button', { name: 'Discard draft and load saved layout' }).click();
-  await expect(dialog(page).getByLabel('Your tasks today item limit')).toHaveValue('12');
-  for (const section of ['Your tasks today', 'Calendar events', 'Make soon recipes', 'Project priorities'])
+  await expect(dialog(page).getByLabel('Your tasks item limit')).toHaveValue('12');
+  for (const section of ['Your tasks', 'Calendar events', 'Make soon recipes', 'Project priorities'])
     await dialog(page).getByLabel(section, { exact: true }).uncheck();
   await dialog(page).getByRole('button', { name: 'Save layout', exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
@@ -310,7 +311,7 @@ test('a second device cannot overwrite an open layout draft; defaults require an
   await login(page);
   await setLayout(page);
   await edit(page);
-  await dialog(page).getByLabel('Your tasks today item limit').fill('3');
+  await dialog(page).getByLabel('Your tasks item limit').fill('3');
   const other = await browser.newPage();
   try {
     await login(other);
@@ -319,7 +320,7 @@ test('a second device cannot overwrite an open layout draft; defaults require an
     await setLayout(other, updated);
     await dialog(page).getByRole('button', { name: 'Save layout', exact: true }).click();
     await expect(dialog(page)).toContainText('changed on another device');
-    await expect(dialog(page).getByLabel('Your tasks today item limit')).toHaveValue('3');
+    await expect(dialog(page).getByLabel('Your tasks item limit')).toHaveValue('3');
     await expect(dialog(page).getByRole('button', { name: 'Save layout', exact: true })).toBeDisabled();
     await dialog(page).getByRole('button', { name: 'Discard draft and load saved layout' }).click();
     await expect(
@@ -333,4 +334,74 @@ test('a second device cannot overwrite an open layout draft; defaults require an
   } finally {
     await other.close();
   }
+});
+
+test('upcoming tasks work without calendars, follow the date range and preserve private task records', async ({
+  page,
+}) => {
+  await page.route('**/api/cache/inbox', async (route) => {
+    const response = await route.fetch();
+    const snapshot = await response.json();
+    snapshot.agenda = { ...snapshot.agenda, configured: false, calendars: [] };
+    await route.fulfill({ response, json: snapshot });
+  });
+  await login(page);
+  await setLayout(page);
+  const session = await (await page.request.get('/api/session')).json();
+  const scopeId = session.scopes.find((s: { kind: string }) => s.kind === 'private').scopeId;
+  const today = calendarDateAt(Date.now(), 'America/Toronto');
+  const day = (offset: number) => addCalendarDate(today, offset, 'days');
+  for (const [title, field, offset] of [
+    ['Upcoming deadline', 'deadlineDate', 1],
+    ['Upcoming target', 'targetDate', 6],
+    ['Upcoming review', 'reviewDate', 7],
+    ['Later task', 'deadlineDate', 29],
+    ['Beyond range', 'deadlineDate', 30],
+    ['Overdue task', 'deadlineDate', -1],
+  ] as const) {
+    await command(page, 'CreateTask', {
+      recordId: randomUUID(),
+      occurrenceId: randomUUID(),
+      scopeId,
+      title,
+      instructions: 'Preserve these task details.',
+      context: 'home',
+      defaultAssigneeId: null,
+      defaultPriority: 1,
+      recurrence: null,
+      assigneeId: null,
+      priority: 1,
+      deadlineDate: null,
+      targetDate: null,
+      reviewDate: null,
+      [field]: day(offset),
+    });
+  }
+  await page.getByLabel('Refresh and sync', { exact: true }).click();
+  const before = (await (await page.request.get('/api/cache/inbox')).json()).tasks;
+  const tasks = page.locator('.agenda-focus');
+  await expect(page.locator('.agenda')).toContainText('Calendar connection is optional');
+  await expect(tasks).toContainText('Upcoming deadline');
+  await expect(tasks).toContainText('Upcoming target');
+  await expect(tasks).toContainText('Overdue task');
+  await expect(tasks).not.toContainText('Upcoming review');
+  await page.getByRole('combobox', { name: 'Days', exact: true }).selectOption('30');
+  await expect(tasks).toContainText('Upcoming review');
+  await expect(tasks).toContainText('Later task');
+  await expect(tasks).not.toContainText('Beyond range');
+  await page.getByLabel('Starting', { exact: true }).fill(day(7));
+  await expect(tasks).not.toContainText('Upcoming deadline');
+  await expect(tasks).toContainText('Upcoming review');
+  await expect(tasks).toContainText('Overdue task');
+  await page.getByRole('combobox', { name: 'Show', exact: true }).selectOption('work');
+  await expect(tasks).not.toContainText('Upcoming review');
+  await page.getByRole('combobox', { name: 'Show', exact: true }).selectOption('home');
+  await expect(tasks).toContainText('Upcoming review');
+  expect((await (await page.request.get('/api/cache/inbox')).json()).tasks).toEqual(before);
+  await page.getByLabel('Current profile').selectOption({ label: 'Sam' });
+  await page.getByRole('button', { name: 'Agenda', exact: true }).click();
+  await expect(tasks).not.toContainText('Upcoming');
+  expect(JSON.stringify(await (await page.request.get('/api/cache/inbox')).json())).not.toContain(
+    'Preserve these task details.',
+  );
 });

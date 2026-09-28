@@ -1,3 +1,4 @@
+import { useNavigationFlush } from './NavigationHistory.js';
 import { useEffect, useRef, useState } from 'react';
 import type { ClientPlatform } from '@our-place/client';
 /** Durable editor text only. Frozen network attempts remain owned by ClientPlatform. */
@@ -16,6 +17,18 @@ export function useSavedForm<T extends Record<string, string>>(
     [ready, setReady] = useState(false);
   const current = useRef(values),
     write = useRef<Promise<void>>(Promise.resolve());
+  useNavigationFlush(async () => {
+    try {
+      let last;
+      do {
+        last = write.current;
+        await last;
+      } while (last !== write.current);
+    } catch (error) {
+      onError(error);
+      throw error;
+    }
+  });
   useEffect(() => {
     let alive = true;
     void client

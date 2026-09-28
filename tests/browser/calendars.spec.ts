@@ -66,7 +66,7 @@ test('agenda combines personal tasks and real scheduled fixture refresh, isolate
     await page.setViewportSize({ width, height: 950 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (width === 390 || width === 1440)
-      await page.screenshot({ path: `.local/calendar-agenda-${width}.png`, fullPage: true });
+      await page.screenshot({ path: `.cache/calendar-agenda-${width}.png`, fullPage: true });
   }
   await page.getByLabel('Current profile').selectOption({ label: 'Sam' });
   await page.getByRole('button', { name: 'Agenda', exact: true }).click();
@@ -146,7 +146,7 @@ test('calendar consent returns to the initiating profile, exposes explicit selec
     ).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (width === 390 || width === 1440)
-      await page.screenshot({ path: `.local/calendar-settings-${width}.png`, fullPage: true });
+      await page.screenshot({ path: `.cache/calendar-settings-${width}.png`, fullPage: true });
   }
   await connection.getByRole('button', { name: 'Disconnect', exact: true }).click();
   await connection.getByRole('button', { name: 'Keep connection', exact: true }).click();
@@ -193,4 +193,92 @@ test('calendar setup reports unavailable configuration and disables network acti
   await context.setOffline(true);
   await expect(page.locator('.calendar-settings')).toContainText('Reconnect to the household server');
   await expect(page.getByRole('button', { name: 'Connect Google account' })).toBeDisabled();
+});
+
+for (const unavailable of ['loading', 'unconfigured', 'error', 'offline'] as const) {
+  test(`calendar connection guards submission while ${unavailable}`, async ({ page, context }) => {
+    let starts = 0;
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/api/calendars/authorization/begin', async (route) => {
+      starts++;
+      await route.fulfill({ status: 503, json: { error: 'unexpected_connection' } });
+    });
+    await page.route('**/api/calendars/settings', async (route) => {
+      if (unavailable === 'loading') await pending;
+      await route.fulfill(
+        unavailable === 'error'
+          ? { status: 503, json: { error: 'unavailable' } }
+          : { json: { configured: unavailable !== 'unconfigured', connections: [] } },
+      );
+    });
+    await page.goto('/?settings=calendars');
+    await page.getByRole('button', { name: 'Alex', exact: true }).click();
+    const label = page.getByLabel('Account label', { exact: true });
+    const connect = page.getByRole('button', { name: 'Connect Google account', exact: true });
+    if (unavailable === 'offline') {
+      await expect(label).toBeEnabled();
+      await label.fill('Keep my account label');
+      await context.setOffline(true);
+    }
+    try {
+      await expect(label).toBeDisabled();
+      await expect(connect).toBeDisabled();
+      const help = page.locator('#calendar-connect-help');
+      await expect(help).toContainText(
+        {
+          loading: 'Loading calendar settings',
+          unconfigured: 'The household owner needs to set up Google access',
+          error: 'Calendar settings could not be loaded',
+          offline: 'Reconnect to the household server',
+        }[unavailable],
+      );
+      await expect(label).toHaveAttribute('aria-describedby', 'calendar-connect-help');
+      // Bypass disabled controls to exercise the submit handler itself.
+      await page.locator('.calendar-connect').dispatchEvent('submit');
+      await expect(help).toBeVisible();
+      expect(starts).toBe(0);
+    } finally {
+      release();
+      await context.setOffline(false);
+    }
+    if (unavailable === 'loading' || unavailable === 'offline') {
+      await expect(connect).toBeEnabled();
+      if (unavailable === 'offline') await expect(label).toHaveValue('Keep my account label');
+    }
+  });
+}
+
+test('failed settings refresh blocks stale configured state until retry succeeds', async ({
+  page,
+  context,
+}) => {
+  let failing = false;
+  await page.route('**/api/calendars/settings', (route) =>
+    route.fulfill(
+      failing
+        ? { status: 503, json: { error: 'unavailable' } }
+        : { json: { configured: true, connections: [] } },
+    ),
+  );
+  await page.goto('/?settings=calendars');
+  await page.getByRole('button', { name: 'Alex', exact: true }).click();
+  const label = page.getByLabel('Account label', { exact: true });
+  await label.fill('My saved label');
+  failing = true;
+  await context.setOffline(true);
+  await expect(label).toBeDisabled();
+  await context.setOffline(false);
+  await expect(page.locator('#calendar-connect-help')).toContainText('could not be loaded');
+  await expect(label).toBeDisabled();
+  failing = false;
+  await page.getByRole('button', { name: 'Try loading calendar settings again' }).click();
+  await expect(label).toBeEnabled();
+  await expect(label).toHaveValue('My saved label');
+  await expect(page.getByRole('button', { name: 'Connect Google account', exact: true })).toBeEnabled();
+  await expect(page.locator('.calendar-settings').getByRole('alert')).toHaveCount(0);
+  await label.fill('   ');
+  await expect(page.getByRole('button', { name: 'Connect Google account', exact: true })).toBeDisabled();
 });

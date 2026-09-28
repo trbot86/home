@@ -26,6 +26,12 @@ export const NavigationOrder = Type.Array(Type.Union(navigationSections.map((id)
   uniqueItems: true,
 });
 export const viewCommands = {
+  SetCardOrder: object({
+    scopeId: Id,
+    category: Type.Union([Type.Literal('inbox'), Type.Literal('app_suggestion')]),
+    expectedViewRevision: Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+    recordIds: Type.Array(Id, { maxItems: 2000, uniqueItems: true }),
+  }),
   SetNavigationOrder: object({
     scopeId: Id,
     expectedViewRevision: Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
@@ -53,6 +59,7 @@ export type SavedView = {
   pins: { recordId: string; position: number }[];
 } & (
   | { kind: 'navigation'; order: NavigationSection[] }
+  | { kind: 'card_order'; category: 'inbox' | 'app_suggestion'; recordIds: string[] }
   | { kind: 'food_soon' }
   | { kind: 'project_next'; projectId: string }
   | { kind: 'agenda'; layout: Layout }

@@ -1,3 +1,4 @@
+import { useNavigationState } from '../NavigationHistory.js';
 import { useEffect, useState } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
 import {
@@ -43,7 +44,7 @@ export function PersonalAgenda({
   const [start, setStart] = useState(today),
     [count, setCount] = useState<number>(layout.days),
     [context, setContext] = useState<AgendaLayout['context']>(layout.context),
-    [editing, setEditing] = useState(false);
+    [editing, setEditing] = useNavigationState('PersonalAgenda.editing', false);
   useEffect(() => {
     setCount(layout.days);
     setContext(layout.context);
@@ -101,7 +102,7 @@ export function PersonalAgenda({
       )}
       {!state.agenda.configured && (
         <p className="calendar-message">
-          Google Calendar setup is pending. Your household sections work normally.
+          Calendar connection is optional. Your tasks appear without a connected calendar.
         </p>
       )}
       {state.agenda.needsReconnect && (
@@ -125,6 +126,8 @@ export function PersonalAgenda({
               key={section.kind}
               state={state}
               context={context}
+              start={start}
+              count={count}
               limit={section.limit}
               onTask={onTask}
               onAllTasks={onAllTasks}

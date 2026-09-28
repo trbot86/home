@@ -324,6 +324,103 @@ test('shopping and project creation reuse their domain rules and commit with sou
   }
 });
 
+test('inline project filing rolls back page failure and refuses undo over a partner page', async () => {
+  const f = await fixture();
+  try {
+    const source = f.note(),
+      projectId = randomUUID(),
+      pageId = randomUUID();
+    const destination = {
+      kind: 'CreateProjectPage',
+      newProject: { recordId: projectId, scopeId: f.shared, title: 'Shared project', description: '' },
+      arguments: { recordId: pageId, projectId, parentPageId: null, title: 'Captured page', blocks: [] },
+    };
+    rejected(
+      f.file(source, { ...destination, arguments: { ...destination.arguments, title: '   ' } }),
+      'title_required',
+    );
+    for (const id of [projectId, pageId])
+      assert.equal(f.db.prepare('SELECT 1 FROM records WHERE record_id=?').get(id), undefined);
+    assert.deepEqual(f.get(source.inboxId), source);
+    const saved = applied(f.file(source, destination));
+    applied(
+      f.run(
+        'CreateProjectPage',
+        { recordId: randomUUID(), projectId, parentPageId: null, title: 'Partner page', blocks: [] },
+        f.b,
+      ),
+    );
+    const tables = [
+      'records',
+      'projects',
+      'project_pages',
+      'inbox_entries',
+      'inbox_destinations',
+      'record_changes',
+      'change_sets',
+    ];
+    const before = tables.map((table) => f.db.prepare(`SELECT * FROM ${table}`).all());
+    rejected(f.run('UndoChangeSet', { changeSetId: saved.changeSetId }), 'page_container_deleted');
+    tables.forEach((table, i) =>
+      assert.deepEqual(f.db.prepare(`SELECT * FROM ${table}`).all(), before[i], table),
+    );
+    assert.deepEqual(f.db.pragma('foreign_key_check'), []);
+  } finally {
+    await f.close();
+  }
+});
+
+test('inline project filing is private, atomic, replayable and reversible with the page', async () => {
+  const f = await fixture();
+  try {
+    const source = f.note(f.privateScope),
+      projectId = randomUUID(),
+      pageId = randomUUID();
+    const destination = {
+      kind: 'CreateProjectPage',
+      newProject: { recordId: projectId, scopeId: f.privateScope, title: 'Private project', description: '' },
+      arguments: { recordId: pageId, projectId, parentPageId: null, title: 'Captured page', blocks: [] },
+    };
+    const partnerBefore = f.service.inbox.snapshot(f.b, f.now());
+    rejected(
+      f.file(source, { ...destination, newProject: { ...destination.newProject, scopeId: f.shared } }),
+      'filing_requires_same_visibility',
+    );
+    rejected(
+      f.file(source, { ...destination, newProject: { ...destination.newProject, recordId: randomUUID() } }),
+      'invalid_filing_project',
+    );
+    const request = f.envelope({ inboxId: source.inboxId, expectedRevision: source.revision, destination });
+    f.db.exec(
+      "CREATE TEMP TRIGGER fail_inline BEFORE INSERT ON operation_receipts BEGIN SELECT RAISE(ABORT,'inline failure'); END",
+    );
+    assert.throws(() => f.service.writes.execute(f.a, 'FileInboxEntry', request), /inline failure/);
+    for (const id of [projectId, pageId])
+      assert.equal(f.db.prepare('SELECT 1 FROM records WHERE record_id=?').get(id), undefined);
+    assert.deepEqual(f.get(source.inboxId), source);
+    f.db.exec('DROP TRIGGER fail_inline');
+    const saved = applied(f.service.writes.execute(f.a, 'FileInboxEntry', request));
+    assert.deepEqual(f.service.writes.execute(f.a, 'FileInboxEntry', request), { ...saved, replayed: true });
+    assert.equal(saved.result.records.length, 3);
+    for (const id of [projectId, pageId]) {
+      assert.equal(f.features.records.get(f.a, id).content.scopeId, f.privateScope);
+      assert.throws(() => f.features.records.get(f.b, id));
+    }
+    assert.deepEqual(f.service.inbox.snapshot(f.b, f.now()), partnerBefore);
+    const undo = applied(f.run('UndoChangeSet', { changeSetId: saved.changeSetId }));
+    assert.deepEqual(filingOf(f.get(source.inboxId)), { filedAt: null, destinations: [] });
+    for (const id of [projectId, pageId])
+      assert.notEqual(f.features.records.get(f.a, id).content.deletedAt, null);
+    applied(f.run('RedoChangeSet', { changeSetId: undo.changeSetId }));
+    for (const id of [projectId, pageId])
+      assert.equal(f.features.records.get(f.a, id).content.deletedAt, null);
+    assert.equal(f.get(source.inboxId).text, source.text);
+    assert.deepEqual(f.db.pragma('foreign_key_check'), []);
+  } finally {
+    await f.close();
+  }
+});
+
 for (const stage of ['inbox_destinations', 'operation_receipts'])
   test(`failed ${stage} write rolls back the destination, source, history and receipt`, async () => {
     const f = await fixture();

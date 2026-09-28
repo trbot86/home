@@ -1597,3 +1597,8 @@ a {
   gap: 1rem;
   padding: 0.35rem 0;
 }
+.card-order-controls { display: flex; justify-content: flex-end; gap: 4px; padding: 6px; }
+.card-order-controls button { min-width: 44px; min-height: 44px; }
+.card-drag-handle { touch-action: none; user-select: none; cursor: grab; }
+.card-drag-handle[aria-pressed="true"] { cursor: grabbing; }
+.entry-card[data-drop-target="true"] { outline: 3px solid var(--accent, #d8af67); outline-offset: 2px; }

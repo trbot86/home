@@ -205,6 +205,37 @@ test('shopping and nested project filing preserve full source text; existing lin
   expect(final.projects.pages.find((p: any) => p.title === 'Filing brush measurements').deletedAt).toBeNull();
 });
 
+test('inline project creation retains its draft and files a page with the original note', async ({
+  page,
+}) => {
+  await login(page);
+  const text = 'Inline project capture';
+  await capture(page, text);
+  let dialog = await file(page, text);
+  await dialog.getByLabel('Filing destination').selectOption('project');
+  await dialog.getByLabel('Project', { exact: true }).selectOption('new');
+  await expect(dialog.getByRole('button', { name: 'File note', exact: true })).toBeDisabled();
+  await dialog.getByLabel('New project name').fill('Inline renovation');
+  await expect(dialog.getByLabel('Inside page')).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.reload();
+  dialog = await file(page, text);
+  await expect(dialog.getByLabel('New project name')).toHaveValue('Inline renovation');
+  await page.setViewportSize({ width: 320, height: 1100 });
+  expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await dialog.getByRole('button', { name: 'File note', exact: true }).click();
+  await saved(page);
+  const state = await snapshot(page);
+  const projects = state.projects.projects.filter((p: any) => p.title === 'Inline renovation');
+  expect(projects).toHaveLength(1);
+  const created = state.projects.pages.find((p: any) => p.title === text);
+  expect(created.projectId).toBe(projects[0].recordId);
+  expect(created.parentPageId).toBeNull();
+  expect(created.blocks).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'record_link' })]));
+  await page.getByRole('button', { name: `Project page: ${text}`, exact: true }).click();
+  await expect(page.locator('.project-board-heading')).toContainText(text);
+});
+
 test('a lost filing reply freezes edits and retries exactly once without duplicating the task', async ({
   page,
 }) => {

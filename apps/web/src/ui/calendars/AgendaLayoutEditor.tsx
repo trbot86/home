@@ -12,7 +12,7 @@ import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/c
 import { RecordDialog } from '../RecordDialog.js';
 import { useSavedForm } from '../useSavedForm.js';
 export const agendaSectionNames: Record<AgendaSectionKind, string> = {
-  tasks: 'Your tasks today',
+  tasks: 'Your tasks',
   calendar: 'Calendar events',
   food_soon: 'Make soon recipes',
   project_next: 'Project priorities',

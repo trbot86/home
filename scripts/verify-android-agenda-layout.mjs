@@ -37,13 +37,13 @@ try {
   await dialog.getByLabel('Make soon recipes', { exact: true }).check();
   await dialog.getByRole('button', { name: 'Move Make soon recipes up', exact: true }).click();
   await dialog.getByRole('button', { name: 'Move Make soon recipes up', exact: true }).click();
-  await dialog.getByLabel('Your tasks today item limit', { exact: true }).fill('4');
+  await dialog.getByLabel('Your tasks item limit', { exact: true }).fill('4');
   await adb('shell', 'input', 'keyevent', '4');
   await expect(dialog).toHaveCount(0);
   await page.reload();
   await page.getByRole('button', { name: 'Agenda', exact: true }).click();
   await page.getByRole('button', { name: 'Customise agenda', exact: true }).click();
-  await expect(dialog.getByLabel('Your tasks today item limit', { exact: true })).toHaveValue('4');
+  await expect(dialog.getByLabel('Your tasks item limit', { exact: true })).toHaveValue('4');
   assert.equal(await dialog.evaluate((e) => e.scrollWidth > e.clientWidth), false);
   await dialog.getByRole('button', { name: 'Save layout', exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -111,14 +111,14 @@ try {
     native,
   );
   await page.getByRole('button', { name: 'Customise agenda', exact: true }).click();
-  await dialog.getByLabel('Your tasks today item limit', { exact: true }).fill('');
+  await dialog.getByLabel('Your tasks item limit', { exact: true }).fill('');
   await expect(dialog.getByRole('button', { name: 'Save layout', exact: true })).toBeDisabled();
   await adb('shell', 'input', 'keyevent', '4');
   await expect(dialog).toHaveCount(0);
   await page.reload();
   await page.getByRole('button', { name: 'Agenda', exact: true }).click();
   await page.getByRole('button', { name: 'Customise agenda', exact: true }).click();
-  await expect(dialog.getByLabel('Your tasks today item limit', { exact: true })).toHaveValue('');
+  await expect(dialog.getByLabel('Your tasks item limit', { exact: true })).toHaveValue('');
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   await page.screenshot({ path: 'test-results/android-agenda-layout-offline.png' });
   console.log(

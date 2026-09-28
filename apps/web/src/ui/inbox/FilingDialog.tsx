@@ -37,6 +37,8 @@ export function FilingDialog({
     listId: '',
     groupId: '',
     projectId: '',
+    newProjectId: crypto.randomUUID(),
+    newProjectTitle: '',
     parentPageId: '',
     targetId: '',
     search: '',
@@ -48,6 +50,7 @@ export function FilingDialog({
       entry.revision,
       session.serverEpoch,
       onError,
+      (saved) => ({ newProjectId: crypto.randomUUID(), newProjectTitle: '', ...saved }),
     ),
     form = buffer.values;
   const [busy, setBusy] = useState(false),
@@ -80,7 +83,10 @@ export function FilingDialog({
         (form.mode === 'task' ||
           (form.mode === 'shopping'
             ? lists.some((l) => l.recordId === form.listId)
-            : form.mode === 'project' && projects.some((p) => p.recordId === form.projectId)));
+            : form.mode === 'project' &&
+              (form.projectId === 'new'
+                ? !!form.newProjectTitle.trim()
+                : projects.some((p) => p.recordId === form.projectId))));
   const finish = async () => {
     if (finished.current) return;
     finished.current = true;
@@ -120,10 +126,20 @@ export function FilingDialog({
     if (form.mode === 'project')
       return {
         kind: 'CreateProjectPage',
+        ...(form.projectId === 'new'
+          ? {
+              newProject: {
+                recordId: form.newProjectId,
+                scopeId: entry.scopeId,
+                title: form.newProjectTitle.trim(),
+                description: '',
+              },
+            }
+          : {}),
         arguments: {
           recordId: form.recordId,
-          projectId: form.projectId,
-          parentPageId: form.parentPageId || null,
+          projectId: form.projectId === 'new' ? form.newProjectId : form.projectId,
+          parentPageId: form.projectId === 'new' ? null : form.parentPageId || null,
           title: form.title.trim(),
           blocks: [
             ...(form.notes.trim()
@@ -384,6 +400,7 @@ export function FilingDialog({
                       }}
                     >
                       <option value="">Choose a project</option>
+                      <option value="new">Create a new project</option>
                       {projects.map((p) => (
                         <option key={p.recordId} value={p.recordId}>
                           {p.title}
@@ -391,16 +408,22 @@ export function FilingDialog({
                       ))}
                     </select>
                   </label>
-                  {!projects.length && (
-                    <p>
-                      Create a project with this note’s visibility in Projects first. Your filing draft will
-                      stay here.
-                    </p>
+                  {form.projectId === 'new' && (
+                    <label>
+                      New project name
+                      <input
+                        required
+                        maxLength={300}
+                        value={form.newProjectTitle}
+                        onChange={(e) => buffer.field('newProjectTitle', e.target.value)}
+                      />
+                    </label>
                   )}
                   <label>
                     Inside page
                     <select
                       aria-label="Inside page"
+                      disabled={form.projectId === 'new'}
                       value={form.parentPageId}
                       onChange={(e) => buffer.field('parentPageId', e.target.value)}
                     >

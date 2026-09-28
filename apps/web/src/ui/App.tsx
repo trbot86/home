@@ -1,4 +1,13 @@
+import {
+  NavigationHistoryProvider,
+  useNavigationBoundary,
+  useFlushNavigation,
+  useNavigationFlush,
+  useNavigationState,
+} from './NavigationHistory.js';
 import { NavigationOrderEditor } from './NavigationOrderEditor.js';
+import { CardOrderControls } from './inbox/CardOrderControls.js';
+import { personalCardOrder, moveVisibleCard } from './inbox/card-order.js';
 import { navigationItems } from './navigation.js';
 import { Photo } from './Photo.js';
 import { EntryDialog } from './EntryDialog.js';
@@ -91,14 +100,26 @@ function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
 }
 
 export function App({ client }: { client: ClientPlatform }) {
+  return (
+    <NavigationHistoryProvider native={!!client.onBack}>
+      <AppContent client={client} />
+    </NavigationHistoryProvider>
+  );
+}
+
+function AppContent({ client }: { client: ClientPlatform }) {
   const [state, setState] = useState<ClientState>(emptyState);
   const [switching, setSwitching] = useState(false);
+  useNavigationBoundary(
+    switching || !state.session ? '' : `${state.session.clientId}:${state.session.serverEpoch}`,
+  );
+  const flushNavigation = useFlushNavigation();
   const appVersion = useAppVersion(client, state.online);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<View>(() =>
+  const [view, setView] = useNavigationState<View>('App.view', () =>
     new URL(window.location.href).searchParams.get('settings') === 'calendars' ? 'storage' : 'inbox',
   );
-  const [editingNavigation, setEditingNavigation] = useState(false);
+  const [editingNavigation, setEditingNavigation] = useNavigationState('App.editingNavigation', false);
   const navigationView = state.views.find(
     (v) =>
       v.kind === 'navigation' &&
@@ -122,10 +143,14 @@ export function App({ client }: { client: ClientPlatform }) {
   const [scope, setScope] = useState('all');
   const [search, setSearch] = useState('');
   const [limit, setLimit] = useState(24);
-  const [sort, setSort] = useState('newest');
+  const [sort, setSort] = useState('personal');
+  const [orderBusy, setOrderBusy] = useState(false);
+  const orderLock = useRef(false);
+  const [orderNotice, setOrderNotice] = useState('');
+  const [dragTarget, setDragTarget] = useState<string | null>(null);
   const [inboxFilter, setInboxFilter] = useState('unfiled');
   const [suggestionFilter, setSuggestionFilter] = useState<'active' | 'completed'>('active');
-  const [filingId, setFilingId] = useState<string | null>(null);
+  const [filingId, setFilingId] = useNavigationState<string | null>('App.filingId', null);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<{
     label: string;
@@ -135,9 +160,12 @@ export function App({ client }: { client: ClientPlatform }) {
   } | null>(null);
   const reversal = useRef<typeof toast>(null);
   const reversalLock = useRef(false);
-  const [selected, setSelected] = useState<{ id: string; history: boolean } | null>(null);
-  const [recipeTarget, setRecipeTarget] = useState<string | null>(null);
-  const [linkedTarget, setLinkedTarget] = useState<string | null>(null);
+  const [selected, setSelected] = useNavigationState<{ id: string; history: boolean } | null>(
+    'App.selected',
+    null,
+  );
+  const [recipeTarget, setRecipeTarget] = useNavigationState<string | null>('App.recipeTarget', null);
+  const [linkedTarget, setLinkedTarget] = useNavigationState<string | null>('App.linkedTarget', null);
   const [widgetTarget, setWidgetTarget] = useState<WidgetNavigation | null>(null);
   const widgetNavigationLock = useRef(false);
   function openLinkedRecord(reference: RecordReference) {
@@ -161,6 +189,7 @@ export function App({ client }: { client: ClientPlatform }) {
     );
   }
   const [draft, setDraft] = useState<Draft | null>(null);
+  const captureReady = !!draft && categoryOf(draft) === category;
   const [text, setText] = useState('');
   const [captureScope, setCaptureScope] = useState('');
   const [busy, setBusy] = useState(false);
@@ -177,10 +206,17 @@ export function App({ client }: { client: ClientPlatform }) {
     : `${state.session?.clientId ?? ''}:${state.session?.serverEpoch ?? ''}`;
   const textRef = useRef<HTMLTextAreaElement>(null);
   const showError = (value: unknown) => setError(message(value));
+  useNavigationFlush(async () => {
+    if (draft?.state === 'DRAFT')
+      await client.saveDraft(draft.draftId, text, captureScope).catch((error) => {
+        showError(error);
+        throw error;
+      });
+  });
   useFileDropGuard(showError);
   const transfer = usePhotoTransfer({
     disabledReason:
-      !draft || draft.state !== 'DRAFT' || busy || switching
+      !captureReady || draft?.state !== 'DRAFT' || busy || switching
         ? 'Finish the current action before adding photos.'
         : null,
     onFiles: addPhotos,
@@ -191,6 +227,7 @@ export function App({ client }: { client: ClientPlatform }) {
     const owner = currentOwner.current;
     const generation = ++noteLoadGeneration.current;
     try {
+      await flushNavigation();
       let latest = await client.state();
       if (latest.online) {
         try {
@@ -273,8 +310,15 @@ export function App({ client }: { client: ClientPlatform }) {
       if (id) void openNoteRef.current(id).catch(() => {});
     };
     followLocation();
-    window.addEventListener('popstate', followLocation);
-    return () => window.removeEventListener('popstate', followLocation);
+    const cancelLookup = () => {
+      noteLoadGeneration.current++;
+    };
+    window.addEventListener('popstate', cancelLookup);
+    window.addEventListener('ourplace:navigation-fallback', followLocation);
+    return () => {
+      window.removeEventListener('popstate', cancelLookup);
+      window.removeEventListener('ourplace:navigation-fallback', followLocation);
+    };
   }, [state.session?.clientId, switching]);
   useEffect(() => {
     let alive = true;
@@ -322,12 +366,17 @@ export function App({ client }: { client: ClientPlatform }) {
       setText('');
       return;
     }
-    if (draft || initialiseLock.current) return;
+    if ((draft && categoryOf(draft) === category) || initialiseLock.current) return;
     initialiseLock.current = true;
+    const owner = currentOwner.current;
     const privateScope = state.session.scopes.find((s) => s.kind === 'private')!.scopeId;
     const existing = unfinishedDraft(state.drafts, category);
-    void (existing ? Promise.resolve(existing) : client.createDraft(privateScope, category))
+    void (async () => {
+      if (draft?.state === 'DRAFT') await client.saveDraft(draft.draftId, text, captureScope);
+      return existing ?? (await client.createDraft(privateScope, category));
+    })()
       .then((value) => {
+        if (owner !== currentOwner.current) return;
         setDraft(value);
         setText(value.text);
         setCaptureScope(value.scopeId);
@@ -346,7 +395,7 @@ export function App({ client }: { client: ClientPlatform }) {
       );
   }, [state.drafts, draft]);
   async function saveDraft(value: string, scopeId = captureScope) {
-    if (!draft) return;
+    if (!draft || !captureReady) return;
     setSaving(true);
     setLocalError(false);
     try {
@@ -363,12 +412,13 @@ export function App({ client }: { client: ClientPlatform }) {
     }
   }
   async function switchProfile(username: string) {
-    if (busy || saving || switching || photoLock.current) return;
+    if (busy || saving || switching || orderLock.current || photoLock.current) return;
     setSwitching(true);
     setError('');
     let selectionStarted = false;
     try {
       if (draft?.state === 'DRAFT') await client.saveDraft(draft.draftId, text, captureScope);
+      await flushNavigation();
       selectionStarted = true;
       await client.login(username, '');
     } catch (error) {
@@ -405,6 +455,7 @@ export function App({ client }: { client: ClientPlatform }) {
     navigationLock.current = true;
     setBusy(true);
     try {
+      await flushNavigation();
       setWidgetTarget(null);
       if (nextView === 'inbox' || nextView === 'suggestions') {
         const nextCategory = nextView === 'suggestions' ? 'app_suggestion' : 'inbox';
@@ -438,7 +489,7 @@ export function App({ client }: { client: ClientPlatform }) {
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!draft || submitLock.current || photoLock.current || busy || switching) return;
+    if (!draft || !captureReady || submitLock.current || photoLock.current || busy || switching) return;
     submitLock.current = true;
     setBusy(true);
     try {
@@ -462,7 +513,7 @@ export function App({ client }: { client: ClientPlatform }) {
     }
   }
   async function addPhotos(files: File[]) {
-    if (!draft || !files.length) return;
+    if (!draft || !captureReady || !files.length) return;
     if (photoLock.current || busy || switching || draft.state !== 'DRAFT') {
       showError(new Error('Finish the current action before adding photos.'));
       return;
@@ -535,7 +586,15 @@ export function App({ client }: { client: ClientPlatform }) {
         ),
       );
   }
-  const activeEntries = state.entries
+  const personalScope = state.session?.scopes.find((s) => s.kind === 'private')?.scopeId;
+  const orderView = state.views.find(
+    (v) => v.kind === 'card_order' && v.category === category && v.scopeId === personalScope,
+  );
+  const orderedEntries = personalCardOrder(
+    state.entries.filter((e) => categoryOf(e) === category),
+    orderView?.kind === 'card_order' ? orderView.recordIds : [],
+  );
+  const activeEntries = (sort === 'personal' && view !== 'trash' ? orderedEntries : state.entries)
     .filter(
       (entry) =>
         (view === 'trash' ? entry.deletedAt !== null : entry.deletedAt === null) &&
@@ -548,7 +607,59 @@ export function App({ client }: { client: ClientPlatform }) {
         (scope === 'all' || entry.scopeId === scope) &&
         entry.text.toLowerCase().includes(search.toLowerCase()),
     )
-    .sort((a, b) => (sort === 'newest' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt));
+    .sort((a, b) =>
+      sort === 'personal' && view !== 'trash'
+        ? 0
+        : sort === 'oldest'
+          ? a.createdAt - b.createdAt
+          : b.createdAt - a.createdAt,
+    );
+  const visibleCardIds = activeEntries.slice(0, limit).map((entry) => entry.inboxId);
+  const orderDisabled =
+    orderBusy ||
+    busy ||
+    switching ||
+    !state.online ||
+    !personalScope ||
+    state.pendingEdits.includes(personalScope);
+  useEffect(() => {
+    setOrderNotice('');
+    setDragTarget(null);
+  }, [view, state.session?.clientId, sort]);
+  async function moveCard(from: string, to: string) {
+    if (orderDisabled || orderLock.current || !personalScope) return;
+    orderLock.current = true;
+    setOrderBusy(true);
+    const owner = currentOwner.current;
+    setOrderNotice('Saving card order…');
+    try {
+      const outcome = await runCommand(
+        { recordId: personalScope },
+        'SetCardOrder',
+        {
+          scopeId: personalScope,
+          category,
+          expectedViewRevision: orderView?.revision ?? 0,
+          recordIds: moveVisibleCard(
+            orderedEntries.map((e) => e.inboxId),
+            visibleCardIds,
+            from,
+            to,
+          ),
+        },
+        'Card order saved',
+      );
+      if (owner === currentOwner.current)
+        setOrderNotice(
+          outcome?.status === 'Applied'
+            ? 'Card order saved for your profile.'
+            : 'Order not confirmed. Refresh and sync before trying again.',
+        );
+    } finally {
+      orderLock.current = false;
+      setOrderBusy(false);
+    }
+  }
   const pending = state.drafts.filter(
     (d) =>
       !d.replyTarget &&
@@ -735,7 +846,7 @@ export function App({ client }: { client: ClientPlatform }) {
                 client={client}
                 person={state.session.person}
                 online={state.online}
-                disabled={!state.online || busy || saving || !draft}
+                disabled={!state.online || busy || orderBusy || saving || !draft}
                 onSwitch={switchProfile}
                 onError={showError}
               />
@@ -988,7 +1099,7 @@ export function App({ client }: { client: ClientPlatform }) {
                       ref={textRef}
                       value={text}
                       maxLength={20000}
-                      disabled={busy}
+                      disabled={busy || !captureReady}
                       placeholder={
                         view === 'suggestions'
                           ? 'What could work better? Add a screenshot if it helps…'
@@ -1008,7 +1119,7 @@ export function App({ client }: { client: ClientPlatform }) {
                             <button
                               type="button"
                               aria-label="Remove photo"
-                              disabled={busy}
+                              disabled={busy || !captureReady}
                               onClick={() => {
                                 void client
                                   .removePhoto(draft.draftId, attachment.mediaId)
@@ -1044,7 +1155,7 @@ export function App({ client }: { client: ClientPlatform }) {
                         <select
                           aria-label="Who can see this capture"
                           value={captureScope}
-                          disabled={busy}
+                          disabled={busy || !captureReady}
                           onChange={(event) => {
                             setCaptureScope(event.target.value);
                             void saveDraft(text, event.target.value).catch(() => {});
@@ -1059,7 +1170,7 @@ export function App({ client }: { client: ClientPlatform }) {
                         <span className="keyboard-hint">Ctrl ↵</span>
                         <button
                           className="primary"
-                          disabled={busy || (!text.trim() && !draft.attachments.length)}
+                          disabled={busy || !captureReady || (!text.trim() && !draft.attachments.length)}
                         >
                           {busy ? 'Saving…' : view === 'suggestions' ? 'Save suggestion' : 'Save to inbox'}
                           <Icon name="arrow" size={17} />
@@ -1241,6 +1352,7 @@ export function App({ client }: { client: ClientPlatform }) {
                     </div>
                     <div className="list-options">
                       <select aria-label="Sort inbox" value={sort} onChange={(e) => setSort(e.target.value)}>
+                        <option value="personal">My order</option>
                         <option value="newest">Newest first</option>
                         <option value="oldest">Oldest first</option>
                       </select>
@@ -1256,6 +1368,14 @@ export function App({ client }: { client: ClientPlatform }) {
                       </select>
                     </div>
                   </div>
+                  {view !== 'trash' && sort === 'personal' && (
+                    <p className="fine" role="status">
+                      {orderNotice ||
+                        (state.online
+                          ? 'Drag the handle or use the arrows to reorder cards for your profile. New cards appear first.'
+                          : 'Reconnect to rearrange cards. Your saved order is kept.')}
+                    </p>
+                  )}
                   {activeEntries.length === 0 ? (
                     <div className="empty">
                       <span>
@@ -1294,12 +1414,23 @@ export function App({ client }: { client: ClientPlatform }) {
                         <article
                           className={`entry-card ${categoryOf(entry) === 'app_suggestion' ? 'suggestion-card' : ''} ${categoryOf(entry) === 'app_suggestion' && suggestionUnread(state.suggestions, entry.inboxId) ? 'has-suggestion-update' : ''}`}
                           key={entry.inboxId}
+                          data-card-id={entry.inboxId}
+                          data-drop-target={dragTarget === entry.inboxId || undefined}
                           data-suggestion-status={
                             categoryOf(entry) === 'app_suggestion'
                               ? suggestionStatus(state.suggestions, entry.inboxId)
                               : undefined
                           }
                         >
+                          {view !== 'trash' && sort === 'personal' && (
+                            <CardOrderControls
+                              id={entry.inboxId}
+                              ids={visibleCardIds}
+                              disabled={Boolean(orderDisabled)}
+                              move={(from, to) => void moveCard(from, to)}
+                              highlight={setDragTarget}
+                            />
+                          )}
                           {entry.attachments[0] && (
                             <button
                               className="entry-image"

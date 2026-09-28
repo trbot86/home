@@ -20,7 +20,11 @@ export const FilingDestination = Type.Union([
   object({ kind: Type.Literal('existing'), recordId: Id }),
   object({ kind: Type.Literal('CreateTask'), arguments: taskCommands.CreateTask }),
   object({ kind: Type.Literal('AddShoppingEntry'), arguments: shoppingCommands.AddShoppingEntry }),
-  object({ kind: Type.Literal('CreateProjectPage'), arguments: projectCommands.CreateProjectPage }),
+  object({
+    kind: Type.Literal('CreateProjectPage'),
+    arguments: projectCommands.CreateProjectPage,
+    newProject: Type.Optional(projectCommands.CreateProject),
+  }),
 ]);
 export type FilingDestination = Static<typeof FilingDestination>;
 const source = { inboxId: Id, expectedRevision: Revision };

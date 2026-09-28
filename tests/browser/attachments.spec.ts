@@ -12,7 +12,10 @@ async function login(page: Page) {
 async function task(page: Page, title: string) {
   await page.getByRole('button', { name: 'Tasks', exact: true }).click();
   await page.getByRole('button', { name: 'New task', exact: true }).click();
-  await page.getByRole('dialog').getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
+  await page
+    .getByRole('dialog')
+    .getByLabel('Who can see this', { exact: true })
+    .selectOption({ label: 'Shared' });
   await page.getByLabel('Task title', { exact: true }).fill(title);
   await page.getByLabel('Instructions', { exact: true }).press('Control+Enter');
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -88,6 +91,18 @@ test('photo edits survive reload, reorder with captions, support undo and comple
   await expect(completion.locator('figcaption')).toHaveText('Installed and tested');
   await completion.getByRole('button', { name: 'History', exact: true }).click();
   await expect(page.locator('.history-list img')).toHaveCount(1);
+  await page
+    .locator('.history-list')
+    .getByRole('button', { name: 'View photo 1: Installed and tested', exact: true })
+    .click();
+  const photo = page.getByRole('dialog', { name: 'Photo', exact: true });
+  await expect(photo).toHaveCount(1);
+  await page.goBack();
+  await expect(photo).toHaveCount(0);
+  await expect(page.locator('.history-list img')).toHaveCount(1);
+  await page.goForward();
+  await expect(photo).toHaveCount(1);
+  await expect(photo).toContainText('Installed and tested');
   expect(errors).toEqual([]);
 });
 
