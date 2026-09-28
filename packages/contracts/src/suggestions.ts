@@ -19,6 +19,8 @@ export const suggestionContentSchemas = {
     ...common,
     summary: Type.String({ maxLength: 20000 }),
     status: SuggestionStatus,
+    // Older cached workflows and history versions omit completion.
+    completedAt: Type.Optional(Type.Union([Instant, Type.Null()])),
   }),
   suggestion_message: object({
     ...common,
@@ -102,6 +104,11 @@ export const SuggestionReplyTarget = object({
 });
 export type SuggestionReplyTarget = Static<typeof SuggestionReplyTarget>;
 export const suggestionCommands = {
+  SetSuggestionCompleted: object({
+    suggestionId: Id,
+    expectedRevision: Type.Integer({ minimum: 0 }),
+    completed: Type.Boolean(),
+  }),
   PostSuggestionMessage: object({
     recordId: Id,
     suggestionId: Id,

@@ -11,6 +11,7 @@ import { date } from '../format.js';
 import './suggestions.css';
 import { suggestionStatus } from './status.js';
 import { SuggestionReleasePanel } from './SuggestionReleasePanel.js';
+import { SuggestionCompletionButton } from './SuggestionCompletionButton.js';
 
 export function SuggestionDiscussion({
   client,
@@ -186,6 +187,9 @@ export function SuggestionDiscussion({
           </button>
         )}
       </div>
+      {active && (
+        <SuggestionCompletionButton client={client} state={state} id={entry.inboxId} onError={onError} />
+      )}
       {active && (
         <SuggestionReleasePanel client={client} state={state} id={entry.inboxId} onError={onError} />
       )}

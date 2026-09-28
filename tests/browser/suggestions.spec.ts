@@ -1,5 +1,74 @@
 import { expect, test } from '@playwright/test';
 
+test('completed suggestions stay behind their filter, retain discussion offline and can be reopened', async ({
+  page,
+  request,
+  context,
+}) => {
+  const seeded = await request.post('http://127.0.0.1:4174/suggestion-ready', {
+    headers: { 'x-test-token': process.env['OUR_PLACE_TEST_TOKEN']! },
+  });
+  expect(seeded.ok()).toBe(true);
+  const { text } = await seeded.json();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Alex', exact: true }).click();
+  await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  const card = page.locator('.entry-card').filter({ hasText: text });
+  const filter = page.locator('[aria-label="Suggestion status filter"]');
+  const navCount = page.getByRole('button', { name: 'App suggestions', exact: true }).locator('.nav-count');
+  const initialCount = Number(await navCount.innerText());
+  await expect(card.getByText('Ready for review', { exact: true })).toBeVisible();
+  await card.getByRole('button', { name: 'Mark completed', exact: true }).click();
+  await expect(card).toHaveCount(0);
+  await expect(navCount).toHaveText(String(initialCount - 1));
+  await page.getByLabel('Search suggestions').fill(text);
+  await expect(card).toHaveCount(0);
+  await filter.getByRole('button', { name: 'Completed', exact: true }).click();
+  await expect(card).toHaveCount(1);
+  await expect(card.getByText('Completed', { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 360, height: 820 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/suggestion-completed-phone.png', fullPage: true });
+  await page.reload();
+  await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  await expect(card).toHaveCount(0);
+  await filter.getByRole('button', { name: 'Completed', exact: true }).click();
+  await card.locator('.entry-text').click();
+  const discussion = page.getByRole('region', { name: 'Suggestion discussion' });
+  await expect(discussion.locator('.suggestion-original')).toContainText(text);
+  await expect(
+    discussion.getByText('Implemented and tested the recipe label.', { exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Close entry' }).click();
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
+  await context.setOffline(true);
+  await page.reload();
+  await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
+  await expect(card).toHaveCount(0);
+  await filter.getByRole('button', { name: 'Completed', exact: true }).click();
+  await expect(card).toHaveCount(1);
+  await expect(card.getByRole('button', { name: 'Reopen', exact: true })).toBeDisabled();
+  await context.setOffline(false);
+  await card.getByRole('button', { name: 'Reopen', exact: true }).click();
+  await expect(card).toHaveCount(0);
+  await filter.getByRole('button', { name: 'Active', exact: true }).click();
+  await expect(card).toHaveCount(1);
+  await expect(card.getByText('Ready for review', { exact: true })).toBeVisible();
+  await expect(navCount).toHaveText(String(initialCount));
+  await card.locator('.entry-text').click();
+  await discussion.getByRole('button', { name: 'Mark completed', exact: true }).click();
+  await expect(discussion.getByText('Completed', { exact: true })).toBeVisible();
+  await discussion.getByRole('button', { name: 'Work on this', exact: true }).click();
+  await expect(discussion.getByRole('button', { name: 'Mark completed', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Close entry' }).click();
+  await expect(card).toHaveCount(1);
+  await expect(card.getByText('Queued', { exact: true })).toBeVisible();
+  await card.locator('.entry-text').click();
+  await discussion.getByRole('button', { name: 'Cancel queued work', exact: true }).click();
+});
+
 test('obsolete questions leave the active list and remain in discussion history', async ({
   page,
   request,

@@ -112,7 +112,7 @@ export class SuggestionsRepository {
     const row = this.db.prepare(`SELECT * FROM ${table} WHERE ${key}=?`).get(id) as Record<string, unknown>;
     const fields =
       header.kind === 'suggestion_workflow'
-        ? { summary: row.summary, status: row.status }
+        ? { summary: row.summary, status: row.status, completedAt: row.completed_at ?? null }
         : {
             text: row.text,
             messageType: row.message_type,
@@ -290,9 +290,9 @@ export class SuggestionsRepository {
     if (kind === 'suggestion_workflow')
       this.db
         .prepare(
-          'INSERT INTO suggestion_workflows(workflow_id,suggestion_id,scope_id,summary,status) VALUES (?,?,?,?,?)',
+          'INSERT INTO suggestion_workflows(workflow_id,suggestion_id,scope_id,summary,status,completed_at) VALUES (?,?,?,?,?,?)',
         )
-        .run(id, c.suggestionId, c.scopeId, c.summary, c.status);
+        .run(id, c.suggestionId, c.scopeId, c.summary, c.status, c.completedAt ?? null);
     else {
       this.db
         .prepare(
@@ -348,6 +348,7 @@ export class SuggestionsRepository {
         live: c.deletedAt === null,
       });
     } else {
+      if (c.completedAt != null) this.requireIdle(String(c.suggestionId));
       if (
         c.deletedAt !== null &&
         this.db
@@ -370,12 +371,37 @@ export class SuggestionsRepository {
       )
         throw new Rejection('work_history_cannot_be_reversed');
       this.db
-        .prepare('UPDATE suggestion_workflows SET summary=?,status=? WHERE workflow_id=?')
-        .run(c.summary, c.status, before.recordId);
+        .prepare('UPDATE suggestion_workflows SET summary=?,status=?,completed_at=? WHERE workflow_id=?')
+        .run(c.summary, c.status, c.completedAt ?? null, before.recordId);
     }
     this.db
       .prepare('UPDATE records SET revision=revision+1,updated_at=?,deleted_at=? WHERE record_id=?')
       .run(now, c.deletedAt, before.recordId);
+    return this.get(context, before.recordId);
+  }
+  private requireIdle(suggestionId: string) {
+    requireNoRelease(this.db, suggestionId);
+    if (
+      this.db
+        .prepare(
+          "SELECT 1 FROM suggestion_work_requests WHERE suggestion_id=? AND state IN ('queued','running','uncertain') LIMIT 1",
+        )
+        .get(suggestionId)
+    )
+      throw new Rejection('suggestion_work_in_progress');
+  }
+  private setCompletion(
+    context: HumanRequestContext,
+    before: TrackedRecord,
+    completedAt: number | null,
+    now: number,
+  ): TrackedRecord {
+    this.db
+      .prepare('UPDATE suggestion_workflows SET completed_at=? WHERE workflow_id=?')
+      .run(completedAt, before.recordId);
+    this.db
+      .prepare('UPDATE records SET revision=revision+1,updated_at=?,deleted_at=NULL WHERE record_id=?')
+      .run(now, before.recordId);
     return this.get(context, before.recordId);
   }
   private execute(
@@ -385,6 +411,35 @@ export class SuggestionsRepository {
     now: number,
   ): RecordMutation {
     requireHuman(context);
+    if (kind === 'SetSuggestionCompleted') {
+      const args = payload as Command<'SetSuggestionCompleted'>['arguments'];
+      const suggestion = this.requireSuggestion(context, args.suggestionId, true);
+      const existing = this.db
+        .prepare('SELECT workflow_id FROM suggestion_workflows WHERE suggestion_id=?')
+        .get(args.suggestionId) as { workflow_id: string } | undefined;
+      const before = existing ? this.get(context, existing.workflow_id) : null;
+      if ((before?.revision ?? 0) !== args.expectedRevision) throw new Rejection('suggestion_changed');
+      if (args.completed) this.requireIdle(args.suggestionId);
+      if ((before?.content.deletedAt == null && before?.content.completedAt != null) === args.completed)
+        return { records: [], changes: [] };
+      const after = before
+        ? this.setCompletion(context, before, args.completed ? now : null, now)
+        : this.create(
+            context,
+            'suggestion_workflow',
+            randomUUID(),
+            {
+              scopeId: suggestion.scope_id,
+              deletedAt: null,
+              suggestionId: args.suggestionId,
+              summary: '',
+              status: 'new',
+              completedAt: now,
+            },
+            now,
+          );
+      return { records: [after], changes: [{ before, after }] };
+    }
     if (kind === 'MarkSuggestionRead') {
       const args = payload as Command<'MarkSuggestionRead'>['arguments'];
       this.requireSuggestion(context, args.suggestionId);
@@ -502,8 +557,15 @@ export class SuggestionsRepository {
       if (before.content.deletedAt !== null)
         changes.push({
           before,
-          after: this.setContent(context, before, { ...before.content, deletedAt: null }, now),
+          after: this.setContent(
+            context,
+            before,
+            { ...before.content, deletedAt: null, completedAt: null },
+            now,
+          ),
         });
+      else if (requestWork && before.content.completedAt != null)
+        changes.push({ before, after: this.setCompletion(context, before, null, now) });
     }
     if (kind === 'PostSuggestionMessage' && args.replyToQuestionId) {
       const question = this.db

@@ -32,6 +32,25 @@ Post meaningful findings, decisions, questions, test results and release updates
 Avoid a stream of individual tool calls. Keep the initial request and discussion
 available after completion; allow a later follow-up to reopen the work.
 
+Mark completed records a household decision separately from development and
+release status. App suggestions opens on Active; completed suggestions appear
+only under the Completed filter and do not contribute to the navigation count.
+Both views support the existing search and visibility filters. The original,
+photos and discussion stay accessible, including in the offline cache.
+Reopen returns a suggestion to Active without losing its work status. Requesting
+another round (including Reply & continue work) also reopens it atomically; adding
+a note alone keeps it completed. Saving a new suggestion returns to Active.
+
+Completion uses a workflow revision check and the existing durable command
+receipts. It requires an online connection, as do other existing-entry edits.
+Queued, running or uncertain work and active releases must finish or be cancelled
+before completion. Reopen a completed suggestion before preparing another
+release. Neither a ready agent report nor a release automatically completes a
+suggestion. Migration 025 adds a nullable completion timestamp without changing
+existing entries, discussions or identities; apply it through the normal backed-up
+upgrade process. The Android UI shares these controls and caches the workflow
+field without a Room schema change.
+
 ## Domain and storage boundaries
 
 Extend the current suggestion category without replacing existing inbox IDs,

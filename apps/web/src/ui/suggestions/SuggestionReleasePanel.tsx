@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { CommandKind } from '@our-place/contracts';
+import { suggestionCompleted } from './status.js';
 
 export function SuggestionReleasePanel({
   client,
@@ -22,7 +23,7 @@ export function SuggestionReleasePanel({
   );
   const ready =
     work[0]?.state === 'ready' && !work.some((w) => ['queued', 'running', 'uncertain'].includes(w.state));
-  if (!release && !ready) return null;
+  if (suggestionCompleted(state.suggestions, id) || (!release && !ready)) return null;
   const active = state.suggestions.releases?.some((r) =>
     ['queued', 'preparing', 'prepared', 'deploy_queued', 'deploying', 'uncertain'].includes(r.state),
   );
