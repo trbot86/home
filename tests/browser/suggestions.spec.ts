@@ -108,12 +108,18 @@ test('obsolete questions leave the active list and remain in discussion history'
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
   const card = page.locator('.entry-card').filter({ hasText: text });
   await expect(card.getByText('New update', { exact: true })).toBeVisible();
+  await expect(card.getByText('Needs your input', { exact: true })).toBeVisible();
+  await expect(card).toHaveCSS('background-color', 'rgb(72, 51, 43)');
   await expect(card).not.toHaveCSS('background-color', 'rgb(70, 56, 41)');
   await expect(card).not.toHaveCSS('background-color', 'rgb(47, 61, 73)');
   await expect(card.locator('.suggestion-card-update-text')).toHaveText('An earlier step asked a question.');
   await page.reload();
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
   await expect(card.getByText('New update', { exact: true })).toBeVisible();
+  await expect(card).toHaveCSS('background-color', 'rgb(72, 51, 43)');
+  await page.setViewportSize({ width: 360, height: 820 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/suggestion-attention-phone.png', fullPage: true });
   await card.locator('.suggestion-card-update').click();
   await expect(card.getByText('New update', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Questions', exact: true })).toBeVisible();
@@ -131,6 +137,7 @@ test('obsolete questions leave the active list and remain in discussion history'
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
   await expect(card.getByText('New update', { exact: true })).toHaveCount(0);
   await page.locator('.entry-card').filter({ hasText: text }).locator('.entry-text').click();
+  await expect(card).not.toHaveCSS('background-color', 'rgb(72, 51, 43)');
   await expect(page.getByRole('region', { name: 'Questions', exact: true })).toHaveCount(0);
   await expect(page.getByText('Marked this question as no longer relevant.', { exact: true })).toBeVisible();
 });

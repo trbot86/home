@@ -92,6 +92,14 @@
   ) {
   background: var(--amberwash);
 }
+.entry-card.suggestion-card:is(
+    [data-suggestion-status='Needs attention'],
+    [data-suggestion-status='Release needs attention'],
+    [data-suggestion-status='Connection interrupted'],
+    [data-suggestion-status='Needs your input']
+  ) {
+  background: var(--errorwash);
+}
 .entry-card.has-suggestion-update {
   border-color: var(--green);
 }
