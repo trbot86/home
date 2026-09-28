@@ -150,3 +150,35 @@ test('branch reuse refuses to overwrite ignored cache files with target source',
   assert.equal(await readFile(join(first, 'node_modules', 'collision.txt'), 'utf8'), 'keep cache');
   assert.equal(git(first, 'symbolic-ref', '--short', 'HEAD'), 'codex/suggestion-suggestion-old');
 });
+
+test('generated Capacitor outputs do not pin a clean completed slot', async (t) => {
+  const f = await fixture(t, 1);
+  await writeFile(
+    join(f.repository, '.gitignore'),
+    '.local/\nnode_modules/\napps/android/capacitor-cordova-android-plugins/\napps/android/app/src/main/res/xml/config.xml\n',
+  );
+  git(f.repository, 'add', '.gitignore');
+  git(
+    f.repository,
+    '-c',
+    'user.name=Test',
+    '-c',
+    'user.email=test@example.invalid',
+    'commit',
+    '-m',
+    'Generated paths',
+  );
+  const first = await f.pool.acquire('suggestion-capacitor');
+  for (const name of [
+    'apps/android/capacitor-cordova-android-plugins/build.gradle',
+    'apps/android/app/src/main/res/xml/config.xml',
+  ]) {
+    await mkdir(join(first, name, '..'), { recursive: true });
+    await writeFile(join(first, name), 'generated');
+  }
+  assert.equal(await f.pool.acquire('suggestion-next'), first);
+  assert.equal(
+    await readFile(join(first, 'apps/android/app/src/main/res/xml/config.xml'), 'utf8'),
+    'generated',
+  );
+});

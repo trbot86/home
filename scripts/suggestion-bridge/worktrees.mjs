@@ -25,7 +25,8 @@ const safeId = (id) => {
 const disposable = (path) =>
   /^(?:node_modules|\.pnpm-store|\.cache|dist|coverage|playwright-report|test-results)\/$/.test(path) ||
   /^(?:apps|packages)\/[^/]+\/(?:node_modules|dist|build)\/$/.test(path) ||
-  /^apps\/android\/(?:\.gradle|build|app\/build)\/$/.test(path) ||
+  /^apps\/android\/(?:\.gradle|build|app\/build|capacitor-cordova-android-plugins)\/$/.test(path) ||
+  path === 'apps/android/app/src/main/res/xml/config.xml' ||
   /^apps\/android\/app\/src\/main\/assets\/(?:public\/|capacitor\.(?:config|plugins)\.json)$/.test(path) ||
   /^\.local\/suggestion-input\//.test(path);
 
