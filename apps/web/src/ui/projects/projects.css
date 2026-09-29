@@ -97,7 +97,7 @@
   color: var(--muted);
 }
 .project-breadcrumbs button {
-  border: 0;
+  border: 1px solid var(--line-strong);
   padding: 6px;
   background: transparent;
   overflow-wrap: anywhere;

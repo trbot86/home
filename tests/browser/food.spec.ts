@@ -6,7 +6,7 @@ const png = Buffer.from(
 async function login(page: Page) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Alex', exact: true }).click();
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
 }
 async function manual(page: Page, title: string) {
   await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
@@ -37,7 +37,7 @@ async function shoppingList(page: Page, name: string) {
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill(name);
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).press('Control+Enter');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
 }
 
 test('recipe shopping preserves a selected checklist, collapsed named groups, source links and safe group removal', async ({
@@ -56,7 +56,7 @@ test('recipe shopping preserves a selected checklist, collapsed named groups, so
   await page.getByLabel('Quantity for 2 carrots', { exact: true }).fill('One bag');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page.locator('.food-card').filter({ hasText: 'Shopping carrot soup' }).click();
   await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
   await expect(page.getByLabel('Ingredient group name')).toHaveValue('Soup for Sunday');
@@ -288,7 +288,7 @@ test('recipe forms survive reload and lost acknowledgement without duplicate sav
   await page.getByLabel('Description', { exact: true }).fill('Keep this draft and its private visibility.');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await expect(page.getByLabel('Recipe name', { exact: true })).toHaveValue('Private unfinished pie');
   await expect(page.getByLabel('Description', { exact: true })).toHaveValue(
@@ -309,7 +309,7 @@ test('recipe forms survive reload and lost acknowledgement without duplicate sav
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('.food-card').filter({ hasText: 'Private unfinished pie' })).toHaveCount(1);
   await page.getByLabel('Current profile').selectOption({ label: 'Sam' });
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page
     .getByRole('group', { name: 'Recipe collection' })
     .getByRole('button', { name: 'All recipes', exact: true })
@@ -331,7 +331,7 @@ test('recipe cooking tasks preserve plans, link back from Tasks, postpone indepe
   await page.getByLabel('Repeat after completion', { exact: true }).selectOption('months');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page.locator('.food-card').filter({ hasText: 'Planned lentil soup' }).click();
   await page.getByRole('button', { name: 'Create a to-do', exact: true }).click();
   await expect(page.getByLabel('Flexible target', { exact: true })).toHaveValue('2026-10-01');
@@ -394,7 +394,7 @@ test('recipe ingredients create a named list with store-search notes and preserv
   await settings.getByLabel('Prefer for larger orders').nth(1).check();
   await settings.getByRole('button', { name: 'Save shopping preferences', exact: true }).click();
   await expect(settings.getByRole('status')).toHaveText('Shopping preferences saved.');
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await manual(page, 'New list soup');
   await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
   await page.getByLabel('Ingredient shopping list').selectOption('new');
@@ -451,7 +451,7 @@ test('sourcing shows only exceptions, saves one default-store summary, and keeps
   await settings.getByLabel('Default store', { exact: true }).fill('Example supermarket');
   await settings.getByRole('button', { name: 'Save shopping preferences', exact: true }).click();
   await expect(settings.getByRole('status')).toHaveText('Shopping preferences saved.');
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await manual(page, 'Sourcing example');
   await page.getByRole('button', { name: 'Edit recipe', exact: true }).click();
   await page.getByLabel('Ingredients', { exact: true }).fill('Flour\nSynthetic specialty ingredient');
@@ -483,7 +483,7 @@ test('sourcing shows only exceptions, saves one default-store summary, and keeps
   await expect(page.locator('.shopping-list-notes')).toContainText(
     'Everything else is at Example supermarket',
   );
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await manual(page, 'Sourcing failure example');
   await page.getByRole('button', { name: 'Edit recipe', exact: true }).click();
   await page.getByLabel('Ingredients', { exact: true }).fill('Synthetic sourcing failure');

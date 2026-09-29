@@ -29,7 +29,7 @@ try {
   assert.equal(await invoke('endpoint'), 'http://10.0.2.2:4173', 'Refusing non-test household');
   if (!(await invoke('state')).session) await invoke('login', { username: 'alex', password: '' });
   await page.reload();
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await page.getByRole('button', { name: 'Write a recipe', exact: true }).click();
   const title = `Native soup ${Date.now()}`;
@@ -44,7 +44,7 @@ try {
     await adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
   }
   await page.reload();
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await expect(page.getByLabel('Recipe name', { exact: true })).toHaveValue(title);
   await expect(page.getByLabel('Directions', { exact: true })).toHaveValue('Keep this unfinished recipe.');
@@ -107,14 +107,14 @@ try {
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill('Native recipe groceries');
   await page.getByRole('dialog').getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page.locator('.food-card').filter({ hasText: title }).click();
   await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
   await page.getByLabel('Ingredient group name').fill('Native Sunday soup');
   await page.getByLabel('Include 1 onion', { exact: true }).uncheck();
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page.locator('.food-card').filter({ hasText: title }).click();
   await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
   await expect(page.getByLabel('Include 1 onion', { exact: true })).not.toBeChecked();
@@ -157,7 +157,7 @@ try {
   await expect(page.locator('.food-detail')).toContainText('2 carrots');
   await invoke('login', { username: 'sam', password: '' });
   await page.reload();
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page.locator('.food-card').filter({ hasText: title }).click();
   await expect(page.locator('.food-adjustments')).toContainText('Add lemon next time.');
   await expect
@@ -181,7 +181,7 @@ try {
   await control('stop');
   await assert.rejects(invoke('refresh'));
   await page.reload();
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page.locator('.food-card').filter({ hasText: title }).click();
   await expect(page.locator('.food-section')).toContainText('Your saved recipes are available here');
   await expect

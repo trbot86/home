@@ -220,7 +220,7 @@
 }
 .shopping-check.checked {
   background: var(--wash);
-  border-color: transparent;
+  border-color: var(--line-strong);
   color: var(--green);
 }
 .shopping-row-body {

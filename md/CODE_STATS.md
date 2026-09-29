@@ -7,7 +7,7 @@ Counts the working source tree, including tests, documentation and configuration
 | Language | Files | Blank | Comment | Code |
 | --- | ---: | ---: | ---: | ---: |
 | Bourne Shell | 3 | 0 | 1 | 25 |
-| CSS | 15 | 17 | 5 | 5047 |
+| CSS | 15 | 17 | 5 | 5048 |
 | Dockerfile | 8 | 2 | 3 | 79 |
 | Gradle | 6 | 18 | 8 | 116 |
 | HTML | 2 | 0 | 0 | 62 |
@@ -26,4 +26,4 @@ Counts the working source tree, including tests, documentation and configuration
 | TypeScript | 299 | 624 | 366 | 57373 |
 | XML | 19 | 12 | 3 | 393 |
 | YAML | 7 | 0 | 5 | 291 |
-| Total | 581 | 2782 | 694 | 83526 |
+| Total | 581 | 2782 | 694 | 83527 |

@@ -162,7 +162,7 @@ test('Back waits for queued useSavedForm writes and Forward restores the last ke
   page,
 }) => {
   await login(page);
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Add a recipe', exact: true });
   await dialog.getByRole('button', { name: 'Write a recipe', exact: true }).click();
@@ -227,7 +227,7 @@ test('an old note URL still resolves through authorized lookup after browser rel
 
 test('failed editor storage keeps the editor mounted until a successful retry', async ({ page }) => {
   await login(page);
-  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Add a recipe', exact: true });
   await dialog.getByRole('button', { name: 'Write a recipe', exact: true }).click();

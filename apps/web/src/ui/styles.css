@@ -30,7 +30,7 @@ select {
   -webkit-tap-highlight-color: transparent;
 }
 button {
-  border: 0;
+  border: 1px solid var(--line-strong);
   border-radius: 9px;
   padding: 9px 12px;
   background: transparent;
@@ -186,6 +186,7 @@ a {
   gap: 7px;
 }
 .sidebar nav button {
+  border: 0;
   width: 100%;
   text-align: left;
   justify-content: flex-start;
@@ -250,9 +251,9 @@ a {
 }
 .text-button {
   display: block;
-  min-height: 0;
+  min-height: 32px;
   font-size: 11px;
-  padding: 0;
+  padding: 5px 9px;
   color: var(--muted);
 }
 .profile select {
