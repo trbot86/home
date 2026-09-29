@@ -222,3 +222,18 @@
   background: none;
   color: var(--muted);
 }
+/* Compact rows retain dates and source identity without repeated card chrome. */
+.agenda-focus, .agenda-events { padding: 1rem; }
+.agenda-focus h2, .agenda-events h2 { margin-bottom: .7rem; }
+.agenda-task { gap: .2rem; margin-top: .4rem; padding: .55rem .7rem; min-height: 44px; }
+.agenda-task-meta { display: flex; flex-wrap: wrap; gap: .15rem .8rem; }
+.agenda-day h3 { font-size: .9rem; margin: 1rem 0 .4rem; }
+.agenda-event { border-left-color: var(--calendar-color); padding: .45rem .65rem; margin: .35rem 0; }
+.agenda-event h4 { font-size: .95rem; line-height: 1.3; margin: .1rem 0; }
+.agenda-event p { margin: .15rem 0; line-height: 1.3; }
+.agenda-event p:empty { display: none; }
+.agenda-event .agenda-time { font-size: .78rem; }
+.agenda-event summary { margin: .3rem 0; }
+.agenda-sources { margin-top: .8rem; border-top: 1px solid var(--line); }
+.agenda-source { padding: .45rem 0; gap: .2rem .6rem; align-items: center; }
+.agenda-source strong::before { content: ''; display: inline-block; width: .65rem; height: .65rem; border-radius: 50%; background: var(--calendar-color); margin-right: .4rem; }

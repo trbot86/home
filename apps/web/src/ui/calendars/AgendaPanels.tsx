@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import {
   agendaDays,
   compareOpenTasks,
@@ -55,6 +55,7 @@ export function AgendaTasks({
       {tasks.slice(0, limit).map(({ task, occurrence }) => (
         <button className="agenda-task" key={occurrence.recordId} onClick={() => onTask(occurrence.recordId)}>
           <strong>{task.title}</strong>
+          <span className="agenda-task-meta">
           {occurrence.deadlineDate && <span>Deadline · {occurrence.deadlineDate}</span>}
           {occurrence.targetDate && <span>Target · {occurrence.targetDate}</span>}
           {occurrence.reviewDate && <span>Revisit · {occurrence.reviewDate}</span>}
@@ -62,6 +63,7 @@ export function AgendaTasks({
           {occurrence.deadlineDate && occurrence.deadlineDate < today && (
             <span className="agenda-overdue">Past deadline</span>
           )}
+          </span>
         </button>
       ))}
       {tasks.length > limit && (
@@ -77,12 +79,11 @@ const dayLabel = (day: string) =>
     day: 'numeric',
     timeZone: 'UTC',
   }).format(new Date(`${day}T12:00:00Z`));
-function eventTime(event: AgendaEvent, timeZone: string) {
+function eventTime(event: AgendaEvent, timeZone: string, day: string) {
   if (event.timing.kind === 'all_day') return 'All day';
   const format = (at: number) =>
     new Intl.DateTimeFormat(undefined, {
-      month: 'short',
-      day: 'numeric',
+      ...(calendarDateAt(at, timeZone) !== day ? { month: 'short' as const, day: 'numeric' as const } : {}),
       hour: 'numeric',
       minute: '2-digit',
       timeZone,
@@ -90,6 +91,11 @@ function eventTime(event: AgendaEvent, timeZone: string) {
   return (
     format(event.timing.startAt) + (event.timing.endUnspecified ? '' : ` – ${format(event.timing.endAt)}`)
   );
+}
+function calendarStyle(id: string): CSSProperties {
+  let hash = 0;
+  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return { '--calendar-color': `hsl(${hash % 360} 55% 72%)` } as CSSProperties;
 }
 export function AgendaCalendar({
   client,
@@ -138,12 +144,14 @@ export function AgendaCalendar({
           {day.events.map(({ calendar, event }) => (
             <article
               className={`agenda-event ${event.participation === 'declined' ? 'agenda-declined' : ''}`}
+              style={calendarStyle(calendar.calendarId)}
+              title={calendar.title}
+              aria-label={`${event.title || 'Untitled event'} — ${calendar.title}`}
               key={JSON.stringify([calendar.calendarId, event.eventId, event.instanceKey])}
             >
-              <p className="agenda-time">{eventTime(event, timeZone)}</p>
+              <p className="agenda-time">{eventTime(event, timeZone, day.date)}</p>
               <h4>{event.title || 'Untitled event'}</h4>
               <p className="fine">
-                {calendar.title}
                 {event.status === 'tentative' ? ' · Tentative' : ''}
                 {event.participation === 'declined' ? ' · Declined' : ''}
                 {event.participation === 'needsAction' ? ' · Invitation awaiting your reply' : ''}
@@ -169,9 +177,9 @@ export function AgendaCalendar({
           Show more calendar entries ({total - limit - extra} remaining)
         </button>
       )}
-      <div className="agenda-sources">
+      <div className="agenda-sources" aria-label="Calendar sources">
         {calendars.map((c) => (
-          <div className="agenda-source" key={c.calendarId}>
+          <div className="agenda-source" key={c.calendarId} style={calendarStyle(c.calendarId)}>
             <strong>{c.title || 'Untitled calendar'}</strong>
             <span>{c.context === 'work' ? 'Work · private' : 'Home'}</span>
             <span>
