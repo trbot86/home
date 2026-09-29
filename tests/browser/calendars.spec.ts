@@ -85,6 +85,17 @@ test('agenda combines personal tasks and real scheduled fixture refresh, isolate
     )
     .toBe(1);
   await expect(page.getByRole('heading', { name: 'Private calendar detail', exact: true })).toBeVisible();
+  const event = page.locator('.agenda-event').filter({ hasText: 'Household appointment' });
+  const details = event.getByRole('button', { name: 'Details for Household appointment', exact: true });
+  await expect(details).toHaveAttribute('aria-expanded', 'false');
+  await expect(event.locator('.agenda-description')).toHaveCount(0);
+  await details.click();
+  await expect(event.locator('.agenda-description b')).toHaveText('Synthetic details');
+  await expect(event.getByRole('link', { name: 'Join meeting' })).toHaveAttribute('href', 'https://example.com/meeting');
+  await expect(event.locator('.agenda-description script, .agenda-description img, a[href^="javascript:"]')).toHaveCount(0);
+  await expect(event.getByRole('link', { name: 'Unsafe link' })).toHaveCount(0);
+  await details.click();
+  await expect(event.locator('.agenda-description')).toHaveCount(0);
   const task = page.locator('.agenda-task').filter({ hasText: title });
   await expect(task).toContainText('Past deadline');
   await task.click();

@@ -96,7 +96,7 @@ const { app, access, recipeImports, media, writes, suggestionWork, suggestionRel
           window,
           timeZone: 'America/Toronto',
           events: ['default', 'private'].map((visibility) =>
-            normalizeGoogleEvent(
+            Object.assign(normalizeGoogleEvent(
               {
                 id: `fixture-${visibility}`,
                 status: 'confirmed',
@@ -109,7 +109,7 @@ const { app, access, recipeImports, media, writes, suggestionWork, suggestionRel
                 htmlLink: 'https://calendar.google.com/calendar/event?eid=fixture',
               },
               'America/Toronto',
-            )!,
+            )!, { description: '<b>Synthetic details</b><br><a href="https://example.com/meeting">Join meeting</a><script>window.calendarInjected=true</script><img src="https://example.com/tracker.png"><a href="javascript:alert(1)">Unsafe link</a>' }),
           ),
         };
       },

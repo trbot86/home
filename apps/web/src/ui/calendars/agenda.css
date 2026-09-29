@@ -241,3 +241,8 @@
 .agenda-event-heading { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); align-items: baseline; gap: .5rem; }
 .agenda-event-heading .agenda-time, .agenda-event-heading h4 { margin: 0; }
 .agenda-event-heading .agenda-time { font-variant-numeric: tabular-nums; }
+
+.agenda-event-title { display: flex; align-items: baseline; gap: .35rem; min-width: 0; }
+.agenda-event-title .agenda-details-toggle { flex: 0 0 auto; min-height: 28px; min-width: 28px; padding: 0 .2rem; line-height: 1; }
+.agenda-description { margin-top: .45rem; overflow-wrap: anywhere; }
+.agenda-description pre { white-space: pre-wrap; }

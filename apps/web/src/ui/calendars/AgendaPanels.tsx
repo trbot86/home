@@ -1,3 +1,4 @@
+import { CalendarDescription } from './CalendarDescription.js';
 import { useState, type CSSProperties } from 'react';
 import {
   agendaDays,
@@ -115,6 +116,8 @@ export function AgendaCalendar({
     timeZone = state.tasks.timeZone,
     today = calendarDateAt(Date.now(), timeZone),
     through = addCalendarDate(start, count - 1, 'days');
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const eventKey = (calendarId: string, event: AgendaEvent) => JSON.stringify([calendarId, event.eventId, event.instanceKey]);
   const days = agendaDays(calendars, start, count, timeZone),
     total = days.reduce((sum, day) => sum + day.events.length, 0);
   let remaining = limit + extra;
@@ -150,7 +153,17 @@ export function AgendaCalendar({
             >
               <div className="agenda-event-heading">
               <p className="agenda-time">{eventTime(event, timeZone, day.date)}</p>
+              <div className="agenda-event-title">
+              {event.description && <button className="agenda-details-toggle" title="Event details"
+                aria-label={`Details for ${event.title || 'Untitled event'}`}
+                aria-expanded={expanded.has(eventKey(calendar.calendarId, event))}
+                onClick={() => setExpanded((previous) => {
+                  const next = new Set(previous), key = eventKey(calendar.calendarId, event);
+                  if (next.has(key)) next.delete(key); else next.add(key);
+                  return next;
+                })}>{expanded.has(eventKey(calendar.calendarId, event)) ? '▾' : '▸'}</button>}
               <h4>{event.title || 'Untitled event'}</h4>
+              </div>
               </div>
               <p className="fine">
                 {event.status === 'tentative' ? ' · Tentative' : ''}
@@ -158,11 +171,8 @@ export function AgendaCalendar({
                 {event.participation === 'needsAction' ? ' · Invitation awaiting your reply' : ''}
               </p>
               {event.location && <p>{event.location}</p>}
-              {event.description && (
-                <details>
-                  <summary>Details</summary>
-                  <p className="agenda-description">{event.description}</p>
-                </details>
+              {event.description && expanded.has(eventKey(calendar.calendarId, event)) && (
+                <CalendarDescription client={client} text={event.description} />
               )}
               {event.sourceUrl && (
                 <WebLink client={client} href={event.sourceUrl}>
