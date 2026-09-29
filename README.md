@@ -1,8 +1,87 @@
 # Our place
 
-A self-hosted household app for two people. Deployed features include a shared/private inbox, separate app suggestions, photos, durable offline capture, shopping and restock lists, tasks and recurring chores, maintenance assets and service logs, visual recipe collections, nested project boards, personal overviews, completion/purchase history, guarded undo/redo, storage reporting and online backup/restore. Agenda and Google Calendar settings are implemented; external calendars require host configuration and account consent. The Tailscale household is in real use; follow AGENTS.md to preserve its data during development.
+A self-hosted household app for two people. Deployed features include a shared/private inbox, separate app suggestions, photos, durable offline capture, shopping and restock lists, tasks and recurring chores, maintenance assets and service logs, visual recipe collections, nested project boards, personal overviews, completion/purchase history, guarded undo/redo, storage reporting and online backup/restore. Agenda supports read-only Google iCal subscriptions without an API account; the optional OAuth connection requires host configuration and account consent. The Tailscale household is in real use; follow AGENTS.md to preserve its data during development.
 
 The temporary Docker phone trial on this PC is live over private Tailscale HTTPS. It uses the mockup's dark green theme and a password-free profile picker: choose yourself once, then switch from the profile dropdown. Private items are hidden from the other profile; anyone with network access can deliberately select either profile. See [PHONE_TRIAL.md](md/PHONE_TRIAL.md) for the addresses and controls and [the access decision](md/decisions/0004-trusted-network-profiles.md) for the model.
+
+## Architecture at a glance
+
+The application is a modular monolith: feature modules share one server and one
+SQLite database, so changes spanning inbox, tasks, shopping and projects can commit
+atomically. Media bytes live in files; their metadata and references live in SQLite.
+The diagrams below condense the [architecture](md/ARCHITECTURE.md),
+[client stack](md/STACK_SELECTION.md) and [data model](md/DATA_MODEL.md).
+Those documents also describe proposed extensions; their design scope is broader
+than the deployed feature set.
+
+### Clients and persistence
+
+Shared React screens run in the browser and the Capacitor Android app. Platform
+adapters give them the same interface while Kotlin owns Android's durable queue,
+local database and pending media. Cached household records remain readable offline;
+new inbox captures wait locally for upload.
+
+```mermaid
+flowchart TB
+  UI[Shared React screens] --> Ports[Typed ClientPlatform interface]
+  Ports --> Browser[Browser adapter]
+  Ports --> Android[Capacitor bridge and Kotlin core]
+  Browser --> IDB[IndexedDB drafts and pending requests]
+  Android --> Room[Room cache and durable capture queue]
+  Android --> Pending[App-private pending media]
+  Uploader[Android WorkManager uploader] --> Android
+  Browser --> API[Household API]
+  Android --> API
+  API --> Modules[Feature modules and shared write boundary]
+  Modules --> DB[(SQLite records, history and receipts)]
+  Modules --> Files[Immutable media files]
+```
+
+### Changes, retries and undo
+
+A request carries a stable operation identity. Its receipt and committed changes
+are recorded together, allowing a retry after a lost reply without repeating the
+operation. History groups related record changes into one action. Undo checks
+record revisions and dependencies before applying a reversal, protecting intervening
+edits by the other person.
+
+```mermaid
+erDiagram
+  clients ||--o{ operation_receipts : retries
+  clients ||--o{ change_sets : submits
+  people o|--o{ change_sets : attributed_to
+  change_sets ||--|{ record_changes : contains
+  records ||--o{ record_changes : versions
+  change_sets ||--o{ change_dependencies : guards
+  records ||--o{ change_dependencies : referenced_by
+  change_sets o|--o{ operation_receipts : result_of
+```
+
+See the [connected schema](md/DATA_MODEL.md) and
+[worked transactions](md/WORKED_TRANSACTIONS.md) for cross-feature relationships,
+privacy boundaries and examples of guarded reversals.
+
+### Deployment and backups
+
+The Docker data volume survives app replacement. Online exports combine a database
+snapshot with protected media copies; completed exports are verified before an
+independent host process copies them to secondary storage. Tests and restore
+rehearsals use isolated data, never the live household volume.
+
+```mermaid
+flowchart LR
+  App[Household app container] --> Data[Persistent Linux data volume]
+  Data --> Export[Online database snapshot and media export]
+  App --> Export
+  Export --> Local[Dedicated local backup folder]
+  Local --> Verify[Host replication and verification]
+  Verify --> Secondary[Independent secondary backup storage]
+```
+
+[Windows deployment](md/WINDOWS_DEPLOYMENT.md) explains the storage boundaries;
+[file publication and cleanup](md/decisions/0003-file-media-and-container-storage.md)
+explains how files and database references remain consistent. Calendar setup is
+covered in [Google iCal subscriptions](md/ICAL_CALENDARS.md).
 
 ## Try the local demo
 
