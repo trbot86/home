@@ -585,7 +585,9 @@ function AppContent({ client }: { client: ClientPlatform }) {
             ? 'This entry changed. Your text is kept; reload the latest version before saving.'
             : outcome.code === 'list_members_changed'
               ? 'This list changed while you were confirming. Review its current items, then try deleting it again.'
-              : outcome.code.replaceAll('_', ' '),
+              : outcome.code === 'group_members_changed'
+                ? 'This group changed while you were confirming. Review its current items, then try removing it again.'
+                : outcome.code.replaceAll('_', ' '),
         ),
       );
     else

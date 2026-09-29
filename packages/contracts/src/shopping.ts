@@ -112,7 +112,11 @@ export const shoppingGroupCommands = {
   DeleteShoppingList: object({ ...target, members: Type.Array(object(target), { maxItems: 4000 }) }),
   CreateShoppingGroup: object({ recordId: Id, listId: Id, name }),
   UpdateShoppingGroup: object({ ...target, name }),
-  DeleteShoppingGroup: object({ ...target, members: Type.Array(object(target), { maxItems: 2000 }) }),
+  DeleteShoppingGroup: object({
+    ...target,
+    members: Type.Array(object(target), { maxItems: 2000 }),
+    deleteItems: Type.Optional(Type.Boolean()),
+  }),
   RestoreShoppingGroup: object(target),
   AddRecipeIngredients: object({
     recordId: Id,

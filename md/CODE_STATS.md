@@ -23,7 +23,7 @@ Counts the working source tree, including tests, documentation and configuration
 | SQL | 36 | 18 | 38 | 993 |
 | SVG | 1 | 0 | 0 | 5 |
 | Text | 1 | 0 | 0 | 17 |
-| TypeScript | 299 | 623 | 366 | 57287 |
+| TypeScript | 299 | 624 | 366 | 57371 |
 | XML | 19 | 12 | 3 | 393 |
 | YAML | 7 | 0 | 5 | 291 |
-| Total | 581 | 2781 | 694 | 83440 |
+| Total | 581 | 2782 | 694 | 83524 |

@@ -348,12 +348,11 @@ export class ShoppingGroupsRepository {
       for (const member of members) {
         const moved = this.shopping.execute(
           context,
-          'MoveShoppingEntry',
+          args.deleteItems ? 'DeleteShoppingRecord' : 'MoveShoppingEntry',
           {
             recordId: member.record_id,
             expectedRevision: member.revision,
-            listId: before.content.listId,
-            groupId: null,
+            ...(args.deleteItems ? {} : { listId: before.content.listId, groupId: null }),
           },
           now,
         );

@@ -152,6 +152,47 @@ function fixture() {
     },
   };
 }
+test('deleting a group with items preserves the list and purchases and reverses atomically', () => {
+  const f = fixture();
+  try {
+    const list = f.list(),
+      args = f.selection(f.recipe(), list);
+    applied(f.run('AddRecipeIngredients', args));
+    const ids = args.ingredients.map((i) => i.entryId);
+    const stale = ids.map(f.target),
+      purchaseId = randomUUID();
+    applied(
+      f.run(
+        'PurchaseShoppingEntry',
+        { ...f.target(ids[0]!), purchaseId, purchaseItemId: randomUUID(), boughtAt: 1234 },
+        f.b,
+      ),
+    );
+    rejected(
+      f.run('DeleteShoppingGroup', { ...f.target(args.recordId), members: stale, deleteItems: true }),
+      'group_members_changed',
+    );
+    const request = f.envelope({ ...f.target(args.recordId), members: ids.map(f.target), deleteItems: true });
+    f.setFailure(true);
+    assert.throws(() => f.writes.execute(f.a, 'DeleteShoppingGroup', request));
+    f.setFailure(false);
+    for (const id of [...ids, args.recordId]) assert.equal(f.get(id).deletedAt, null);
+    const saved = applied(f.writes.execute(f.a, 'DeleteShoppingGroup', request));
+    assert.equal(applied(f.writes.execute(f.a, 'DeleteShoppingGroup', request)).replayed, true);
+    for (const id of [...ids, args.recordId]) assert.ok(f.get(id).deletedAt);
+    assert.equal(f.get(list).deletedAt, null);
+    assert.equal(f.shopping.get(f.a, purchaseId).content.deletedAt, null);
+    const undo = applied(f.run('UndoChangeSet', { changeSetId: saved.changeSetId }));
+    for (const id of [...ids, args.recordId]) assert.equal(f.get(id).deletedAt, null);
+    assert.equal((f.get(ids[0]!) as ShoppingEntry).groupId, args.recordId);
+    assert.equal((f.get(ids[0]!) as ShoppingEntry).state, 'purchased');
+    applied(f.run('RedoChangeSet', { changeSetId: undo.changeSetId }));
+    for (const id of [...ids, args.recordId]) assert.ok(f.get(id).deletedAt);
+  } finally {
+    f.close();
+  }
+});
+
 test('list deletion checks the confirmed contents and atomically supports retry, undo and redo', () => {
   const f = fixture();
   try {

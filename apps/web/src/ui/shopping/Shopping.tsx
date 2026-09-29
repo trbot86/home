@@ -2,7 +2,7 @@ import { useNavigationState } from '../NavigationHistory.js';
 import { useState } from 'react';
 import { LinkedText, WebLink } from '../LinkedText.js';
 import type { ClientPlatform, ClientState } from '@our-place/client';
-import type { ShoppingRecord, ShoppingList, Command } from '@our-place/contracts';
+import type { ShoppingRecord, ShoppingList, ShoppingGroup, Command } from '@our-place/contracts';
 import { Icon } from '../Icon.js';
 import { ShoppingItems, ShoppingEntryDetails } from './ShoppingItems.js';
 import { ShoppingEditor } from './ShoppingEditor.js';
@@ -64,10 +64,10 @@ export function Shopping({
       initial?.kind === 'purchase' ? initial.recordId : null,
     ),
     [working, setWorking] = useState<string | null>(null);
-  const [removingGroup, setRemovingGroup] = useNavigationState<string | null>(
-    `Shopping.${initialRecordId ?? ''}.removingGroup`,
-    null,
-  );
+  const [removingGroup, setRemovingGroup] = useState<{
+    group: ShoppingGroup;
+    members: Command<'DeleteShoppingGroup'>['arguments']['members'];
+  } | null>(null);
   const [removingList, setRemovingList] = useState<{
     list: ShoppingList;
     members: Command<'DeleteShoppingList'>['arguments']['members'];
@@ -131,7 +131,7 @@ export function Shopping({
         (tab !== 'purchased' || entries.some((e) => e.groupId === g.recordId)),
     )
     .sort((a, b) => a.position - b.position);
-  const removing = (snapshot.groups ?? []).find((g) => g.recordId === removingGroup);
+  const removing = removingGroup?.group;
   const products = snapshot.restockItems.filter(
     (item) => !item.deletedAt && (!list || item.scopeId === list.scopeId) && matches(item),
   );
@@ -168,7 +168,12 @@ export function Shopping({
       return;
     }
     if (record.kind === 'shopping_group') {
-      setRemovingGroup(record.recordId);
+      setRemovingGroup({
+        group: record,
+        members: snapshot.entries
+          .filter((e) => !e.deletedAt && e.groupId === record.recordId)
+          .map((e) => ({ recordId: e.recordId, expectedRevision: e.revision })),
+      });
       return;
     }
     void action(
@@ -496,7 +501,11 @@ export function Shopping({
       )}
       {removing && (
         <ShoppingDialog client={client} title="Remove group" close={() => setRemovingGroup(null)}>
-          <p>Remove “{removing.name}”? Its items will stay on the list, ungrouped.</p>
+          <p>
+            Remove “{removing.name}”? Keep its items on the list, or delete the group and all{' '}
+            {removingGroup!.members.length} items, including purchased items.
+          </p>
+          <p className="fine">Undo restores the group and its items together. Purchase history is kept.</p>
           <div className="dialog-footer">
             <button onClick={() => setRemovingGroup(null)}>Keep group</button>
             <button
@@ -508,15 +517,31 @@ export function Shopping({
                   {
                     recordId: removing.recordId,
                     expectedRevision: removing.revision,
-                    members: snapshot.entries
-                      .filter((e) => !e.deletedAt && e.groupId === removing.recordId)
-                      .map((e) => ({ recordId: e.recordId, expectedRevision: e.revision })),
+                    members: removingGroup!.members,
                   },
                   'Group removed; items kept',
                 ).then(() => setRemovingGroup(null));
               }}
             >
               Remove group, keep items
+            </button>
+            <button
+              disabled={disabled(removing.recordId)}
+              onClick={() => {
+                void action(
+                  removing,
+                  'DeleteShoppingGroup',
+                  {
+                    recordId: removing.recordId,
+                    expectedRevision: removing.revision,
+                    members: removingGroup!.members,
+                    deleteItems: true,
+                  },
+                  'Group and items moved to shopping trash',
+                ).then(() => setRemovingGroup(null));
+              }}
+            >
+              Delete group and items
             </button>
           </div>
         </ShoppingDialog>

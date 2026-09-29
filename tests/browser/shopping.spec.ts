@@ -93,6 +93,20 @@ test('named shopping groups can be renamed, searched, rearranged and restored wi
   await page.getByRole('button', { name: 'Need to buy', exact: true }).click();
   await expect(group).toHaveCount(1);
   await expect(page.locator('.shopping-row')).toContainText('Seeds');
+  await page.getByRole('button', { name: 'Edit Seeds', exact: true }).click();
+  await page.getByLabel('Group for Seeds', { exact: true }).selectOption({ label: 'Planting supplies' });
+  await page.getByRole('button', { name: 'Close shopping dialog' }).click();
+  if (!(await group.evaluate((element) => element.hasAttribute('open'))))
+    await group.locator('summary').first().click();
+  await group.getByRole('button', { name: 'Delete Planting supplies', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('all 1 items');
+  await page.getByRole('button', { name: 'Delete group and items', exact: true }).click();
+  await expect(group).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Edit Seeds', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await expect(group).toHaveCount(1);
+  await page.getByLabel('Search shopping').fill('Seeds');
+  await expect(group.getByRole('button', { name: 'Edit Seeds', exact: true })).toBeVisible();
 });
 
 test('shopping purchase undo, restocking, details, privacy and narrow layouts', async ({ page, browser }) => {
