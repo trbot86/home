@@ -416,6 +416,10 @@ test('Home migration preserves old task receipts, frozen commands, legacy histor
     copyFileSync(join(migrationsRoot, name), join(source, name));
   const f = fixture(source);
   try {
+    // Seed with today's writer, then restore the exact pre-planning schema and history.
+    f.db.exec(
+      'ALTER TABLE task_occurrences ADD COLUMN calendar_visible INTEGER NOT NULL DEFAULT 1; ALTER TABLE task_occurrences ADD COLUMN approximate_date TEXT',
+    );
     const oldTask = f.taskArgs(null),
       oldRequest = f.envelope(oldTask);
     const created = applied(f.services().writes.execute(f.a, 'CreateTask', oldRequest));
@@ -425,11 +429,18 @@ test('Home migration preserves old task receipts, frozen commands, legacy histor
       delta_json: string;
     }[]) {
       const delta = JSON.parse(row.delta_json);
-      if (delta.baseline) delete delta.baseline.maintenance;
+      if (delta.baseline) {
+        delete delta.baseline.maintenance;
+        delete delta.baseline.calendarVisible;
+        delete delta.baseline.approximateDate;
+      }
       f.db
         .prepare('UPDATE record_changes SET delta_json=? WHERE change_set_id=? AND record_id=?')
         .run(JSON.stringify(delta), row.change_set_id, row.record_id);
     }
+    f.db.exec(
+      'ALTER TABLE task_occurrences DROP COLUMN calendar_visible; ALTER TABLE task_occurrences DROP COLUMN approximate_date',
+    );
     const pending = f.envelope(f.taskArgs(null));
     const names = [
       'installation_state',

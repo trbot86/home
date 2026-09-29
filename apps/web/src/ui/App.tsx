@@ -1,3 +1,5 @@
+import { completeNavigationOrder } from '@our-place/contracts';
+import { TaskCalendar } from './calendars/TaskCalendar.js';
 import { ShoppingSettings } from './shopping/ShoppingSettings.js';
 import {
   NavigationHistoryProvider,
@@ -94,7 +96,8 @@ type View =
   | 'trash'
   | 'storage'
   | 'activity'
-  | 'agenda';
+  | 'agenda'
+  | 'calendar';
 function unfinishedDraft(drafts: Draft[], category: EntryCategory) {
   const candidates = drafts.filter(
     (d) => !d.replyTarget && d.state === 'DRAFT' && categoryOf(d) === category,
@@ -129,7 +132,9 @@ function AppContent({ client }: { client: ClientPlatform }) {
       v.scopeId === state.session?.scopes.find((s) => s.kind === 'private')?.scopeId,
   );
   const navigationOrder =
-    navigationView?.kind === 'navigation' ? navigationView.order : navigationItems.map((item) => item.id);
+    navigationView?.kind === 'navigation'
+      ? completeNavigationOrder(navigationView.order)
+      : navigationItems.map((item) => item.id);
   const navigationRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const reveal = () => {
@@ -900,6 +905,16 @@ function AppContent({ client }: { client: ClientPlatform }) {
             )}
             {view === 'activity' ? (
               <Activity client={client} state={state} onRecord={openLinkedRecord} />
+            ) : view === 'calendar' ? (
+              <TaskCalendar
+                client={client}
+                state={state}
+                onTask={(id) => {
+                  setWidgetTarget(null);
+                  setLinkedTarget(id);
+                  setView('tasks');
+                }}
+              />
             ) : view === 'agenda' ? (
               <PersonalAgenda
                 client={client}

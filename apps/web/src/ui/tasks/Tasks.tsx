@@ -1,3 +1,4 @@
+import { approximateLabels } from '@our-place/contracts';
 import { useNavigationState } from '../NavigationHistory.js';
 import { usePagePreference } from '../usePagePreference.js';
 import { useEffect, useRef, useState } from 'react';
@@ -33,7 +34,7 @@ type Editor = { mode: 'create' | 'definition' | 'occurrence'; taskId?: string; o
 const groupNames: Record<TaskAttention, string> = {
   overdue: 'Past a real deadline',
   today: 'Due today',
-  priority: 'Chosen priorities',
+  priority: 'Important',
   ready: 'Ready when you are',
   review: 'Time to revisit',
   upcoming: 'Coming up',
@@ -267,7 +268,11 @@ export function Tasks({
           <summary className="task-summary" aria-label={`Task details: ${task.title}`}>
             <div className="task-title">
               <h3>{task.title}</h3>
-              {item.priority >= 2 && <span className="task-priority">{priorityNames[item.priority]}</span>}
+              {item.priority >= 2 && (
+                <span className={`task-priority priority-${item.priority}`}>
+                  {priorityNames[item.priority]}
+                </span>
+              )}
             </div>
             <p className="task-meta">
               {personName(effectiveAssignee(task, item))} · {task.context === 'home' ? 'Home' : 'Work'}
@@ -280,7 +285,9 @@ export function Tasks({
                   ? ` · Target ${displayDate(item.targetDate)}`
                   : item.reviewDate
                     ? ` · Revisit ${displayDate(item.reviewDate)}`
-                    : ''}
+                    : item.approximateDate
+                      ? ` · ${approximateLabels[item.approximateDate]}`
+                      : ''}
             </p>
           </summary>
           <div className="task-expanded">
@@ -363,6 +370,8 @@ export function Tasks({
                       expectedRevision: item.revision,
                       assigneeId: item.assigneeId,
                       priority: item.priority >= 2 ? 1 : 2,
+                      calendarVisible: item.calendarVisible ?? true,
+                      approximateDate: item.approximateDate ?? null,
                       deadlineDate: item.deadlineDate,
                       targetDate: item.targetDate,
                       reviewDate: item.reviewDate,

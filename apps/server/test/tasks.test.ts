@@ -456,3 +456,53 @@ test('private tasks default to their owner through creation and recurrence; shar
     f.close();
   }
 });
+
+test('approximate planning, calendar visibility and legacy requests survive undo and recurrence', () => {
+  const f = fixture();
+  try {
+    const create = { ...f.create(monthly), approximateDate: 'week', calendarVisible: false };
+    applied(f.run('CreateTask', create));
+    const first = f.get(create.occurrenceId);
+    assert.equal(first.kind, 'task_occurrence');
+    if (first.kind !== 'task_occurrence') throw new Error();
+    assert.equal(first.approximateDate, 'week');
+    assert.equal(first.calendarVisible, false);
+    const edited = applied(
+      f.run('UpdateTaskOccurrence', {
+        recordId: first.recordId,
+        expectedRevision: first.revision,
+        assigneeId: null,
+        priority: 2,
+        deadlineDate: null,
+        targetDate: null,
+        reviewDate: null,
+      }),
+    );
+    assert.equal((f.get(first.recordId) as typeof first).approximateDate, 'week');
+    assert.equal((f.get(first.recordId) as typeof first).calendarVisible, false);
+    applied(f.run('UndoChangeSet', { changeSetId: edited.changeSetId }));
+    const current = f.get(first.recordId);
+    const moved = applied(
+      f.run('PostponeTaskOccurrence', {
+        recordId: first.recordId,
+        expectedRevision: current.revision,
+        field: 'targetDate',
+        date: '2026-10-01',
+      }),
+    );
+    assert.equal((f.get(first.recordId) as typeof first).approximateDate, null);
+    applied(f.run('UndoChangeSet', { changeSetId: moved.changeSetId }));
+    assert.equal((f.get(first.recordId) as typeof first).approximateDate, 'week');
+    const complete = f.complete(create.recordId, create.occurrenceId);
+    applied(f.run('CompleteTaskOccurrence', complete));
+    const next = f.get(complete.nextOccurrenceId!);
+    assert.equal(next.kind, 'task_occurrence');
+    if (next.kind === 'task_occurrence') {
+      assert.equal(next.calendarVisible, false);
+      assert.equal(next.approximateDate, null);
+      assert.ok(next.targetDate);
+    }
+  } finally {
+    f.close();
+  }
+});

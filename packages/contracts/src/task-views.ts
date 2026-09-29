@@ -15,6 +15,7 @@ export function openTasks(snapshot: TaskSnapshot): OpenTask[] {
 export function taskAttention(item: TaskOccurrence, today: string): TaskAttention {
   if (item.deadlineDate && item.deadlineDate < today) return 'overdue';
   if (item.deadlineDate === today) return 'today';
+  if (item.approximateDate === 'asap') return 'ready';
   if (item.priority >= 2) return 'priority';
   if (item.reviewDate && item.reviewDate <= today) return 'review';
   if (item.targetDate && item.targetDate <= today) return 'ready';

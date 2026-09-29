@@ -12,6 +12,7 @@ export const navigationSections = [
   'shopping',
   'tasks',
   'agenda',
+  'calendar',
   'home',
   'food',
   'projects',
@@ -20,11 +21,22 @@ export const navigationSections = [
   'storage',
 ] as const;
 export type NavigationSection = (typeof navigationSections)[number];
-export const NavigationOrder = Type.Array(Type.Union(navigationSections.map((id) => Type.Literal(id))), {
-  minItems: navigationSections.length,
-  maxItems: navigationSections.length,
-  uniqueItems: true,
-});
+const orderSchema = (ids: readonly NavigationSection[]) =>
+  Type.Array(Type.Union(ids.map((id) => Type.Literal(id))), {
+    minItems: ids.length,
+    maxItems: ids.length,
+    uniqueItems: true,
+  });
+// Retain old frozen requests and saved layouts; clients insert Calendar beside Agenda.
+export const NavigationOrder = Type.Union([
+  orderSchema(navigationSections),
+  orderSchema(navigationSections.filter((id) => id !== 'calendar')),
+]);
+export function completeNavigationOrder(order: readonly NavigationSection[]): NavigationSection[] {
+  const result = [...order];
+  if (!result.includes('calendar')) result.splice(result.indexOf('agenda') + 1, 0, 'calendar');
+  return result;
+}
 export const viewCommands = {
   SetCardOrder: object({
     scopeId: Id,

@@ -1,14 +1,9 @@
 import { CalendarDescription } from './CalendarDescription.js';
 import { useState, type CSSProperties } from 'react';
+import { agendaDays, openTasks, type ClientPlatform, type ClientState } from '@our-place/client';
 import {
-  agendaDays,
-  compareOpenTasks,
-  openTasks,
-  taskAttention,
-  type ClientPlatform,
-  type ClientState,
-} from '@our-place/client';
-import {
+  planningGroups,
+  approximateLabels,
   addCalendarDate,
   calendarDateAt,
   type AgendaCalendarSnapshot,
@@ -38,41 +33,66 @@ export function AgendaTasks({
 }) {
   const today = calendarDateAt(Date.now(), state.tasks.timeZone);
   const through = addCalendarDate(start, count - 1, 'days');
-  const tasks = openTasks(state.tasks)
-    .filter(
-      ({ task, occurrence }) =>
-        (context === 'both' || task.context === context) &&
-        (!occurrence.assigneeId || occurrence.assigneeId === state.session!.person.personId) &&
-        (!['upcoming', 'anytime'].includes(taskAttention(occurrence, today)) ||
-          [occurrence.deadlineDate, occurrence.targetDate, occurrence.reviewDate].some(
-            (day) => day !== null && day >= start && day <= through,
-          )),
-    )
-    .sort(compareOpenTasks);
+  const groups = planningGroups(state.tasks, state.session!.person.personId, context, today).map((group) => ({
+    ...group,
+    dated: group.dated.filter(
+      ({ occurrence: o }) =>
+        o.priority >= 2 ||
+        [o.deadlineDate, o.targetDate, o.reviewDate].some(
+          (d) => d && (d <= today || (d >= start && d <= through)),
+        ),
+    ),
+  }));
+  const total = groups.reduce((n, g) => n + g.dated.length + g.undated.length, 0);
+  let remaining = limit;
+  const row = ({ task, occurrence }: ReturnType<typeof openTasks>[number]) => (
+    <button
+      className={`agenda-task priority-row-${occurrence.priority}`}
+      key={occurrence.recordId}
+      onClick={() => onTask(occurrence.recordId)}
+    >
+      <strong>{task.title}</strong>
+      <span className="agenda-task-meta">
+        {occurrence.deadlineDate && <span>Deadline · {occurrence.deadlineDate}</span>}
+        {occurrence.targetDate && <span>Target · {occurrence.targetDate}</span>}
+        {occurrence.reviewDate && <span>Revisit · {occurrence.reviewDate}</span>}
+        {occurrence.approximateDate && <span>{approximateLabels[occurrence.approximateDate]}</span>}
+        {occurrence.priority >= 2 && (
+          <span className={`task-priority priority-${occurrence.priority}`}>Important</span>
+        )}
+        {occurrence.deadlineDate && occurrence.deadlineDate < today && (
+          <span className="agenda-overdue">Past deadline</span>
+        )}
+      </span>
+    </button>
+  );
   return (
     <section className="agenda-panel agenda-focus" aria-label="Your tasks" data-agenda-section="tasks">
       <h2>Your tasks</h2>
-      {!tasks.length && <p>No tasks need attention today or are scheduled for these dates.</p>}
-      {tasks.slice(0, limit).map(({ task, occurrence }) => (
-        <button className="agenda-task" key={occurrence.recordId} onClick={() => onTask(occurrence.recordId)}>
-          <strong>{task.title}</strong>
-          <span className="agenda-task-meta">
-          {occurrence.deadlineDate && <span>Deadline · {occurrence.deadlineDate}</span>}
-          {occurrence.targetDate && <span>Target · {occurrence.targetDate}</span>}
-          {occurrence.reviewDate && <span>Revisit · {occurrence.reviewDate}</span>}
-          {occurrence.priority >= 2 && <span>Chosen priority</span>}
-          {occurrence.deadlineDate && occurrence.deadlineDate < today && (
-            <span className="agenda-overdue">Past deadline</span>
-          )}
-          </span>
-        </button>
-      ))}
-      {tasks.length > limit && (
-        <button onClick={onAllTasks}>Open all tasks ({tasks.length} in this view)</button>
-      )}
+      {!total && <p>No tasks need attention today or are scheduled for these dates.</p>}
+      {groups.map((group) => {
+        const dated = group.dated.slice(0, remaining);
+        remaining -= dated.length;
+        const undated = group.undated.slice(0, remaining);
+        remaining -= undated.length;
+        return dated.length + undated.length ? (
+          <section className="agenda-task-group" key={group.label} aria-label={group.label}>
+            <h3>{group.label}</h3>
+            {dated.map(row)}
+            {undated.length > 0 && (
+              <>
+                <p className="agenda-undated">Undated</p>
+                {undated.map(row)}
+              </>
+            )}
+          </section>
+        ) : null;
+      })}
+      {total > limit && <button onClick={onAllTasks}>Open all tasks ({total} in this view)</button>}
     </section>
   );
 }
+
 const dayLabel = (day: string) =>
   new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
@@ -84,13 +104,17 @@ function eventTime(event: AgendaEvent, timeZone: string, day: string) {
   if (event.timing.kind === 'all_day') return 'All day';
   const at = event.timing.startAt;
   const parts = new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric', minute: '2-digit', hour12: true, timeZone,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone,
   }).formatToParts(at);
   const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
   const time = `${part('hour')}:${part('minute')}${part('dayPeriod') === 'AM' ? 'a' : 'p'}`;
   // Keep the original start date clear when an event continues into another day.
-  return calendarDateAt(at, timeZone) === day ? time :
-    `${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone }).format(at)} ${time}`;
+  return calendarDateAt(at, timeZone) === day
+    ? time
+    : `${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone }).format(at)} ${time}`;
 }
 function calendarStyle(id: string): CSSProperties {
   let hash = 0;
@@ -117,7 +141,8 @@ export function AgendaCalendar({
     today = calendarDateAt(Date.now(), timeZone),
     through = addCalendarDate(start, count - 1, 'days');
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const eventKey = (calendarId: string, event: AgendaEvent) => JSON.stringify([calendarId, event.eventId, event.instanceKey]);
+  const eventKey = (calendarId: string, event: AgendaEvent) =>
+    JSON.stringify([calendarId, event.eventId, event.instanceKey]);
   const days = agendaDays(calendars, start, count, timeZone),
     total = days.reduce((sum, day) => sum + day.events.length, 0);
   let remaining = limit + extra;
@@ -152,18 +177,29 @@ export function AgendaCalendar({
               key={JSON.stringify([calendar.calendarId, event.eventId, event.instanceKey])}
             >
               <div className="agenda-event-heading">
-              <p className="agenda-time">{eventTime(event, timeZone, day.date)}</p>
-              <div className="agenda-event-title">
-              {event.description && <button className="agenda-details-toggle" title="Event details"
-                aria-label={`Details for ${event.title || 'Untitled event'}`}
-                aria-expanded={expanded.has(eventKey(calendar.calendarId, event))}
-                onClick={() => setExpanded((previous) => {
-                  const next = new Set(previous), key = eventKey(calendar.calendarId, event);
-                  if (next.has(key)) next.delete(key); else next.add(key);
-                  return next;
-                })}>{expanded.has(eventKey(calendar.calendarId, event)) ? '▾' : '▸'}</button>}
-              <h4>{event.title || 'Untitled event'}</h4>
-              </div>
+                <p className="agenda-time">{eventTime(event, timeZone, day.date)}</p>
+                <div className="agenda-event-title">
+                  {event.description && (
+                    <button
+                      className="agenda-details-toggle"
+                      title="Event details"
+                      aria-label={`Details for ${event.title || 'Untitled event'}`}
+                      aria-expanded={expanded.has(eventKey(calendar.calendarId, event))}
+                      onClick={() =>
+                        setExpanded((previous) => {
+                          const next = new Set(previous),
+                            key = eventKey(calendar.calendarId, event);
+                          if (next.has(key)) next.delete(key);
+                          else next.add(key);
+                          return next;
+                        })
+                      }
+                    >
+                      {expanded.has(eventKey(calendar.calendarId, event)) ? '▾' : '▸'}
+                    </button>
+                  )}
+                  <h4>{event.title || 'Untitled event'}</h4>
+                </div>
               </div>
               <p className="fine">
                 {event.status === 'tentative' ? ' · Tentative' : ''}

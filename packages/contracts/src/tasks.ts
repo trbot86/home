@@ -27,6 +27,10 @@ export const TaskDefinitionFields = {
   cooking: Type.Optional(Type.Union([CookingPlan, Type.Null()])),
 };
 export const TaskOccurrenceFields = {
+  calendarVisible: Type.Optional(Type.Boolean()),
+  approximateDate: Type.Optional(
+    Type.Union([Type.Null(), Type.Literal('asap'), Type.Literal('week'), Type.Literal('month')]),
+  ),
   assigneeId: nullableId,
   priority: TaskPriority,
   deadlineDate: nullableDate,

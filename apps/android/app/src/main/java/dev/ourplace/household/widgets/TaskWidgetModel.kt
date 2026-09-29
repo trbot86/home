@@ -53,7 +53,7 @@ object TaskWidgetModel {
                 val detail = when {
                     attention == "overdue" -> "Past deadline · " + date("deadlineDate")
                     attention == "today" -> "Deadline today"
-                    attention == "priority" -> "Chosen priority"
+                    attention == "priority" -> "Important"
                     date("reviewDate") != null && attention == "review" -> "Revisit · " + date("reviewDate")
                     date("targetDate") != null && attention == "ready" -> "Aim for · " + date("targetDate")
                     date("deadlineDate") != null -> "Deadline · " + date("deadlineDate")

@@ -3,6 +3,7 @@ export function Icon({
   size = 20,
 }: {
   name:
+    | 'calendar'
     | 'home'
     | 'maintenance'
     | 'food'
@@ -30,6 +31,7 @@ export function Icon({
   size?: number;
 }) {
   const paths = {
+    calendar: 'M3 5h18v16H3ZM3 9h18M7 3v4m10-4v4',
     maintenance: 'M14 6a5 5 0 0 0-6 6L3 17a3 3 0 0 0 4 4l5-5a5 5 0 0 0 6-6l-3 3-4-4Z',
     shared: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21v-3a7 7 0 0 1 14 0v3M17 4a4 4 0 0 1 0 8m1 3a6 6 0 0 1 4 6',
     edit: 'm4 16 12-12 4 4-12 12-5 1Zm10-10 4 4',

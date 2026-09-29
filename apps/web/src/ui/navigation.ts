@@ -3,6 +3,7 @@ export const navigationItems = [
   { id: 'shopping', label: 'Shopping', compactLabel: 'Shopping', icon: 'shopping' },
   { id: 'tasks', label: 'Tasks', compactLabel: 'Tasks', icon: 'tasks' },
   { id: 'agenda', label: 'Agenda', compactLabel: 'Agenda', icon: 'tasks' },
+  { id: 'calendar', label: 'Calendar', compactLabel: 'Calendar', icon: 'calendar' },
   { id: 'home', label: 'Maintenance', compactLabel: 'Maintenance', icon: 'maintenance' },
   { id: 'food', label: 'Recipes', compactLabel: 'Recipes', icon: 'food' },
   { id: 'projects', label: 'Projects', compactLabel: 'Projects', icon: 'projects' },

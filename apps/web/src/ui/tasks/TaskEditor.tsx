@@ -62,6 +62,8 @@ export function TaskEditor({
     defaultPriority: String(task?.defaultPriority ?? 1),
     deadlineDate: occurrence?.deadlineDate ?? '',
     targetDate: occurrence?.targetDate ?? '',
+    approximateDate: occurrence?.approximateDate ?? '',
+    calendarVisible: occurrence?.calendarVisible === false ? 'no' : 'yes',
     reviewDate: occurrence?.reviewDate ?? '',
     repeatUnit: task?.recurrence?.unit ?? 'off',
     repeatCount: String(task?.recurrence?.count ?? 1),
@@ -86,6 +88,8 @@ export function TaskEditor({
         maintenanceAssetId: task?.maintenance?.assetId ?? asset?.recordId ?? '',
         maintenanceReference: task?.maintenance?.reference ?? '',
         cookingRecipeId: task?.cooking?.recipeId ?? recipe?.recordId ?? '',
+        approximateDate: occurrence?.approximateDate ?? '',
+        calendarVisible: occurrence?.calendarVisible === false ? 'no' : 'yes',
         ...saved,
       }),
     ),
@@ -156,7 +160,9 @@ export function TaskEditor({
         assigneeId: privateScope ? session.person.personId : form.assigneeId || null,
         priority: Number(form.priority),
         deadlineDate: form.deadlineDate || null,
-        targetDate: form.targetDate || null,
+        targetDate: form.approximateDate ? null : form.targetDate || null,
+        approximateDate: form.approximateDate || null,
+        calendarVisible: form.calendarVisible !== 'no',
         reviewDate: form.reviewDate || null,
       };
       let kind: CommandKind, args: unknown;
@@ -418,7 +424,31 @@ export function TaskEditor({
                 {priorityField('priority', 'Priority')}
               </div>
               <div className="task-form-row">
-                {field('targetDate', 'Flexible target', 'date')}
+                <label className="task-field">
+                  Timing
+                  <select
+                    aria-label="Timing"
+                    value={form.approximateDate}
+                    onChange={(e) => {
+                      buffer.field('approximateDate', e.target.value);
+                      if (e.target.value) buffer.field('targetDate', '');
+                    }}
+                  >
+                    <option value="">Specific date / no target</option>
+                    <option value="asap">ASAP</option>
+                    <option value="week">This week</option>
+                    <option value="month">This month</option>
+                  </select>
+                </label>
+                {!form.approximateDate && field('targetDate', 'Flexible target', 'date')}
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={form.calendarVisible !== 'no'}
+                    onChange={(e) => buffer.field('calendarVisible', e.target.checked ? 'yes' : 'no')}
+                  />{' '}
+                  Show dated task in Calendar
+                </label>
                 <RevisitDate
                   value={form.reviewDate}
                   targetDate={form.targetDate}

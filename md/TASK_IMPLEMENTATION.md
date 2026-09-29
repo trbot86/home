@@ -4,6 +4,32 @@ Implemented and deployed 2026-09-26, following the Shopping release. This follow
 md/DATA_MODEL.md and md/APPLICATION_CONTRACTS.md; it does not replace their wider plan.
 No additional household input is needed for the bounded work below.
 
+## Calendar and approximate planning
+
+Migration036 adds occurrence-level calendar visibility (default on) and optional
+ASAP, this-week or this-month timing. Approximate timing replaces a target date;
+it does not manufacture a calendar date. A real deadline or review date remains
+independent. Old requests omit the new fields safely, and old navigation layouts
+gain Calendar immediately after Agenda without discarding their custom order.
+
+Agenda groups tasks into Today / ASAP, This week, This month, Later and Anytime.
+Weeks run Monday through Sunday; months use calendar boundaries. Dated tasks
+precede undated tasks in each group. Important priorities use coloured tags.
+
+Calendar shows a month selector and the selected day's tasks and external events.
+An occurrence has one planned calendar date: target, otherwise deadline, otherwise
+review. Approximate occurrences and occurrences with calendar visibility disabled
+have no planned entry. Every visible completed occurrence has an entry on its
+actual completion day in the household time zone, regardless of those settings.
+Same-day planned and completed entries fold together; completion on another day
+retains the planned entry and adds the checkmarked completion. Task visibility and
+Home/Work filtering remain enforced.
+
+History and undo include both new fields. Recurrence inherits calendar visibility
+and gives the next occurrence its calculated target date. Contract, server and
+browser tests cover grouping, same-day folding, old requests, recurrence, undo,
+navigation compatibility and narrow layouts.
+
 ## Release evidence
 
 Migration005 is published and immutable. Tasks, occurrences and completions use

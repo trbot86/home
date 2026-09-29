@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   NavigationOrder,
+  completeNavigationOrder,
   navigationSections,
   isValid,
   type NavigationSection,
@@ -13,7 +14,7 @@ import { useSavedForm } from './useSavedForm.js';
 function readDraft(text: string): NavigationSection[] | null {
   try {
     const value: unknown = JSON.parse(text);
-    return isValid(NavigationOrder, value) ? value : null;
+    return isValid(NavigationOrder, value) ? completeNavigationOrder(value as NavigationSection[]) : null;
   } catch {
     return null;
   }

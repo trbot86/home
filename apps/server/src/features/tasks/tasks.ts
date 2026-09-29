@@ -87,10 +87,12 @@ export class TasksRepository {
     for (const field of ['deadlineDate', 'targetDate', 'reviewDate'])
       if (c[field] !== undefined && c[field] !== null && !isCalendarDate(String(c[field])))
         throw new Rejection('invalid_calendar_date');
+    if (kind === 'task_occurrence' && c.approximateDate && c.targetDate)
+      throw new Rejection('choose_exact_or_approximate_target');
     const rule = c.recurrence as TaskRecurrence | null | undefined;
     if (rule && !isTimeZone(rule.timeZone)) throw new Rejection('invalid_time_zone');
     return kind === 'task_occurrence'
-      ? c
+      ? { ...c, calendarVisible: c.calendarVisible ?? true, approximateDate: c.approximateDate ?? null }
       : {
           ...c,
           attachments: c.attachments ?? [],
@@ -136,6 +138,8 @@ export class TasksRepository {
         priority: data.priority,
         deadlineDate: data.deadline_date,
         targetDate: data.target_date,
+        calendarVisible: data.calendar_visible === 1,
+        approximateDate: data.approximate_date,
         reviewDate: data.review_date,
       };
     else
@@ -316,7 +320,9 @@ export class TasksRepository {
       this.recipes?.saveTaskPlan(id, c.scopeId, c.cooking as CookingPlan | null);
     } else if (kind === 'task_occurrence')
       this.db
-        .prepare("INSERT INTO task_occurrences VALUES (?,'task_occurrence',?,?,?,?,?,?,?,?,?,1)")
+        .prepare(
+          "INSERT INTO task_occurrences (occurrence_id,record_kind,scope_id,task_id,ordinal,state,assignee_id,priority,deadline_date,target_date,review_date,is_live) VALUES (?,'task_occurrence',?,?,?,?,?,?,?,?,?,1)",
+        )
         .run(
           id,
           c.scopeId,
@@ -344,6 +350,10 @@ export class TasksRepository {
           c.recurrence ? JSON.stringify(c.recurrence) : null,
           c.nextOccurrenceId,
         );
+    if (kind === 'task_occurrence')
+      this.db
+        .prepare('UPDATE task_occurrences SET calendar_visible=?,approximate_date=? WHERE occurrence_id=?')
+        .run(c.calendarVisible === false ? 0 : 1, c.approximateDate ?? null, id);
     if (kind !== 'task_occurrence')
       this.attachments.replace(context, id, c.scopeId, c.attachments as Attachment[], now, {
         creating: true,
@@ -379,9 +389,19 @@ export class TasksRepository {
         throw new Error('Occurrence identity cannot change');
       this.db
         .prepare(
-          'UPDATE task_occurrences SET state=?,assignee_id=?,priority=?,deadline_date=?,target_date=?,review_date=? WHERE occurrence_id=?',
+          'UPDATE task_occurrences SET state=?,assignee_id=?,priority=?,deadline_date=?,target_date=?,review_date=?,calendar_visible=?,approximate_date=? WHERE occurrence_id=?',
         )
-        .run(c.state, c.assigneeId, c.priority, c.deadlineDate, c.targetDate, c.reviewDate, id);
+        .run(
+          c.state,
+          c.assigneeId,
+          c.priority,
+          c.deadlineDate,
+          c.targetDate,
+          c.reviewDate,
+          c.calendarVisible === false ? 0 : 1,
+          c.approximateDate ?? null,
+          id,
+        );
     } else {
       const { deletedAt: _old, attachments: _oldAttachments, ...old } = before.content,
         { deletedAt: _next, attachments: _nextAttachments, ...next } = c;
@@ -441,6 +461,8 @@ export class TasksRepository {
         priority: a.priority,
         deadlineDate: a.deadlineDate,
         targetDate: a.targetDate,
+        calendarVisible: a.calendarVisible ?? true,
+        approximateDate: a.approximateDate ?? null,
         reviewDate: a.reviewDate,
       });
       return result();
@@ -493,7 +515,11 @@ export class TasksRepository {
     if (occurrence.state !== 'open') throw new Rejection('occurrence_not_open');
     if (kind === 'PostponeTaskOccurrence') {
       const args = payload as Command<'PostponeTaskOccurrence'>['arguments'];
-      change(before, { ...before.content, [args.field]: args.date });
+      change(before, {
+        ...before.content,
+        [args.field]: args.date,
+        ...(args.field === 'targetDate' ? { approximateDate: null } : {}),
+      });
       return result();
     }
     if (kind === 'UpdateTaskOccurrence') {
@@ -502,6 +528,7 @@ export class TasksRepository {
         expectedRevision: _revision,
         ...fields
       } = payload as Command<'UpdateTaskOccurrence'>['arguments'];
+      if (fields.targetDate && fields.approximateDate === undefined) fields.approximateDate = null;
       fields.assigneeId = this.defaultAssignee(before.content.scopeId, fields.assigneeId);
       change(before, { ...before.content, ...fields });
       return result();
@@ -535,6 +562,8 @@ export class TasksRepository {
         priority: definition.defaultPriority,
         deadlineDate: null,
         targetDate: nextDate,
+        calendarVisible: occurrence.calendarVisible ?? true,
+        approximateDate: null,
         reviewDate: null,
       });
     const person = this.db
