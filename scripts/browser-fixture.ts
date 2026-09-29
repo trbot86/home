@@ -40,6 +40,13 @@ const { app, access, recipeImports, media, writes, suggestionWork, suggestionRel
   requestLimit: 10000,
   // Synthetic provider: no network or real model account is used by browser tests.
   filingAdviceProvider: async (input) => {
+    if (input.purpose === 'ingredient_sources') {
+      if (input.choices.some((c) => c.label === 'Synthetic sourcing failure'))
+        throw Error('Synthetic failure');
+      return input.choices
+        .filter((c) => c.label.includes('Synthetic specialty ingredient'))
+        .map((c) => c.key);
+    }
     if (input.text === 'Buy synthetic retry supplies' && !failedAdviceOnce) {
       failedAdviceOnce = true;
       throw new Error('Synthetic temporary provider failure');

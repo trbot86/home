@@ -30,7 +30,7 @@ $bridgeConfig | Add-Member -NotePropertyName nodeExecutable -NotePropertyValue (
 [IO.File]::WriteAllText($configurationPath, ($bridgeConfig | ConvertTo-Json -Depth 12), [Text.UTF8Encoding]::new($false))
 $shellExecutable = (Get-Command powershell.exe -ErrorAction Stop).Source
 $bridgeScript = Join-Path $projectRoot 'scripts/run-suggestion-bridge.ps1'
-$taskAction = New-ScheduledTaskAction -Execute $shellExecutable -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -File "' + $bridgeScript + '" -Configuration "' + $configurationPath + '"') -WorkingDirectory $projectRoot
+$taskAction = New-ScheduledTaskAction -Execute (Join-Path $env:WINDIR 'System32/conhost.exe') -Argument ('--headless "' + $shellExecutable + '" -NoProfile -NonInteractive -WindowStyle Hidden -File "' + $bridgeScript + '" -Configuration "' + $configurationPath + '"') -WorkingDirectory $projectRoot
 $taskSettings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $taskTrigger = New-ScheduledTaskTrigger -AtLogOn -User ([Security.Principal.WindowsIdentity]::GetCurrent().Name)
 $taskPrincipal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited

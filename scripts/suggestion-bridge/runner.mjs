@@ -163,7 +163,8 @@ export class SuggestionRunner {
     if (!(await createOnce(join(directory, 'launch-intent.json'), { at: Date.now() }))) return true;
     const diagnostic = openSync(join(directory, 'supervisor.log'), 'a', 0o600);
     const child = spawn(process.execPath, [supervisor, directory], {
-      detached: true,
+      // Windows children already survive their parent; detached creates a console.
+      detached: process.platform !== 'win32',
       stdio: ['ignore', diagnostic, diagnostic],
       windowsHide: true,
     });

@@ -116,7 +116,7 @@ export function createBroker(config, run = dockerJob) {
       const value = JSON.parse(result);
       if (
         !Array.isArray(value.keys) ||
-        value.keys.length > 3 ||
+        value.keys.length > (request.input?.purpose === 'ingredient_sources' ? 100 : 3) ||
         value.keys.some((k) => typeof k !== 'string' || !/^(0|[1-9][0-9]{0,4})$/.test(k))
       )
         throw Error();
@@ -145,6 +145,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     throw Error('Invalid broker configuration');
   const server = createBroker(config);
   server.listen(config.port, '127.0.0.1');
+  if (process.argv.includes('--supervised')) {
+    process.stdin.once('end', () => {
+      server.closeAllConnections();
+      server.close();
+    });
+    process.stdin.resume();
+  }
   for (const signal of ['SIGTERM', 'SIGINT'])
     process.once(signal, () => {
       server.closeAllConnections();

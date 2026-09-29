@@ -102,6 +102,10 @@ export interface ClientPlatform {
     recordId: string,
     request?: import('@our-place/contracts').RecordSecurityRequest,
   ): Promise<import('@our-place/contracts').RecordSecurity>;
+  ingredientSourcing(
+    recipeId: string,
+    request?: import('@our-place/contracts').IngredientSourcingRequest,
+  ): Promise<{ review: import('@our-place/contracts').IngredientSourcingReview | null; configured: boolean }>;
   shoppingSettings(preferences?: {
     expectedRevision: number;
     preferences: import('@our-place/contracts').ShoppingPreferences;

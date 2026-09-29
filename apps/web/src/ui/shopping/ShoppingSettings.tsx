@@ -67,6 +67,18 @@ export function ShoppingSettings({ client, state }: { client: ClientPlatform; st
                 onChange={(e) => setSettings({ ...settings, location: e.target.value })}
               />
             </label>
+            <label className="task-field">
+              Default store
+              <input
+                value={settings.defaultStore ?? ''}
+                maxLength={200}
+                placeholder="Store assumed for ordinary ingredients"
+                onChange={(e) => setSettings({ ...settings, defaultStore: e.target.value })}
+              />
+            </label>
+            <p className="fine">
+              Sourcing shows exceptions to this store. Missing information keeps the default assumption.
+            </p>
             {settings.stores.map((store, index) => (
               <div className="shopping-store-setting" key={index}>
                 <label className="task-field">

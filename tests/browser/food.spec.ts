@@ -425,3 +425,55 @@ test('recipe ingredients create a named list with store-search notes and preserv
       .filter({ hasText: 'Dinner supplies' }),
   ).toHaveCount(1);
 });
+
+test('sourcing shows only exceptions, saves one default-store summary, and keeps failures distinct', async ({
+  page,
+}) => {
+  await login(page);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const settings = page.getByRole('region', { name: 'Shopping preferences' });
+  await settings.getByLabel('Default store', { exact: true }).fill('Example supermarket');
+  await settings.getByRole('button', { name: 'Save shopping preferences', exact: true }).click();
+  await expect(settings.getByRole('status')).toHaveText('Shopping preferences saved.');
+  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await manual(page, 'Sourcing example');
+  await page.getByRole('button', { name: 'Edit recipe', exact: true }).click();
+  await page.getByLabel('Ingredients', { exact: true }).fill('Flour\nSynthetic specialty ingredient');
+  await page.getByLabel('Ingredients', { exact: true }).press('Control+Enter');
+  await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
+  await page.getByLabel('Ingredient shopping list').selectOption('new');
+  const sourcing = page.getByRole('region', { name: 'Ingredient sourcing' });
+  await expect(sourcing).toContainText('Everything else is at Example supermarket.');
+  await sourcing.getByRole('button', { name: 'Suggest sourcing', exact: true }).click();
+  await expect(sourcing.getByRole('link', { name: 'Search alternatives', exact: true })).toHaveCount(1);
+  await expect(sourcing.locator('li')).toHaveText(/Synthetic specialty ingredient/);
+  await sourcing.getByRole('button', { name: 'Use sourcing notes', exact: true }).click();
+  await expect(page.getByLabel('Sourcing notes', { exact: true })).toHaveValue(
+    /Everything else is at Example supermarket/,
+  );
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
+  await expect(sourcing.getByRole('link', { name: 'Search alternatives', exact: true })).toHaveCount(1);
+  await page.getByLabel('Include Synthetic specialty ingredient', { exact: true }).uncheck();
+  await expect(page.getByRole('button', { name: 'Add 1 item to shopping', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Clear sourcing notes', exact: true }).click();
+  await sourcing.getByRole('button', { name: 'Suggest sourcing', exact: true }).click();
+  await expect(sourcing).toContainText('No likely exceptions identified.');
+  await sourcing.getByRole('button', { name: 'Use sourcing notes', exact: true }).click();
+  await expect(page.getByLabel('Sourcing notes', { exact: true })).not.toHaveValue(/specialty ingredient/);
+  await page.getByRole('button', { name: 'Add 1 item to shopping', exact: true }).click();
+  await page.getByRole('button', { name: 'Shopping', exact: true }).click();
+  await page.getByLabel('Shopping list', { exact: true }).selectOption({ label: 'Sourcing example' });
+  await expect(page.locator('.shopping-list-notes')).toContainText(
+    'Everything else is at Example supermarket',
+  );
+  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await manual(page, 'Sourcing failure example');
+  await page.getByRole('button', { name: 'Edit recipe', exact: true }).click();
+  await page.getByLabel('Ingredients', { exact: true }).fill('Synthetic sourcing failure');
+  await page.getByLabel('Ingredients', { exact: true }).press('Control+Enter');
+  await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
+  await sourcing.getByRole('button', { name: 'Suggest sourcing', exact: true }).click();
+  await expect(sourcing).toContainText('The last attempt did not finish successfully.');
+  await expect(sourcing.getByRole('button', { name: 'Use sourcing notes', exact: true })).toHaveCount(0);
+});

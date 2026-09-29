@@ -375,3 +375,30 @@ test('recipe export creates a named list and notes atomically, replays, and reve
     f.close();
   }
 });
+
+test('sourcing notes update an existing list once with the export, preserving guarded undo and redo', () => {
+  const f = fixture();
+  try {
+    const list = f.list(),
+      recipe = f.recipe(),
+      args = {
+        ...f.selection(recipe, list),
+        listNotes: 'Everything else is at Example supermarket. (Assumed.)',
+      };
+    const saved = applied(f.run('AddRecipeIngredients', args));
+    assert.equal(f.shopping.get(f.a, list).content.notes, args.listNotes);
+    const undo = applied(f.run('UndoChangeSet', { changeSetId: saved.changeSetId }));
+    assert.equal(f.shopping.get(f.a, list).content.notes, '');
+    assert.equal(f.shopping.get(f.a, list).content.deletedAt, null);
+    applied(f.run('RedoChangeSet', { changeSetId: undo.changeSetId }));
+    assert.equal(f.shopping.get(f.a, list).content.notes, args.listNotes);
+    const stale = f.run('AddRecipeIngredients', {
+      ...f.selection(recipe, list),
+      listNotes: 'Stale overwrite',
+    });
+    assert.equal(stale.status, 'Rejected');
+    assert.equal(f.shopping.get(f.a, list).content.notes, args.listNotes);
+  } finally {
+    f.close();
+  }
+});

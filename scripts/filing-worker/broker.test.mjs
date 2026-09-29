@@ -2,7 +2,59 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { once } from 'node:events';
+import { spawn } from 'node:child_process';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createServer } from 'node:net';
+import { setTimeout as delay } from 'node:timers/promises';
 import { createBroker } from './broker.mjs';
+
+test('supervised broker exits when its parent lifetime pipe closes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'our-place-broker-'));
+  const reservation = createServer().listen(0, '127.0.0.1');
+  await once(reservation, 'listening');
+  const port = reservation.address().port;
+  await new Promise((resolve) => reservation.close(resolve));
+  const config = join(root, 'broker.json');
+  await writeFile(
+    config,
+    JSON.stringify({
+      repository: root,
+      docker: process.execPath,
+      port,
+      token: randomBytes(32).toString('base64url'),
+    }),
+  );
+  const child = spawn(
+    process.execPath,
+    [fileURLToPath(new URL('./broker.mjs', import.meta.url)), config, '--supervised'],
+    {
+      windowsHide: true,
+      stdio: ['pipe', 'ignore', 'pipe'],
+    },
+  );
+  const exited = once(child, 'exit');
+  try {
+    let ready = false;
+    for (let i = 0; i < 100 && !ready; i++) {
+      try {
+        ready = (await fetch(`http://127.0.0.1:${port}`)).status === 403;
+      } catch {
+        await delay(25);
+      }
+    }
+    assert(ready, 'Broker must listen before its supervisor exits');
+    child.stdin.end();
+    const result = await Promise.race([exited, delay(5000).then(() => null)]);
+    assert.deepEqual(result, [0, null]);
+  } finally {
+    if (child.exitCode === null) child.kill();
+    await exited;
+    await rm(root, { recursive: true, force: true });
+  }
+});
 test('broker requires its private token, bounds concurrency, and cancels a disconnected job', async () => {
   const token = randomBytes(32).toString('base64url');
   let calls = 0,

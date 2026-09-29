@@ -9,7 +9,8 @@ if ($existing -and $existing.Description -ne $description) { throw 'Scheduled ta
 $nodePath = (Get-Command node).Source
 $wrapper = Join-Path $PSScriptRoot 'run-secondary-backups.ps1'
 $arguments = '-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $wrapper + '" -NodePath "' + $nodePath + '"'
-$action = New-ScheduledTaskAction -Execute (Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe') -Argument $arguments -WorkingDirectory $projectRoot
+$shellExecutable = Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe'
+$action = New-ScheduledTaskAction -Execute (Join-Path $env:WINDIR 'System32/conhost.exe') -Argument ('--headless "' + $shellExecutable + '" ' + $arguments) -WorkingDirectory $projectRoot
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Hours 1)
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
 $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited

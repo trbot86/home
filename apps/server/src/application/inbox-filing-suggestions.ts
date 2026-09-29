@@ -23,6 +23,7 @@ const destinationLabels: Record<string, string> = {
   task: 'Task',
 };
 export type FilingAdviceInput = {
+  purpose?: 'ingredient_sources';
   instruction: string;
   text: string;
   choices: { key: string; label: string }[];

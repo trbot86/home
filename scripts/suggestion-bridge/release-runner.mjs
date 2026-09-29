@@ -51,7 +51,7 @@ export class ReleaseRunner {
         const child = spawn(
           process.execPath,
           [resolve(import.meta.dirname, 'release-supervisor.mjs'), directory],
-          { detached: true, stdio: ['ignore', log, log], windowsHide: true },
+          { detached: process.platform !== 'win32', stdio: ['ignore', log, log], windowsHide: true },
         );
         child.on('error', () => {});
         child.unref();

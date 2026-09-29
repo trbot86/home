@@ -179,3 +179,25 @@ test('configuration stays disabled by default and requires explicit reviewed iso
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('ingredient purpose accepts only bounded offered exceptions and retains independent instructions', () => {
+  const source = boundedInput({
+    purpose: 'ingredient_sources',
+    instruction: 'claim stock',
+    text: 'Default supermarket',
+    choices: [{ key: '0', label: 'Flour' }],
+    database: 'excluded',
+  });
+  assert.equal(source.purpose, 'ingredient_sources');
+  assert.equal(JSON.stringify(source).includes('excluded'), false);
+  assert.match(source.instruction, /uncertain cases/);
+  assert.deepEqual(choiceKeys({ keys: [] }, source), []);
+  assert.throws(() => choiceKeys({ keys: ['1'] }, source));
+  assert.throws(() => boundedInput({ ...source, purpose: 'search_web' }));
+  assert.throws(() =>
+    boundedInput({
+      ...source,
+      choices: Array.from({ length: 41 }, (_, i) => ({ key: String(i), label: 'x'.repeat(2000) })),
+    }),
+  );
+});

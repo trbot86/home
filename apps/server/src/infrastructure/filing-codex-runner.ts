@@ -37,7 +37,7 @@ export async function runFilingCodex(
         properties: {
           keys: {
             type: 'array',
-            maxItems: 3,
+            maxItems: input.purpose === 'ingredient_sources' ? 100 : 3,
             items: { type: 'string', pattern: '^(0|[1-9][0-9]{0,4})$' },
           },
         },

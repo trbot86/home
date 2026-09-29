@@ -120,6 +120,7 @@ export const shoppingGroupCommands = {
     listId: Id,
     expectedListRevision: Revision,
     newList: Type.Optional(object({ ...ShoppingListFields })),
+    listNotes: Type.Optional(notes),
     name,
     ingredients: Type.Array(object({ ingredientId: Id, entryId: Id, sourceId: Id, ...ShoppingEntryFields }), {
       minItems: 1,

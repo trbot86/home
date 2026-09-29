@@ -24,6 +24,7 @@ import type {
 } from '@our-place/contracts';
 type NativeMethod =
   | 'recordSecurity'
+  | 'ingredientSourcing'
   | 'shoppingSettings'
   | 'filingAdviceSettings'
   | 'saveFilingAdviceSettings'
@@ -84,6 +85,15 @@ export class AndroidClient implements ClientPlatform {
     request?: import('@our-place/contracts').RecordSecurityRequest,
   ): Promise<import('@our-place/contracts').RecordSecurity> {
     return this.invoke('recordSecurity', { recordId, ...(request ? { request } : {}) });
+  }
+  ingredientSourcing(
+    recipeId: string,
+    request?: import('@our-place/contracts').IngredientSourcingRequest,
+  ): Promise<{
+    review: import('@our-place/contracts').IngredientSourcingReview | null;
+    configured: boolean;
+  }> {
+    return this.invoke('ingredientSourcing', { recipeId, request });
   }
   shoppingSettings(request?: {
     expectedRevision: number;

@@ -56,6 +56,18 @@ export class BrowserClient implements ClientPlatform {
       ? this.post(path, request, this.requireSession().clientId)
       : this.request(path, {}, this.requireSession().clientId);
   }
+  ingredientSourcing(
+    recipeId: string,
+    request?: import('@our-place/contracts').IngredientSourcingRequest,
+  ): Promise<{
+    review: import('@our-place/contracts').IngredientSourcingReview | null;
+    configured: boolean;
+  }> {
+    const path = `/recipes/${encodeURIComponent(recipeId)}/sourcing`;
+    return request
+      ? this.post(path, request, this.requireSession().clientId)
+      : this.request(path, {}, this.requireSession().clientId);
+  }
   shoppingSettings(request?: {
     expectedRevision: number;
     preferences: import('@our-place/contracts').ShoppingPreferences;

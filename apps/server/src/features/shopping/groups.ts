@@ -244,7 +244,24 @@ export class ShoppingGroupsRepository {
             ),
           );
         }
-      return { records, changes: records.map((after) => ({ before: null, after })) };
+      const result: RecordMutation = { records, changes: records.map((after) => ({ before: null, after })) };
+      if (kind === 'AddRecipeIngredients' && args.listNotes !== undefined && !args.newList) {
+        const update = this.shopping.execute(
+          context,
+          'UpdateShoppingList',
+          {
+            recordId: list.recordId,
+            expectedRevision: list.revision,
+            name: list.content.name,
+            purpose: list.content.purpose,
+            notes: args.listNotes,
+          },
+          now,
+        );
+        result.records.push(...update.records);
+        result.changes.push(...update.changes);
+      }
+      return result;
     }
     const args = payload as Command<'DeleteShoppingGroup'>['arguments'];
     const before = this.get(context, args.recordId);

@@ -3,6 +3,7 @@ import { Type } from '@sinclair/typebox';
 import { ShoppingPreferences, isValid, type ShoppingSettings } from '@our-place/contracts';
 import type { Sqlite } from '../infrastructure/database.js';
 import type { HumanRequestContext } from '../features/access/access.js';
+import { isDeepStrictEqual } from 'node:util';
 import { Rejection } from './errors.js';
 
 const saveSchema = Type.Object(
@@ -30,14 +31,25 @@ export function registerShoppingPreferencesRoutes(
   app.post('/api/shopping/settings', async (request) => {
     const { personId } = authenticate(request);
     if (!isValid(saveSchema, request.body)) throw new Rejection('invalid_shopping_settings');
-    const { expectedRevision, preferences } = request.body;
+    const { expectedRevision } = request.body;
+    const preferences = { ...request.body.preferences };
+    // Preserve defaults when an older client edits other preferences.
+    if (preferences.defaultStore === undefined && settings(personId).defaultStore !== undefined)
+      preferences.defaultStore = settings(personId).defaultStore!;
     if (preferences.stores.some((store) => !store.name.trim())) throw new Rejection('store_name_required');
     return db.transaction(() => {
       const current = settings(personId);
       // A lost response can be retried without creating another revision.
       if (
         current.revision === expectedRevision + 1 &&
-        JSON.stringify({ location: current.location, stores: current.stores }) === JSON.stringify(preferences)
+        isDeepStrictEqual(
+          {
+            location: current.location,
+            stores: current.stores,
+            ...(current.defaultStore !== undefined ? { defaultStore: current.defaultStore } : {}),
+          },
+          preferences,
+        )
       )
         return current;
       if (current.revision !== expectedRevision) throw new Rejection('revision_conflict');

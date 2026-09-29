@@ -1,3 +1,4 @@
+import { IngredientSourcing } from './IngredientSourcing.js';
 import { IngredientStores } from './IngredientStores.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
@@ -63,6 +64,8 @@ export function RecipeShopping({
       newListId: crypto.randomUUID(),
       newListName: recipe.title,
       buyingNotes: '',
+      sourcingNotes: '',
+      sourcingSelection: '',
       listRevision: String(lists[0]?.revision ?? 1),
       selection: JSON.stringify(
         recipe.ingredients.map((i) => ({
@@ -79,7 +82,14 @@ export function RecipeShopping({
     recipe.revision,
     session.serverEpoch,
     onError,
-    (saved) => ({ newListId: crypto.randomUUID(), newListName: recipe.title, buyingNotes: '', ...saved }),
+    (saved) => ({
+      sourcingSelection: '',
+      sourcingNotes: '',
+      newListId: crypto.randomUUID(),
+      newListName: recipe.title,
+      buyingNotes: '',
+      ...saved,
+    }),
   );
   const form = buffer.values,
     rows = readSelection(form.selection),
@@ -95,12 +105,26 @@ export function RecipeShopping({
       recipe.deletedAt !== null ||
       session.serverEpoch !== buffer.epoch ||
       (list && list.revision !== Number(form.listRevision));
+  const sourcingKey = JSON.stringify({
+    revision: recipe.revision,
+    ids: chosen.map((i) => i.ingredientId).sort(),
+  });
+  const sourcingStale = !!form.sourcingNotes && form.sourcingSelection !== sourcingKey;
+  const newListNotes = [form.buyingNotes, form.sourcingNotes].filter(Boolean).join('\n\n');
+  const existingListNotes = [list?.notes, `${recipe.title}:\n${form.sourcingNotes}`]
+    .filter(Boolean)
+    .join('\n\n');
+  const notesTooLong =
+    newListNotes.length > 10000 ||
+    (form.listId !== 'new' && !!form.sourcingNotes && existingListNotes.length > 10000);
   const valid =
+    !sourcingStale &&
     (form.listId === 'new' ? !!form.newListName.trim() : !!list) &&
     !!rows &&
     chosen.length > 0 &&
     chosen.length <= 100 &&
     !!form.name.trim() &&
+    !notesTooLong &&
     chosen.every((i) => i.label.trim() && i.label.length <= 300 && i.quantity.length <= 120);
   async function finish() {
     if (finished.current) return;
@@ -141,7 +165,18 @@ export function RecipeShopping({
           listId: form.listId === 'new' ? form.newListId : form.listId,
           expectedListRevision: form.listId === 'new' ? 1 : Number(form.listRevision),
           ...(form.listId === 'new'
-            ? { newList: { name: form.newListName, purpose: 'groceries', notes: form.buyingNotes } }
+            ? {
+                newList: {
+                  name: form.newListName,
+                  purpose: 'groceries',
+                  notes: newListNotes,
+                },
+              }
+            : {}),
+          ...(form.listId !== 'new' && form.sourcingNotes
+            ? {
+                listNotes: existingListNotes,
+              }
             : {}),
           name: form.name,
           ingredients: chosen.map(({ ingredientId, entryId, sourceId, label, quantity }) => ({
@@ -227,6 +262,38 @@ export function RecipeShopping({
               />
             </label>
           )}
+          <IngredientSourcing
+            client={client}
+            recipe={recipe}
+            ingredientIds={chosen.map((i) => i.ingredientId)}
+            online={state.online}
+            onUse={(text) => {
+              buffer.field('sourcingNotes', text);
+              buffer.field('sourcingSelection', sourcingKey);
+            }}
+          />
+          {sourcingStale && (
+            <p role="alert">
+              The ingredient selection changed. Update or clear the sourcing notes before adding these items.
+            </p>
+          )}
+          {form.sourcingNotes && (
+            <button type="button" onClick={() => buffer.field('sourcingNotes', '')}>
+              Clear sourcing notes
+            </button>
+          )}
+          {form.sourcingNotes && (
+            <label className="task-field">
+              Sourcing notes
+              <textarea
+                aria-label="Sourcing notes"
+                value={form.sourcingNotes}
+                maxLength={8000}
+                rows={3}
+                onChange={(e) => buffer.field('sourcingNotes', e.target.value)}
+              />
+            </label>
+          )}
           <IngredientStores
             client={client}
             ingredients={chosen.map((row) => row.label)}
@@ -308,6 +375,9 @@ export function RecipeShopping({
         <p className="fine">
           Original ingredient text is kept. Quantities aren’t guessed, combined or scaled.
         </p>
+        {notesTooLong && (
+          <p role="alert">The combined list notes are too long. Shorten the notes or choose a new list.</p>
+        )}
         {chosen.length > 100 && (
           <p role="alert" className="notice">
             Choose up to 100 ingredients at a time.
