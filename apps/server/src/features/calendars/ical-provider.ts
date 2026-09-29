@@ -1,5 +1,5 @@
 import { Worker } from 'node:worker_threads';
-import { createRequire } from 'node:module';
+import { createRequire as calendarRequire } from 'node:module';
 import { isTimeZone } from '@our-place/contracts';
 import {
   CalendarProviderError,
@@ -70,7 +70,7 @@ export function parseIcal(
     }
     const worker = new Worker(parser, {
       eval: true,
-      workerData: { body, window, module: createRequire(import.meta.url).resolve('node-ical') },
+      workerData: { body, window, module: calendarRequire(import.meta.url).resolve('node-ical') },
       resourceLimits: { maxOldGenerationSizeMb: 96, stackSizeMb: 4 },
     });
     const fail = () => finish(null);

@@ -12,7 +12,7 @@ Counts the working source tree, including tests, documentation and configuration
 | Gradle | 6 | 18 | 8 | 116 |
 | HTML | 2 | 0 | 0 | 62 |
 | Java | 1 | 2 | 0 | 30 |
-| JavaScript | 67 | 79 | 106 | 7852 |
+| JavaScript | 67 | 79 | 107 | 7856 |
 | JSON | 22 | 0 | 0 | 2947 |
 | Kotlin | 27 | 66 | 23 | 1902 |
 | Markdown | 56 | 1908 | 0 | 6086 |
@@ -26,4 +26,4 @@ Counts the working source tree, including tests, documentation and configuration
 | TypeScript | 302 | 628 | 370 | 57865 |
 | XML | 19 | 12 | 3 | 393 |
 | YAML | 7 | 0 | 5 | 291 |
-| Total | 586 | 2790 | 699 | 84069 |
+| Total | 586 | 2790 | 700 | 84073 |
