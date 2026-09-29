@@ -10,6 +10,7 @@ import { CalendarBrowserHandoff } from './browser-handoff.js';
 import { CalendarSynchronizer } from './synchronizer.js';
 import type { CalendarConfiguration } from './configuration.js';
 import { CalendarWorker } from './worker.js';
+import { IcalSubscriptions } from './ical-subscriptions.js';
 
 const cookieName = 'our_place_calendar_browser';
 const finishSchema = Type.Object({ handoffId: Id }, { additionalProperties: false });
@@ -28,9 +29,16 @@ export function registerCalendarRoutes(
     configuration &&
     new CalendarAuthorizationService(db, calendars, configuration.secrets, configuration.authorization, now);
   const handoff = auth && configuration && new CalendarBrowserHandoff(db, auth, configuration.secrets, now);
-  const sync = auth && configuration && new CalendarSynchronizer(db, calendars, auth, configuration.events);
-  const worker =
-    sync && new CalendarWorker(calendars, sync, now, () => app.log.error('Calendar refresh interrupted'));
+  const feeds = new IcalSubscriptions(db, calendars);
+  const sync = new CalendarSynchronizer(
+    db,
+    calendars,
+    feeds.credentials(auth),
+    feeds.events(configuration?.events),
+  );
+  const worker = new CalendarWorker(calendars, sync, now, () =>
+    app.log.error('Calendar refresh interrupted'),
+  );
   app.addHook('onListen', async () => {
     worker?.start();
   });
@@ -50,6 +58,7 @@ export function registerCalendarRoutes(
     const context = authenticate(request);
     return {
       configured: !!configuration,
+      icalAvailable: true,
       connections: calendars.ownerConnections(context).map((c) => ({
         ...c,
         calendars: calendars
@@ -58,6 +67,23 @@ export function registerCalendarRoutes(
       })),
     };
   });
+  app.post(
+    '/api/calendars/ical',
+    { logLevel: 'silent', config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request) => {
+      const context = authenticate(request);
+      const schema = Type.Object(
+        {
+          label: Type.String({ minLength: 1, maxLength: 300 }),
+          url: Type.String({ minLength: 1, maxLength: 4096 }),
+        },
+        { additionalProperties: false },
+      );
+      if (!isValid(schema, request.body) || !request.body.label.trim())
+        throw new Rejection('invalid_calendar_connection');
+      return track(feeds.connect(context, request.body.label.trim(), request.body.url, abort.signal));
+    },
+  );
   app.post(
     '/api/calendars/authorization/begin',
     { config: { rateLimit: { max: 15, timeWindow: '1 minute' } } },
@@ -120,7 +146,22 @@ export function registerCalendarRoutes(
       const context = authenticate(request);
       if (!calendars.ownerConnections(context).some((c) => c.connectionId === request.params.id))
         throw new NotFound();
-      return await track(enabled().sync.discover(request.params.id, abort.signal));
+      const outcome = await track(sync.discover(request.params.id, abort.signal));
+      if (outcome.status === 'applied') {
+        const day = 86400000,
+          midnight = Math.floor(now() / day) * day;
+        for (const calendar of calendars.ownerCalendars(context, request.params.id)) {
+          if (calendar.scopeId)
+            await track(
+              sync.refresh(
+                calendar.calendarId,
+                { from: midnight - 8 * day, until: midnight + 62 * day },
+                abort.signal,
+              ),
+            );
+        }
+      }
+      return outcome;
     },
   );
   return {

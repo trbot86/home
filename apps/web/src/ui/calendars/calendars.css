@@ -23,6 +23,23 @@
 .calendar-connect label {
   flex: 1;
 }
+.calendar-ical {
+  display: grid;
+  align-items: stretch;
+  margin-bottom: 1.5rem;
+}
+.calendar-ical button {
+  justify-self: start;
+}
+.calendar-oauth {
+  margin: 1rem 0;
+}
+.calendar-settings summary {
+  cursor: pointer;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 9px 12px;
+}
 .calendar-settings input,
 .calendar-settings select {
   width: 100%;

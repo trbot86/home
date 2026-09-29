@@ -23,6 +23,10 @@ function connectionError(error: unknown) {
   if (code === 'calendar_authentication_required')
     return 'Google access could not be verified. Start again and allow the requested calendar access.';
   if (code === 'calendar_not_configured') return 'Google Calendar has not been set up on this server yet.';
+  if (code === 'calendar_calendar_unavailable')
+    return 'Could not read that calendar. Use the Secret address in iCal format from Google Calendar, and check that it has not been reset.';
+  if (code === 'calendar_invalid_provider_response' || code === 'calendar_calendar_limit')
+    return 'This calendar feed could not be imported safely. Its format or size is not supported; no existing events were replaced.';
   return 'Could not reach the calendar service. Your saved household data is unchanged; try again when connected.';
 }
 export function CalendarSettings({
@@ -34,6 +38,8 @@ export function CalendarSettings({
   state: ClientState;
   run: RunRecordCommand;
 }) {
+  const [feedLabel, setFeedLabel] = useState(''),
+    [feedUrl, setFeedUrl] = useState('');
   const [settings, setSettings] = useState<Settings | null>(null),
     [busy, setBusy] = useState(false),
     [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading'),
@@ -148,7 +154,7 @@ export function CalendarSettings({
     <section className="calendar-settings" aria-labelledby="calendar-settings-title">
       <div className="section-heading">
         <div>
-          <h2 id="calendar-settings-title">Google Calendar</h2>
+          <h2 id="calendar-settings-title">Calendars</h2>
         </div>
         <Icon name="tasks" size={26} />
       </div>
@@ -170,7 +176,7 @@ export function CalendarSettings({
       {!browser ? (
         <>
           <p>
-            Use your browser to connect Google securely. Select {person.displayName} there before connecting;
+            Use your browser to add a calendar securely. Select {person.displayName} there before connecting;
             your Android drafts stay here.
           </p>
           {externalUrl && (
@@ -225,39 +231,103 @@ export function CalendarSettings({
               </div>
             )
           )}
-          <form
-            className="calendar-connect"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!available || busy || !label.trim()) return;
-              void act(() => begin());
-            }}
-          >
-            <label>
-              Account label
-              <input
-                value={label}
-                maxLength={300}
-                disabled={!available || busy}
-                aria-describedby="calendar-connect-help"
-                onChange={(e) => setLabel(e.target.value)}
-                placeholder="e.g. Personal or Work"
-              />
-            </label>
-            <button
-              className="primary"
-              aria-describedby="calendar-connect-help"
-              disabled={!available || busy || !label.trim()}
+          {settings?.icalAvailable && client.connectIcal && (
+            <form
+              className="calendar-connect calendar-ical"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (busy || !state.online || !feedUrl.trim() || !feedLabel.trim()) return;
+                void act(async () => {
+                  await client.connectIcal!({ label: feedLabel.trim(), url: feedUrl.trim() });
+                  setFeedUrl('');
+                  setFeedLabel('');
+                  await reload();
+                  setNotice('Calendar added. Choose its visibility below to show events in your agenda.');
+                });
+              }}
             >
-              Connect Google account
-            </button>
-          </form>
-          <p id="calendar-connect-help" className="calendar-message" role="status">
-            {connectHelp}
-          </p>
-          {state.online && loadState === 'ready' && !settings?.configured && (
-            <CalendarSetupGuide busy={busy} reload={() => void act(reload)} />
+              <h3>Add a Google iCal calendar</h3>
+              <p className="fine">
+                No API account or billing setup. Read-only; refreshes about every 10 minutes. Edit events in
+                Google Calendar.
+              </p>
+              <details>
+                <summary>Where to find the iCal link</summary>
+                <p>
+                  On a computer, open Google Calendar → Settings → choose your calendar → Integrate calendar →
+                  Secret address in iCal format. Work administrators may disable this option.
+                </p>
+                <p>
+                  Keep the link private: anyone holding it can read that calendar. It is saved only on the
+                  household server and in its private backups, not in shared calendar data or phone caches.
+                </p>
+              </details>
+              <label>
+                Calendar label
+                <input
+                  value={feedLabel}
+                  onChange={(e) => setFeedLabel(e.target.value)}
+                  maxLength={300}
+                  disabled={busy || !state.online}
+                  placeholder="Personal or Work"
+                />
+              </label>
+              <label>
+                Secret iCal link
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={feedUrl}
+                  onChange={(e) => setFeedUrl(e.target.value)}
+                  maxLength={4096}
+                  disabled={busy || !state.online}
+                  spellCheck={false}
+                />
+              </label>
+              <button
+                className="primary"
+                disabled={busy || !state.online || !feedLabel.trim() || !feedUrl.trim()}
+              >
+                {busy ? 'Working…' : 'Add iCal calendar'}
+              </button>
+            </form>
           )}
+          <details className="calendar-oauth" open={!settings?.icalAvailable || !!settings?.configured}>
+            <summary>Connect through Google instead (advanced setup)</summary>
+            <form
+              className="calendar-connect"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!available || busy || !label.trim()) return;
+                void act(() => begin());
+              }}
+            >
+              <label>
+                Account label
+                <input
+                  value={label}
+                  maxLength={300}
+                  disabled={!available || busy}
+                  aria-describedby="calendar-connect-help"
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="e.g. Personal or Work"
+                />
+              </label>
+              <button
+                className="primary"
+                aria-describedby="calendar-connect-help"
+                disabled={!available || busy || !label.trim()}
+              >
+                Connect Google account
+              </button>
+            </form>
+            <p id="calendar-connect-help" className="calendar-message" role="status">
+              {connectHelp}
+            </p>
+            {state.online && loadState === 'ready' && !settings?.configured && (
+              <CalendarSetupGuide busy={busy} reload={() => void act(reload)} />
+            )}
+          </details>
           {state.online && loadState === 'error' && (
             <button disabled={busy} onClick={() => void act(reload)}>
               Try loading calendar settings again
@@ -271,9 +341,16 @@ export function CalendarSettings({
                   <div className="section-heading">
                     <h3>{connection.label}</h3>
                     <span className="calendar-state">
-                      {connection.state === 'needs_auth' ? 'Reconnect needed' : 'Connected'}
+                      {connection.state === 'needs_auth'
+                        ? 'Reconnect needed'
+                        : connection.transport === 'ical'
+                          ? 'iCal · read-only'
+                          : 'Connected'}
                     </span>
                   </div>
+                  {connection.transport === 'ical' && connection.state === 'needs_auth' && (
+                    <p>Disconnect this feed and add its current secret iCal link again.</p>
+                  )}
                   {connection.errorCode && (
                     <p className="calendar-message" role="status">
                       {connection.state === 'needs_auth'
@@ -285,7 +362,7 @@ export function CalendarSettings({
                     <p className="fine">Last checked {date(connection.lastAttemptAt)}</p>
                   )}
                   <div className="calendar-actions">
-                    {connection.state === 'needs_auth' ? (
+                    {connection.state === 'needs_auth' && connection.transport !== 'ical' ? (
                       <button
                         disabled={busy || !available}
                         onClick={() =>
@@ -301,7 +378,7 @@ export function CalendarSettings({
                       </button>
                     ) : (
                       <button
-                        disabled={busy || !available}
+                        disabled={busy || !state.online || (connection.transport !== 'ical' && !available)}
                         onClick={() =>
                           void act(async () => {
                             await client.discoverCalendars!(connection.connectionId);

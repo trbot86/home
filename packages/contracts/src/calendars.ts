@@ -16,8 +16,10 @@ export const calendarCommands = {
 } as const;
 export type CalendarSettings = {
   configured: boolean;
+  icalAvailable?: boolean;
   connections: {
     connectionId: string;
+    transport?: 'oauth' | 'ical';
     label: string;
     state: 'active' | 'needs_auth' | 'disconnected';
     generation: number;

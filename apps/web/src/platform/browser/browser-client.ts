@@ -195,6 +195,9 @@ export class BrowserClient implements ClientPlatform {
   calendarSettings(): Promise<CalendarSettings> {
     return this.request('/calendars/settings', {}, this.requireSession().clientId);
   }
+  connectIcal(input: { label: string; url: string }): Promise<{ connectionId: string }> {
+    return this.post('/calendars/ical', input, this.requireSession().clientId);
+  }
   beginCalendarConnection(
     input: BeginCalendarConnection,
   ): Promise<{ authorizationUrl: string; expiresAt: number }> {

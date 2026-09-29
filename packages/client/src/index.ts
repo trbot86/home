@@ -170,6 +170,7 @@ export interface ClientPlatform {
   createBackup(): Promise<void>;
   /** Account setup uses the system browser on Android; these methods are browser-only. */
   calendarSettings?(): Promise<CalendarSettings>;
+  connectIcal?(input: { label: string; url: string }): Promise<{ connectionId: string }>;
   beginCalendarConnection?(
     input: BeginCalendarConnection,
   ): Promise<{ authorizationUrl: string; expiresAt: number }>;

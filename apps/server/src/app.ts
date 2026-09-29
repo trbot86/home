@@ -303,7 +303,7 @@ export async function buildApp(options: AppOptions) {
       recipeImports: recipeImports.snapshot(context),
       views: views.snapshot(context),
       suggestions: suggestions.snapshot(context),
-      agenda: calendars.agenda(context, !!options.calendars),
+      agenda: calendars.agenda(context, true),
     };
   });
   app.get<{ Params: { id: string } }>('/api/recipe-imports/:id', async (request) =>

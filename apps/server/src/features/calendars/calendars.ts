@@ -25,6 +25,7 @@ type ConnectionRow = {
   connection_id: string;
   owner_person_id: string;
   provider: 'google';
+  transport: 'oauth' | 'ical';
   label: string;
   credential_ref: string | null;
   state: 'active' | 'needs_auth' | 'disconnected';
@@ -191,6 +192,7 @@ export class CalendarsRepository {
         .all(context.personId) as ConnectionRow[]
     ).map((row) => ({
       connectionId: row.connection_id,
+      transport: row.transport,
       label: row.label,
       state: row.state,
       generation: row.generation,

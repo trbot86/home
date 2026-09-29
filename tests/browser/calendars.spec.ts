@@ -2,6 +2,34 @@ import { expect, test, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { addCalendarDate, calendarDateAt } from '../../packages/contracts/src/index.js';
 
+test('iCal setup works without OAuth configuration and clears the secret after submission', async ({
+  page,
+}) => {
+  await page.route('**/api/calendars/settings', (route) =>
+    route.fulfill({ json: { configured: false, icalAvailable: true, connections: [] } }),
+  );
+  let submitted: unknown;
+  await page.route('**/api/calendars/ical', async (route) => {
+    submitted = route.request().postDataJSON();
+    await route.fulfill({ json: { connectionId: randomUUID() } });
+  });
+  await page.goto('/?settings=calendars');
+  await page.getByRole('button', { name: 'Alex', exact: true }).click();
+  const form = page.locator('.calendar-ical');
+  await expect(form.getByRole('button', { name: 'Add iCal calendar' })).toBeDisabled();
+  await form.getByLabel('Calendar label', { exact: true }).fill('Personal feed');
+  const secret = 'https://calendar.google.com/calendar/ical/fixture%40example.com/private-fixture/basic.ics';
+  await form.getByLabel('Secret iCal link').fill(secret);
+  await form.getByRole('button', { name: 'Add iCal calendar' }).click();
+  await expect(form.getByLabel('Secret iCal link')).toHaveValue('');
+  expect(submitted).toEqual({ label: 'Personal feed', url: secret });
+  await expect(
+    page.getByText('Calendar added. Choose its visibility below to show events in your agenda.'),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 async function consent(page: Page) {
   const appOrigin = new URL(page.url()).origin,
     code = randomUUID();

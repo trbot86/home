@@ -161,7 +161,7 @@ test('calendar settings reports unconfigured truthfully and native account setup
   const f = await fixture(false);
   try {
     const view = await f.app.inject({ url: '/api/calendars/settings', headers: f.a.headers });
-    assert.deepEqual(view.json(), { configured: false, connections: [] });
+    assert.deepEqual(view.json(), { configured: false, icalAvailable: true, connections: [] });
     assert.equal(
       (await f.post('/api/calendars/authorization/begin', { label: 'Fixture' })).json().code,
       'calendar_not_configured',
