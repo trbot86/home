@@ -74,7 +74,7 @@ try {
   const feed = async () => {
     await page.getByRole('button', { name: 'Recently done', exact: true }).click();
     await page.getByLabel('Search activity').fill('Native activity');
-    await page.locator('h1').click();
+    await page.locator('main').click({ position: { x: 1, y: 1 } });
   };
   const cards = page.locator('.activity-card');
   const maintenance = cards.filter({

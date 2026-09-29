@@ -161,9 +161,10 @@ test('shopping and nested project filing preserve full source text; existing lin
   await saved(page);
   await expect(card.locator('.entry-text')).toHaveText(text);
   await card.getByRole('button', { name: 'Shopping item: Filing brush heads', exact: true }).click();
-  await expect(page.locator('.shopping-row').filter({ hasText: 'Filing brush heads' })).toContainText(
-    'Original note: Filing long shopping capture',
-  );
+  await page.getByRole('button', { name: 'Edit Filing brush heads', exact: true }).click();
+  await page.getByRole('dialog').getByText('Source note', { exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Original note: Filing long shopping capture');
+  await page.getByRole('button', { name: 'Close shopping dialog' }).click();
   await page.getByRole('button', { name: 'Inbox', exact: true }).click();
   dialog = await file(page, text);
   await dialog.getByLabel('Filing destination').selectOption('project');

@@ -12,7 +12,9 @@ async function newList(page: Page, name: string, privateList = false) {
   await page.getByRole('button', { name: 'New list', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Name', { exact: true }).fill(name);
-  await dialog.getByLabel('Who can see this', { exact: true }).selectOption({ label: privateList ? 'Just me' : 'Shared' });
+  await dialog
+    .getByLabel('Who can see this', { exact: true })
+    .selectOption({ label: privateList ? 'Just me' : 'Shared' });
   await dialog.getByLabel('Name', { exact: true }).press('Control+Enter');
   await expect(dialog).not.toBeVisible();
   await page
@@ -39,7 +41,9 @@ test('named shopping groups can be renamed, searched, rearranged and restored wi
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill('Garden');
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).press('Control+Enter');
   await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Edit Seeds', exact: true }).click();
   await page.getByLabel('Group for Seeds', { exact: true }).selectOption({ label: 'Garden' });
+  await page.getByRole('button', { name: 'Close shopping dialog' }).click();
   const group = page.locator('.shopping-group');
   await expect(group).not.toHaveAttribute('open', '');
   await page.getByLabel('Search shopping').fill('Seeds');
@@ -49,7 +53,9 @@ test('named shopping groups can be renamed, searched, rearranged and restored wi
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).press('Control+Enter');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(group.locator('summary').first()).toContainText('Planting supplies');
+  await page.getByRole('button', { name: 'Edit Seeds', exact: true }).click();
   await page.getByLabel('Group for Seeds', { exact: true }).selectOption('');
+  await page.getByRole('button', { name: 'Close shopping dialog' }).click();
   await expect(group).toHaveCount(0);
   await page.getByLabel('Search shopping').fill('');
   await expect(group).toHaveCount(1);
@@ -72,16 +78,24 @@ test('shopping purchase undo, restocking, details, privacy and narrow layouts', 
   await openShopping(page);
   await newList(page, 'Weekly groceries');
   let row = await add(page, 'Apples', '6');
-  await row.getByRole('button', { name: 'Edit', exact: true }).click();
+  await row.getByRole('button', { name: 'Edit Apples', exact: true }).click();
   await page.getByRole('dialog').getByLabel('Notes', { exact: true }).fill('Crisp, for lunch boxes');
   await page.getByRole('dialog').getByLabel('Notes', { exact: true }).press('Control+Enter');
   await expect(page.getByRole('dialog')).not.toBeVisible();
-  await expect(row).toContainText('Crisp, for lunch boxes');
+  await expect(row).not.toContainText('Crisp, for lunch boxes');
+  await expect(row.getByLabel('Has description')).toBeVisible();
+  await row.getByRole('button', { name: 'Edit Apples', exact: true }).click();
+  await expect(page.getByRole('dialog').getByLabel('Notes', { exact: true })).toHaveValue(
+    'Crisp, for lunch boxes',
+  );
+  await page.getByRole('button', { name: 'Close shopping dialog' }).click();
   await row.getByRole('button', { name: 'Bought Apples' }).click();
   await expect(row).toHaveCount(0);
   await page.getByRole('button', { name: 'Purchased', exact: true }).click();
   row = page.locator('.shopping-row').filter({ hasText: 'Apples' });
-  await expect(row).toContainText('Bought by Alex');
+  await row.getByRole('button', { name: 'Edit Apples', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Bought by Alex');
+  await page.getByRole('button', { name: 'Close shopping dialog' }).click();
   await page.getByRole('button', { name: 'Dismiss confirmation' }).click();
   await page.keyboard.press('Control+z');
   await expect(row).toHaveCount(0);
@@ -92,7 +106,10 @@ test('shopping purchase undo, restocking, details, privacy and narrow layouts', 
 
   await page.getByRole('button', { name: 'Restock shelf', exact: true }).click();
   await page.getByRole('button', { name: 'New product', exact: true }).click();
-  await page.getByRole('dialog').getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
+  await page
+    .getByRole('dialog')
+    .getByLabel('Who can see this', { exact: true })
+    .selectOption({ label: 'Shared' });
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Name', { exact: true }).fill('Toothbrush heads');
   await dialog.getByLabel('Model or size').fill('Compatible with our electric brushes');
@@ -106,19 +123,23 @@ test('shopping purchase undo, restocking, details, privacy and narrow layouts', 
   await expect(product.getByRole('button', { name: 'Already on this list' })).toBeDisabled();
   await page.getByRole('button', { name: 'Need to buy', exact: true }).click();
   const heads = page.locator('.shopping-row').filter({ hasText: 'Toothbrush heads' });
-  await expect(heads).toContainText('4 pack');
-  await expect(heads.getByRole('link', { name: 'Product link' })).toHaveAttribute(
+  await heads.getByRole('button', { name: 'Edit Toothbrush heads', exact: true }).click();
+  await expect(page.getByRole('dialog').getByLabel('Quantity', { exact: true })).toHaveValue('4 pack');
+  await expect(page.getByRole('dialog').getByRole('link', { name: 'Product link' })).toHaveAttribute(
     'href',
     'https://example.com/brush-heads',
   );
+  await page.getByRole('button', { name: 'Close shopping dialog' }).click();
   await heads.getByRole('button', { name: 'Bought Toothbrush heads' }).click();
   await expect(heads).toHaveCount(0);
   await page.getByRole('button', { name: 'Restock shelf', exact: true }).click();
   await product.getByRole('button', { name: 'Need this', exact: true }).click();
   await page.getByRole('button', { name: 'Need to buy', exact: true }).click();
   await expect(heads).toHaveCount(1);
-  await heads.getByRole('button', { name: 'History', exact: true }).click();
+  await heads.getByRole('button', { name: 'Edit Toothbrush heads', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'History', exact: true }).click();
   await expect(page.locator('.historical-text').filter({ hasText: 'Toothbrush heads' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close shopping dialog' }).last().click();
   await page.getByRole('button', { name: 'Close shopping dialog' }).click();
 
   for (const width of [320, 360, 820, 1440]) {
@@ -184,6 +205,10 @@ test('shopping drafts survive reload; lost responses retry once; cached lists st
   await page.getByRole('button', { name: 'Shopping', exact: true }).click();
   await page.getByLabel('Shopping list', { exact: true }).selectOption({ label: 'Household restock' });
   await expect(row).toContainText('2 kg');
-  await expect(row.getByRole('button', { name: 'Delete Dishwasher salt' })).toBeDisabled();
+  await row.getByRole('button', { name: 'Edit Dishwasher salt', exact: true }).click();
+  await expect(
+    page.getByRole('dialog').getByRole('button', { name: 'Delete Dishwasher salt' }),
+  ).toBeDisabled();
+  await page.getByRole('button', { name: 'Close shopping dialog' }).click();
   await context.setOffline(false);
 });

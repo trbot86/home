@@ -50,13 +50,21 @@ export function FilingLinks({
 }
 
 /** Backlinks are derived only from the current person's authorised captures. */
-export function CaptureSources({ recordId, state }: { recordId: string; state: ClientState }) {
+export function CaptureSources({
+  recordId,
+  state,
+  collapsed = false,
+}: {
+  recordId: string;
+  state: ClientState;
+  collapsed?: boolean;
+}) {
   const links = useNoteLinks();
   const sources = state.entries.filter(
     (e) => e.deletedAt === null && filingOf(e).destinations.some((d) => d.recordId === recordId),
   );
   if (!sources.length) return null;
-  return (
+  const content = (
     <div className="capture-sources" aria-label="Original captures">
       {sources.map((source) => (
         <button key={source.inboxId} onClick={() => void links?.open(source.inboxId).catch(() => {})}>
@@ -65,5 +73,13 @@ export function CaptureSources({ recordId, state }: { recordId: string; state: C
         </button>
       ))}
     </div>
+  );
+  return collapsed ? (
+    <details className="shopping-source">
+      <summary>Source note</summary>
+      {content}
+    </details>
+  ) : (
+    content
   );
 }

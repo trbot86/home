@@ -40,7 +40,6 @@ export function AppUpdates({
         <>
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Keep Our place close</p>
               <h2>Android app & updates</h2>
             </div>
             <Icon name="home" size={28} />
@@ -69,7 +68,7 @@ export function AppUpdates({
       )}
       {url && (
         <a
-          className="update-link"
+          className="update-link outlined-action"
           href={url}
           target="_blank"
           rel="noopener noreferrer"

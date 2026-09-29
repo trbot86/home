@@ -16,6 +16,10 @@ async function capture(page: Page, text: string) {
 }
 async function configure(page: Page, titles = false, automatic = false) {
   await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page
+    .locator('.settings-section > summary')
+    .filter({ hasText: /^Note suggestions$/ })
+    .click();
   const settings = page.getByRole('region', { name: 'Note suggestion settings' });
   await settings.getByLabel('Allow requests from this profile').check();
   await settings.getByLabel('Shared inbox text', { exact: true }).check();
@@ -135,6 +139,17 @@ test('Shopping asks only for a missing list; direct filing survives a lost reply
   expect(items).toHaveLength(1);
   expect(items[0].listId).toBe(listId);
   expect(items[0].notes).toBe('Buy synthetic household supplies');
+  await page.getByRole('navigation').getByRole('button', { name: 'Shopping', exact: true }).click();
+  await page.getByLabel('Shopping list', { exact: true }).selectOption(listId);
+  const row = page.locator('.shopping-row').filter({ hasText: 'Buy synthetic household supplies' });
+  await expect(row.getByText('Buy synthetic household supplies', { exact: true })).toHaveCount(1);
+  await expect(row.getByRole('button', { name: 'History', exact: true })).toHaveCount(0);
+  expect((await row.boundingBox())!.height).toBeLessThanOrEqual(60);
+  await row.getByRole('button', { name: 'Edit Buy synthetic household supplies', exact: true }).click();
+  await expect(page.getByRole('dialog').getByLabel('Notes', { exact: true })).toHaveValue('');
+  await page.getByRole('button', { name: 'Close shopping dialog' }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Inbox', exact: true }).click();
+
   // A lost acknowledgement has no immediate Undo toast; history retains the receipt.
   await page.getByRole('button', { name: 'Filed', exact: true }).click();
   await card.getByRole('button', { name: 'Open note', exact: true }).click();

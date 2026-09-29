@@ -423,18 +423,6 @@ export function Tasks({
         </p>
       )}
       <div className="task-toolbar">
-        <div>
-          <p className="eyebrow">{displayDate(today)}</p>
-          <h2>
-            {view === 'focus'
-              ? 'A little focus for today.'
-              : view === 'all'
-                ? 'Everything on your list.'
-                : view === 'completed'
-                  ? 'The things we got done.'
-                  : 'Room for second thoughts.'}
-          </h2>
-        </div>
         <button className="primary" disabled={!state.online} onClick={() => setEditor({ mode: 'create' })}>
           <Icon name="plus" size={17} /> New task
         </button>

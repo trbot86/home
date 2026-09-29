@@ -46,7 +46,7 @@ test('standalone editors default to Just me and retain explicitly selected visib
   await login(page);
   for (const [section, button, label] of [
     ['Tasks', 'New task', 'Who can see this'],
-    ['Home', 'Add asset', 'Who can see this'],
+    ['Maintenance', 'Add asset', 'Who can see this'],
     ['Food', 'Add a recipe', 'Who can see this'],
     ['Projects', 'New project', 'Visibility'],
     ['Shopping', 'New list', 'Who can see this'],

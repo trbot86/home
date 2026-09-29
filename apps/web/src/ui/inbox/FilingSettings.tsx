@@ -73,7 +73,6 @@ export function FilingSettings({ client, state }: { client: ClientPlatform; stat
             <p role="status">No provider is connected. Processing stays off even if you save permission.</p>
           )}
           <div className="filing-permissions">
-            <h2>Note suggestions</h2>
             <p>
               Choose which inbox text this profile may send for suggestions. Photos, page contents, history
               and Secure items are excluded. Notes are never moved automatically.

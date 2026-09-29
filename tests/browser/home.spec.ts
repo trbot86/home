@@ -6,7 +6,7 @@ const png = Buffer.from(
 async function login(page: Page) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Alex', exact: true }).click();
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Maintenance', exact: true }).click();
 }
 async function addAsset(page: Page, title: string, privateAsset = false) {
   await page.getByRole('button', { name: 'Add asset', exact: true }).click();
@@ -14,7 +14,9 @@ async function addAsset(page: Page, title: string, privateAsset = false) {
   await dialog.getByLabel('Asset name', { exact: true }).fill(title);
   await dialog.getByLabel('Model', { exact: true }).fill('Fixture model 42');
   await dialog.getByLabel('Location', { exact: true }).fill('Utility room');
-  await dialog.getByLabel('Who can see this', { exact: true }).selectOption({ label: privateAsset ? 'Just me' : 'Shared' });
+  await dialog
+    .getByLabel('Who can see this', { exact: true })
+    .selectOption({ label: privateAsset ? 'Just me' : 'Shared' });
   await dialog.getByLabel('Asset notes').press('Control+Enter');
   await expect(dialog).toHaveCount(0);
   await expect(page.locator('.home-detail-heading')).toContainText(title);
@@ -61,7 +63,7 @@ test('maintenance ideas preserve separate drafts, keep scheduling opt-in and cre
   await page.getByLabel('Instructions', { exact: true }).fill('My instructions, kept until I save.');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Maintenance', exact: true }).click();
   await page.locator('.home-asset-card').filter({ hasText: 'Ideas test dishwasher' }).click();
   await browse();
   await filterIdea().getByRole('button', { name: 'Customize task', exact: true }).click();
@@ -176,7 +178,7 @@ test('Home forms survive reload and uncertain replies; private data and offline 
   await page.getByLabel('Asset notes').fill('Keep this unfinished inventory.');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Maintenance', exact: true }).click();
   await page.getByRole('button', { name: 'Add asset', exact: true }).click();
   await expect(page.getByLabel('Asset notes')).toHaveValue('Keep this unfinished inventory.');
   await page.getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Just me' });
@@ -190,7 +192,7 @@ test('Home forms survive reload and uncertain replies; private data and offline 
   await page.getByLabel('Asset notes').press('Control+Enter');
   await expect.poll(() => dropped).toBe(true);
   await page.reload();
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Maintenance', exact: true }).click();
   await page.getByRole('button', { name: 'Refresh and sync', exact: true }).click();
   const asset = page.locator('.home-asset-card').filter({ hasText: 'Private studio equipment' });
   await expect(asset).toHaveCount(1);
@@ -201,14 +203,14 @@ test('Home forms survive reload and uncertain replies; private data and offline 
   });
   await context.setOffline(true);
   await page.reload();
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Maintenance', exact: true }).click();
   await asset.click();
   await expect(page.locator('.home-detail')).toContainText('Keep this unfinished inventory.');
   await expect(page.getByRole('button', { name: 'Edit asset', exact: true })).toBeDisabled();
   await context.setOffline(false);
   await page.getByRole('button', { name: 'Refresh and sync', exact: true }).click();
   await page.getByLabel('Current profile').selectOption({ label: 'Sam' });
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Maintenance', exact: true }).click();
   await expect(asset).toHaveCount(0);
   await expect(page.getByText('Keep this unfinished inventory.', { exact: true })).toHaveCount(0);
 });

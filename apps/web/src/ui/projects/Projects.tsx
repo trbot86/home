@@ -179,10 +179,6 @@ export function Projects({
     <section className="projects-section" aria-label="Projects and pages">
       {!project && (
         <div className="section-heading">
-          <div>
-            <p className="eyebrow">Ideas with room to grow</p>
-            <h2>Our projects</h2>
-          </div>
           <button className="primary" onClick={() => setEditor({ kind: 'project' })}>
             <Icon name="plus" size={18} />
             New project

@@ -73,7 +73,6 @@ export function ShoppingDialog({
     >
       <div className="dialog-header">
         <div>
-          <p className="eyebrow">Shopping & restocking</p>
           <h2>{title}</h2>
         </div>
         <button aria-label="Close shopping dialog" onClick={close}>

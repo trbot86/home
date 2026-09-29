@@ -207,10 +207,6 @@ export function Home({
   return (
     <section className="home-section">
       <div className="task-toolbar">
-        <div>
-          <p className="eyebrow">The things that make a home</p>
-          <h2>Home & maintenance</h2>
-        </div>
         <button className="primary" disabled={!state.online} onClick={() => setEditor({ mode: 'asset' })}>
           <Icon name="plus" size={18} />
           Add asset

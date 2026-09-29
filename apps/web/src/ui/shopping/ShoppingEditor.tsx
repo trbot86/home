@@ -1,7 +1,7 @@
 import { useNavigationWrite } from '../NavigationHistory.js';
 import { SecureRecord } from '../SecureRecord.js';
 import { ShareRecord } from '../ShareRecord.js';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { CommandKind, ShoppingList, ShoppingRecord } from '@our-place/contracts';
 import { ShoppingDialog, shoppingRecords, type ShoppingRun } from './shared.js';
@@ -26,6 +26,7 @@ export function ShoppingEditor({
   close,
   onSaved,
   onError,
+  children,
 }: {
   client: ClientPlatform;
   state: ClientState;
@@ -36,6 +37,7 @@ export function ShoppingEditor({
   close: () => void;
   onSaved: (recordId: string) => void;
   onError: (error: unknown) => void;
+  children?: ReactNode;
 }) {
   const session = state.session!;
   const initial = (): Form => ({
@@ -47,7 +49,12 @@ export function ShoppingEditor({
     name: record && 'name' in record ? record.name : mode === 'list' ? 'Groceries' : '',
     label: record?.kind === 'shopping_entry' ? record.label : '',
     quantity: record && 'quantity' in record ? record.quantity : '',
-    notes: record && 'notes' in record ? (record.notes ?? '') : '',
+    notes:
+      record && 'notes' in record
+        ? record.kind === 'shopping_entry' && record.notes.trim() === record.label.trim()
+          ? ''
+          : (record.notes ?? '')
+        : '',
     model: record?.kind === 'restock_item' ? record.model : '',
     productUrl: record?.kind === 'restock_item' ? (record.productUrl ?? '') : '',
     purpose: record?.kind === 'shopping_list' ? record.purpose : 'groceries',
@@ -314,6 +321,7 @@ export function ShoppingEditor({
           </button>
         </div>
       </form>
+      {children}
     </ShoppingDialog>
   );
 }

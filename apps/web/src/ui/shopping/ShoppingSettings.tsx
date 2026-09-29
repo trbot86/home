@@ -24,7 +24,6 @@ export function ShoppingSettings({ client, state }: { client: ClientPlatform; st
   }, [client, state.online, reload]);
   return (
     <section className="storage" aria-label="Shopping preferences">
-      <h2>Nearby shopping</h2>
       <p>
         For {state.session!.person.displayName}, across your devices. These preferences build store searches;
         they do not verify stock. Your location is sent to a search provider only when you open a search link.

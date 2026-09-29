@@ -54,7 +54,7 @@ try {
     );
   }
   await page.reload();
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Maintenance', exact: true }).click();
   await page.getByRole('button', { name: 'Add asset', exact: true }).click();
   const title = `Native heat pump ${Date.now()}`;
   await page.getByLabel('Asset name', { exact: true }).fill(title);
@@ -67,7 +67,7 @@ try {
     await back();
   }
   await page.reload();
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Maintenance', exact: true }).click();
   await page.getByRole('button', { name: 'Add asset', exact: true }).click();
   await expect(page.getByLabel('Asset notes')).toHaveValue('Keep this unfinished asset note.');
   await page.getByRole('dialog').getByRole('button', { name: 'Add asset', exact: true }).click();
@@ -111,7 +111,7 @@ try {
   await expect.poll(() => service.locator('img').evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
   await invoke('login', { username: 'sam', password: '' });
   await page.reload();
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Maintenance', exact: true }).click();
   await page.locator('.home-asset-card').filter({ hasText: title }).click();
   await expect.poll(() => service.locator('img').evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
   await service.getByRole('button', { name: 'Service history', exact: true }).click();
@@ -127,7 +127,7 @@ try {
   await expect(page.getByRole('dialog')).toHaveCount(0);
   const cached = (await invoke('state')).home;
   await page.reload();
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Maintenance', exact: true }).click();
   assert.deepEqual((await invoke('state')).home, cached);
   await page.locator('.home-asset-card').filter({ hasText: title }).click();
   if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth))

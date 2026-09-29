@@ -28,7 +28,7 @@ try {
   assert.equal(await invoke('endpoint'), 'http://10.0.2.2:4173');
   if (!(await invoke('state')).session) await invoke('login', { username: 'alex', password: '' });
   await page.reload();
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Maintenance', exact: true }).click();
   await page.getByRole('button', { name: 'Add asset', exact: true }).click();
   const name = `Native maintenance ideas ${Date.now()}`;
   await page.getByLabel('Asset name', { exact: true }).fill(name);
@@ -54,7 +54,7 @@ try {
     .fill('Use our model manual. Keep this native draft.');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Maintenance', exact: true }).click();
   await page.locator('.home-asset-card').filter({ hasText: name }).click();
   await browse();
   await idea().getByRole('button', { name: 'Customize task', exact: true }).click();

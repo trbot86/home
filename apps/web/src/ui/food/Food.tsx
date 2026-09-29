@@ -211,10 +211,6 @@ export function Food({
   return (
     <section className="food-section" aria-label="Food and recipes">
       <div className="section-heading">
-        <div>
-          <p className="eyebrow">Our recipe book</p>
-          <h2>Something good to make.</h2>
-        </div>
         <button className="primary" onClick={() => setEditor('new')}>
           <Icon name="plus" size={18} />
           Add a recipe

@@ -26,11 +26,17 @@ test('compact phone chrome, remembered agenda choices and isolated profile setti
   await nav.getByRole('button', { name: 'Agenda', exact: true }).click();
   await expect(page.getByLabel('Days', { exact: true })).toHaveValue('7');
   await nav.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(page.locator('.settings-section[open]')).toHaveCount(0);
+  await page
+    .locator('.settings-section > summary')
+    .filter({ hasText: /^Note suggestions$/ })
+    .click();
   const settings = page.getByRole('region', { name: 'Note suggestion settings' });
   await expect(settings.getByLabel('Allow requests from this profile')).not.toBeChecked();
   for (const width of [320, 390, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `.cache/compact-settings-${width}.png`, fullPage: true });
   }
 });
 test('suggestion card tools share one footer row with labelled icons', async ({ page, request }) => {

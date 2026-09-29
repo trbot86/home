@@ -109,7 +109,9 @@ try {
     boughtAt: Date.now(),
   });
   await page.getByRole('button', { name: 'Purchased', exact: true }).click();
-  const row = page.locator('.shopping-row').filter({ hasText: 'Native photo brush heads' });
+  const item = page.locator('.shopping-row').filter({ hasText: 'Native photo brush heads' });
+  await item.getByRole('button', { name: 'Edit Native photo brush heads', exact: true }).click();
+  const row = page.locator('.shopping-entry-details');
   await row.getByRole('button', { name: 'Receipt photos', exact: true }).click();
   const receipt = await invoke('openAttachmentDraft', {
     recordId: purchaseId,
@@ -121,11 +123,13 @@ try {
   await dialog.getByLabel('Caption for photo 1').fill('Native purchase receipt');
   await dialog.getByRole('button', { name: 'Save photos', exact: true }).click();
   await expect(dialog).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close shopping dialog' }).click();
   // A second profile must download server bytes, independently of the captured originals.
   await page.getByLabel('Current profile').selectOption({ label: 'Sam' });
   await page.getByRole('button', { name: 'Shopping', exact: true }).click();
   await page.getByLabel('Shopping list', { exact: true }).selectOption(listId);
   await page.getByRole('button', { name: 'Purchased', exact: true }).click();
+  await item.getByRole('button', { name: 'Edit Native photo brush heads', exact: true }).click();
   await row.locator('summary').filter({ hasText: 'Product photos' }).click();
   await row.locator('summary').filter({ hasText: 'Receipt photos' }).click();
   await expect(row.locator('img')).toHaveCount(2);
@@ -136,6 +140,7 @@ try {
     .toBe(true);
   await row.getByRole('button', { name: 'Purchase history', exact: true }).click();
   await expect(page.locator('.history-list img')).toHaveCount(1);
+  await adb('shell', 'input', 'keyevent', '4');
   await adb('shell', 'input', 'keyevent', '4');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   const before = (await invoke('state')).shopping;
@@ -153,6 +158,7 @@ try {
   await page.getByRole('button', { name: 'Shopping', exact: true }).click();
   await page.getByLabel('Shopping list', { exact: true }).selectOption(listId);
   await page.getByRole('button', { name: 'Purchased', exact: true }).click();
+  await item.getByRole('button', { name: 'Edit Native photo brush heads', exact: true }).click();
   await row.locator('summary').filter({ hasText: 'Product photos' }).click();
   await row.locator('summary').filter({ hasText: 'Receipt photos' }).click();
   await expect(row.locator('img')).toHaveCount(2);

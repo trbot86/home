@@ -990,7 +990,9 @@ function AppContent({ client }: { client: ClientPlatform }) {
                 <section className="storage">
                   <h2>Navigation order</h2>
                   <p>Arrange the sections for your profile. Your order syncs across your devices.</p>
-                  <button onClick={() => setEditingNavigation(true)}>Reorder navigation</button>
+                  <button className="outlined-action" onClick={() => setEditingNavigation(true)}>
+                    Reorder navigation
+                  </button>
                 </section>
                 {editingNavigation && (
                   <NavigationOrderEditor
@@ -1002,21 +1004,30 @@ function AppContent({ client }: { client: ClientPlatform }) {
                     onError={showError}
                   />
                 )}
-                <FilingSettings
-                  key={`filing:${state.session.person.personId}`}
-                  client={client}
-                  state={state}
-                />
-                <ShoppingSettings
-                  key={`shopping:${state.session.person.personId}`}
-                  client={client}
-                  state={state}
-                />
+                <details className="settings-section">
+                  <summary>Note suggestions</summary>
+                  <FilingSettings
+                    key={`filing:${state.session.person.personId}`}
+                    client={client}
+                    state={state}
+                  />
+                </details>
+                <details className="settings-section">
+                  <summary>Nearby shopping</summary>
+                  <ShoppingSettings
+                    key={`shopping:${state.session.person.personId}`}
+                    client={client}
+                    state={state}
+                  />
+                </details>
                 <CalendarSettings client={client} state={state} run={runCommand} />
                 <Storage client={client} state={state} onError={showError} />
                 <AppUpdates client={client} online={state.online} onError={showError} version={appVersion} />
                 {state.session.isAdministrator && (
-                  <BackupPanel client={client} online={state.online} onError={showError} />
+                  <details className="settings-section">
+                    <summary>Backups</summary>
+                    <BackupPanel client={client} online={state.online} onError={showError} />
+                  </details>
                 )}
               </>
             ) : (

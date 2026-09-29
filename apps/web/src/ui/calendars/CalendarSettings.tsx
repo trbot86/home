@@ -148,7 +148,6 @@ export function CalendarSettings({
     <section className="calendar-settings" aria-labelledby="calendar-settings-title">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Your day, in one place</p>
           <h2 id="calendar-settings-title">Google Calendar</h2>
         </div>
         <Icon name="tasks" size={26} />

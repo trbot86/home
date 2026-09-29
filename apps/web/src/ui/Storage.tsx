@@ -31,7 +31,7 @@ export function Storage({
   return (
     <section className="storage">
       <div className="section-heading">
-        <h2>Saved in two places</h2>
+        <h2>Storage</h2>
         <button onClick={refresh}>
           <Icon name="refresh" size={16} />
           Refresh sizes

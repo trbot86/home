@@ -115,7 +115,7 @@ test('image drops reject whole invalid batches and limits, accept suggestions an
   await expect(zone).not.toHaveClass(/photo-dragging/);
   await expect(page.getByRole('alert')).toHaveCount(0);
   const url = page.url();
-  await drop(page, page.locator('h1'));
+  await drop(page, page.locator('.page-status'));
   expect(page.url()).toBe(url);
   await expect(page.getByRole('alert')).toContainText('Drop photos in the capture box');
   await expect(page.locator('.capture-photos img')).toHaveCount(2);

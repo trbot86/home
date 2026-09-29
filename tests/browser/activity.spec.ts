@@ -127,7 +127,7 @@ test('activity follows completion undo and keeps cached notes, photo status and 
   await page.getByLabel('Completion note', { exact: true }).press('Control+Enter');
   await feed(page, 'Feed undo fixture');
   await expect(page.locator('.activity-card')).toHaveCount(1);
-  await page.locator('h1').click();
+  await page.locator('main').click({ position: { x: 1, y: 1 } });
   await page.keyboard.press('Control+z');
   await expect(page.locator('.activity-card')).toHaveCount(0);
   await page.keyboard.press('Control+Shift+z');

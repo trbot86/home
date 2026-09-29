@@ -3,7 +3,7 @@ import { CaptureSources } from '../inbox/FilingLinks.js';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { ShoppingEntry, ShoppingGroup, ShoppingRecord } from '@our-place/contracts';
 import { Icon } from '../Icon.js';
-import { LinkedText, WebLink } from '../LinkedText.js';
+import { WebLink } from '../LinkedText.js';
 import { date } from '../format.js';
 import type { ShoppingRun } from './shared.js';
 import { AttachmentGallery } from '../AttachmentGallery.js';
@@ -27,6 +27,7 @@ type Props = {
   onOpenRecipe: (id: string) => void;
   onPhotos: (record: ShoppingRecord) => void;
   onHistory: (record: ShoppingRecord) => void;
+  onEdit: (record: ShoppingRecord) => void;
 };
 function Photos({ client, photos, label }: { client: ClientPlatform; photos: Attachment[]; label: string }) {
   const [open, setOpen] = useState(false);
@@ -83,7 +84,16 @@ function Group({ group, items, props }: { group: ShoppingGroup; items: ShoppingE
     </details>
   );
 }
-function Entry({ item, props }: { item: ShoppingEntry; props: Props }) {
+export function ShoppingEntryDetails({
+  item,
+  props,
+}: {
+  item: ShoppingEntry;
+  props: Pick<
+    Props,
+    'client' | 'state' | 'action' | 'disabled' | 'tools' | 'onOpenRecipe' | 'onPhotos' | 'onHistory'
+  >;
+}) {
   const { client, state, action, disabled, tools, onOpenRecipe } = props,
     snapshot = state.shopping;
   const purchase = snapshot.purchases.find(
@@ -109,14 +119,119 @@ function Entry({ item, props }: { item: ShoppingEntry; props: Props }) {
       'Moved shopping item',
     );
   return (
+    <div className="shopping-entry-details">
+      <CaptureSources recordId={item.recordId} state={state} collapsed />
+      {product && (
+        <p className="fine">
+          {product.model || 'From your restock shelf'}
+          {product.productUrl && (
+            <>
+              {' '}
+              ·{' '}
+              <WebLink client={client} href={product.productUrl}>
+                Product link
+              </WebLink>
+            </>
+          )}
+        </p>
+      )}
+      {product && <Photos client={client} photos={product.attachments ?? []} label="Product photos" />}
+      {!!item.recipeSources?.length && (
+        <details className="shopping-source">
+          <summary>From a recipe</summary>
+          {item.recipeSources.map((source) => {
+            const recipe = state.recipes.recipes.find((r) => r.recordId === source.recipeId && !r.deletedAt);
+            return (
+              <div key={source.sourceId}>
+                <p className="fine">
+                  {recipe ? (
+                    <button onClick={() => onOpenRecipe(recipe.recordId)}>
+                      Recipe: {source.recipeTitle}
+                    </button>
+                  ) : (
+                    `${source.recipeTitle} · recipe deleted`
+                  )}
+                </p>
+                <p className="shopping-notes">{source.ingredientText}</p>
+                <p className="fine">
+                  Saved from recipe version {source.recipeRevision}
+                  {source.quantitySnapshot ? ` · Shopping quantity: ${source.quantitySnapshot}` : ''}
+                </p>
+              </div>
+            );
+          })}
+        </details>
+      )}
+      {purchase && (
+        <div className="shopping-purchase">
+          <p className="fine">
+            Bought by {purchase.buyerName} · {date(purchase.boughtAt)}
+          </p>
+          <Photos client={client} photos={purchase.attachments ?? []} label="Receipt photos" />
+          <div className="shopping-actions">
+            <button onClick={() => props.onPhotos(purchase)}>Receipt photos</button>
+            <button onClick={() => props.onHistory(purchase)}>Purchase history</button>
+          </div>
+        </div>
+      )}
+      {state.pendingEdits.includes(item.recordId) && (
+        <p className="fine" role="status">
+          Waiting for confirmation…
+        </p>
+      )}
+      <div className="shopping-row-footer">
+        {tools(item)}
+        <div className="shopping-move-controls">
+          {!!groups.length && (
+            <label className="fine">
+              Group
+              <select
+                aria-label={`Group for ${item.label}`}
+                value={item.groupId ?? ''}
+                disabled={disabled(item.recordId)}
+                onChange={(e) => move(item.listId, e.target.value || null)}
+              >
+                <option value="">Ungrouped</option>
+                {groups.map((g) => (
+                  <option key={g.recordId} value={g.recordId}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {!!lists.length && (
+            <select
+              aria-label={`Move ${item.label} to list`}
+              value=""
+              disabled={disabled(item.recordId)}
+              onChange={(e) => {
+                if (e.target.value) move(e.target.value);
+              }}
+            >
+              <option value="">Move to…</option>
+              {lists.map((l) => (
+                <option key={l.recordId} value={l.recordId}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+function Entry({ item, props }: { item: ShoppingEntry; props: Props }) {
+  return (
     <article className={`shopping-row ${item.state === 'purchased' ? 'is-purchased' : ''}`}>
       {item.state === 'needed' ? (
         <button
           className="shopping-check"
           aria-label={`Bought ${item.label}`}
-          disabled={disabled(item.recordId)}
+          disabled={props.disabled(item.recordId)}
           onClick={() =>
-            void action(
+            void props.action(
               item,
               'PurchaseShoppingEntry',
               {
@@ -137,121 +252,26 @@ function Entry({ item, props }: { item: ShoppingEntry; props: Props }) {
           <Icon name="check" size={22} />
         </span>
       )}
-      <div className="shopping-row-body">
-        <CaptureSources recordId={item.recordId} state={state} />
-        <div className="shopping-item-title">
-          <h3>{item.label}</h3>
+      <button
+        type="button"
+        className="shopping-item-open"
+        onClick={() => props.onEdit(item)}
+        aria-label={`Edit ${item.label}`}
+      >
+        <span className="shopping-item-title">
+          <strong>{item.label}</strong>
           {item.quantity && <span>{item.quantity}</span>}
-        </div>
-        {item.notes && (
-          <p className="shopping-notes">
-            <LinkedText client={client} text={item.notes} />
-          </p>
-        )}
-        {product && (
-          <p className="fine">
-            {product.model || 'From your restock shelf'}
-            {product.productUrl && (
-              <>
-                {' '}
-                ·{' '}
-                <WebLink client={client} href={product.productUrl}>
-                  Product link
-                </WebLink>
-              </>
-            )}
-          </p>
-        )}
-        {product && <Photos client={client} photos={product.attachments ?? []} label="Product photos" />}
-        {!!item.recipeSources?.length && (
-          <details className="shopping-source">
-            <summary>From a recipe</summary>
-            {item.recipeSources.map((source) => {
-              const recipe = state.recipes.recipes.find(
-                (r) => r.recordId === source.recipeId && !r.deletedAt,
-              );
-              return (
-                <div key={source.sourceId}>
-                  <p className="fine">
-                    {recipe ? (
-                      <button onClick={() => onOpenRecipe(recipe.recordId)}>
-                        Recipe: {source.recipeTitle}
-                      </button>
-                    ) : (
-                      `${source.recipeTitle} · recipe deleted`
-                    )}
-                  </p>
-                  <p className="shopping-notes">{source.ingredientText}</p>
-                  <p className="fine">
-                    Saved from recipe version {source.recipeRevision}
-                    {source.quantitySnapshot ? ` · Shopping quantity: ${source.quantitySnapshot}` : ''}
-                  </p>
-                </div>
-              );
-            })}
-          </details>
-        )}
-        {purchase && (
-          <div className="shopping-purchase">
-            <p className="fine">
-              Bought by {purchase.buyerName} · {date(purchase.boughtAt)}
-            </p>
-            <Photos client={client} photos={purchase.attachments ?? []} label="Receipt photos" />
-            <div className="shopping-actions">
-              <button onClick={() => props.onPhotos(purchase)}>Receipt photos</button>
-              <button onClick={() => props.onHistory(purchase)}>Purchase history</button>
-            </div>
-          </div>
-        )}
-        {state.pendingEdits.includes(item.recordId) && (
-          <p className="fine" role="status">
-            Waiting for confirmation…
-          </p>
-        )}
-        <div className="shopping-row-footer">
-          {tools(item)}
-          <div className="shopping-move-controls">
-            {!!groups.length && (
-              <label className="fine">
-                Group
-                <select
-                  aria-label={`Group for ${item.label}`}
-                  value={item.groupId ?? ''}
-                  disabled={disabled(item.recordId)}
-                  onChange={(e) => move(item.listId, e.target.value || null)}
-                >
-                  <option value="">Ungrouped</option>
-                  {groups.map((g) => (
-                    <option key={g.recordId} value={g.recordId}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            {!!lists.length && (
-              <select
-                aria-label={`Move ${item.label} to list`}
-                value=""
-                disabled={disabled(item.recordId)}
-                onChange={(e) => {
-                  if (e.target.value) move(e.target.value);
-                }}
-              >
-                <option value="">Move to…</option>
-                {lists.map((l) => (
-                  <option key={l.recordId} value={l.recordId}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
-      </div>
+          {item.notes.trim() && item.notes.trim() !== item.label.trim() && (
+            <span aria-label="Has description">
+              <Icon name="inbox" size={16} />
+            </span>
+          )}
+        </span>
+      </button>
     </article>
   );
 }
+
 export function ShoppingItems(props: Props) {
   const [limit, setLimit] = useState(40);
   const ungrouped = props.entries.filter((item) => !item.groupId);

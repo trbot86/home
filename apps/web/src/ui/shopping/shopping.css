@@ -490,3 +490,84 @@
 .shopping-dialog > .shopping-history-tools {
   padding: 0 30px;
 }
+
+.shopping-row {
+  padding: 4px 0;
+  gap: 8px;
+  align-items: center;
+}
+.shopping-item-open {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px;
+  text-align: left;
+  border-radius: 8px;
+}
+.shopping-item-open:hover {
+  background: var(--wash);
+}
+.shopping-item-open .shopping-item-title {
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+.shopping-item-title strong {
+  overflow-wrap: anywhere;
+  font-weight: 550;
+}
+.shopping-item-open .shopping-item-title > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.shopping-toolbar {
+  margin-bottom: 10px;
+}
+.shopping-list-heading {
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+.shopping-entry-details {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 12px;
+}
+.shopping-group > summary {
+  padding: 10px 12px;
+}
+
+.shopping-list-options {
+  position: relative;
+  flex-shrink: 0;
+}
+.shopping-list-options > summary {
+  cursor: pointer;
+  list-style: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.shopping-list-options > summary::-webkit-details-marker {
+  display: none;
+}
+.shopping-list-options > .shopping-actions {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 5;
+  width: max-content;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 6px;
+  flex-wrap: nowrap;
+}
+.shopping-toolbar {
+  gap: 8px;
+}
+.shopping-list-picker {
+  min-width: 0;
+}

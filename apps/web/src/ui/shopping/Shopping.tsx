@@ -4,7 +4,7 @@ import { LinkedText, WebLink } from '../LinkedText.js';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { ShoppingRecord } from '@our-place/contracts';
 import { Icon } from '../Icon.js';
-import { ShoppingItems } from './ShoppingItems.js';
+import { ShoppingItems, ShoppingEntryDetails } from './ShoppingItems.js';
 import { ShoppingEditor } from './ShoppingEditor.js';
 import { ShoppingHistory } from './ShoppingHistory.js';
 import { QuickAdd } from './QuickAdd.js';
@@ -133,9 +133,6 @@ export function Shopping({
   const deleted = records.filter(
     (item) => item.kind !== 'purchase' && item.deletedAt !== null && matches(item),
   );
-  const neededCount = snapshot.entries.filter(
-    (item) => !item.deletedAt && item.listId === list?.recordId && item.state === 'needed',
-  ).length;
   const count = tab === 'restock' ? products.length : tab === 'deleted' ? deleted.length : entries.length;
   const scopeName = (scopeId: string) =>
     state.session!.scopes.find((scope) => scope.scopeId === scopeId)?.kind === 'private'
@@ -154,6 +151,7 @@ export function Shopping({
       record,
     });
   const remove = (record: ShoppingRecord) => {
+    if (editor?.record?.recordId === record.recordId) setEditor(null);
     if (record.kind === 'shopping_group') {
       setRemovingGroup(record.recordId);
       return;
@@ -165,11 +163,13 @@ export function Shopping({
       'Moved to shopping trash',
     );
   };
-  const tools = (record: ShoppingRecord) => (
+  const tools = (record: ShoppingRecord, includeEdit = true) => (
     <div className="shopping-actions">
-      <button disabled={disabled(record.recordId)} onClick={() => edit(record)}>
-        Edit
-      </button>
+      {includeEdit && (
+        <button disabled={disabled(record.recordId)} onClick={() => edit(record)}>
+          Edit
+        </button>
+      )}
       <button onClick={() => setHistoryId(record.recordId)}>History</button>
       {record.kind === 'restock_item' && <button onClick={() => openPhotos(record)}>Product photos</button>}
       <button
@@ -204,24 +204,18 @@ export function Shopping({
             ))}
           </select>
         </label>
+        {list && (
+          <details className="shopping-list-options">
+            <summary aria-label="List options" title="List options">
+              <Icon name="settings" size={18} />
+            </summary>
+            {tools(list)}
+          </details>
+        )}
         <button className="primary" disabled={!state.online} onClick={() => setEditor({ mode: 'list' })}>
           <Icon name="plus" size={17} /> New list
         </button>
       </div>
-      {list && (
-        <div className="shopping-list-heading">
-          <div>
-            <p className="eyebrow">
-              {scopeName(list.scopeId)} · {list.purpose}
-            </p>
-            <h2>
-              {list.name}
-              <span className="shopping-total">{neededCount} needed</span>
-            </h2>
-          </div>
-          {tools(list)}
-        </div>
-      )}
       <div className="shopping-tabs" role="group" aria-label="Shopping views">
         {(['needed', 'purchased', 'restock', 'deleted'] as const).map((value) => (
           <button
@@ -327,6 +321,7 @@ export function Shopping({
           action={action}
           tools={tools}
           onOpenRecipe={onOpenRecipe}
+          onEdit={edit}
           onPhotos={openPhotos}
           onHistory={(record) => setHistoryId(record.recordId)}
         />
@@ -443,7 +438,23 @@ export function Shopping({
             }
           }}
           onError={onError}
-        />
+        >
+          {updatedEditor?.kind === 'shopping_entry' && (
+            <ShoppingEntryDetails
+              item={updatedEditor}
+              props={{
+                client,
+                state,
+                action,
+                disabled,
+                tools: (record) => tools(record, false),
+                onOpenRecipe,
+                onPhotos: openPhotos,
+                onHistory: (record) => setHistoryId(record.recordId),
+              }}
+            />
+          )}
+        </ShoppingEditor>
       )}
       {photos && (
         <AttachmentDialog

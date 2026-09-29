@@ -95,9 +95,15 @@ test('recipe shopping preserves a selected checklist, collapsed named groups, so
   await page.getByRole('button', { name: 'Shopping', exact: true }).click();
   await page.getByLabel('Shopping list', { exact: true }).selectOption({ label: 'Recipe groceries' });
   await group.locator('summary').first().click();
-  await group.getByText('From a recipe', { exact: true }).click();
-  await expect(group.locator('.shopping-source')).toContainText('2 carrots');
-  await expect(group.locator('.shopping-source')).toContainText('Shopping carrot soup');
+  await group.getByRole('button', { name: /^Edit / }).click();
+  await page.getByRole('dialog').getByText('From a recipe', { exact: true }).click();
+  await expect(
+    page.getByRole('dialog').locator('.shopping-source').filter({ hasText: 'From a recipe' }),
+  ).toContainText('2 carrots');
+  await expect(
+    page.getByRole('dialog').locator('.shopping-source').filter({ hasText: 'From a recipe' }),
+  ).toContainText('Shopping carrot soup');
+  await page.getByRole('button', { name: 'Close shopping dialog' }).click();
   await group.getByRole('button', { name: 'Delete Soup for Sunday', exact: true }).click();
   await page.getByRole('button', { name: 'Remove group, keep items', exact: true }).click();
   await expect(group).toHaveCount(0);
@@ -121,7 +127,9 @@ test('recipe shopping preserves a selected checklist, collapsed named groups, so
     await expect(group).toHaveCount(1);
     await page.getByRole('button', { name: 'Purchased', exact: true }).click();
     await group.locator('summary').first().click();
-    await expect(group).toContainText('Bought by Sam');
+    await group.getByRole('button', { name: /^Edit / }).click();
+    await expect(page.getByRole('dialog')).toContainText('Bought by Sam');
+    await page.getByRole('button', { name: 'Close shopping dialog' }).click();
   } finally {
     await partnerContext.close();
   }
@@ -373,6 +381,10 @@ test('recipe ingredients create a named list with store-search notes and preserv
 }) => {
   await login(page);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page
+    .locator('.settings-section > summary')
+    .filter({ hasText: /^Nearby shopping$/ })
+    .click();
   const settings = page.getByRole('region', { name: 'Shopping preferences' });
   await settings.getByLabel('City or postal code').fill('Example city');
   await settings.getByRole('button', { name: 'Add store', exact: true }).click();
@@ -409,7 +421,7 @@ test('recipe ingredients create a named list with store-search notes and preserv
   await page.getByText('List notes', { exact: true }).click();
   await expect(page.locator('.shopping-list-notes')).toContainText('Neighbourhood market');
   await expect(page.locator('.shopping-group')).toHaveCount(1);
-  await page.locator('h1').click();
+  await page.locator('main').click({ position: { x: 1, y: 1 } });
   await page.keyboard.press('Control+z');
   await expect(
     page
@@ -431,6 +443,10 @@ test('sourcing shows only exceptions, saves one default-store summary, and keeps
 }) => {
   await login(page);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page
+    .locator('.settings-section > summary')
+    .filter({ hasText: /^Nearby shopping$/ })
+    .click();
   const settings = page.getByRole('region', { name: 'Shopping preferences' });
   await settings.getByLabel('Default store', { exact: true }).fill('Example supermarket');
   await settings.getByRole('button', { name: 'Save shopping preferences', exact: true }).click();

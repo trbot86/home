@@ -1806,3 +1806,40 @@ a {
   overflow: visible;
   clip-path: none;
 }
+
+.main-agenda {
+  padding-top: 14px;
+}
+.settings-section {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px 22px;
+  margin: 18px 0;
+  background: var(--paper);
+}
+.settings-section > summary {
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 600;
+}
+.settings-section[open] > summary {
+  margin-bottom: 18px;
+}
+.settings-section > .storage,
+.settings-section > .backups {
+  margin-top: 0;
+}
+.outlined-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 10px 14px;
+  text-decoration: none;
+}
+.task-toolbar:has(> button:only-child),
+.section-heading:has(> button:only-child) {
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}

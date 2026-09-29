@@ -40,10 +40,7 @@ export function BackupPanel({
   return (
     <section className="backups">
       <div className="section-heading">
-        <div>
-          <p className="eyebrow">A way back</p>
-          <h2>Household backups</h2>
-        </div>
+        <div></div>
         <button
           className="primary"
           disabled={!online || busy || status?.running || !status?.destinationAvailable}
