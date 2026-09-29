@@ -22,18 +22,19 @@ local database and pending media. Cached household records remain readable offli
 new inbox captures wait locally for upload.
 
 ```mermaid
+%%{init: {"flowchart": {"htmlLabels": false}}}%%
 flowchart TB
-  UI[Shared React screens] --> Ports[Typed ClientPlatform interface]
+  UI[Shared React screens] --> Ports[ClientPlatform]
   Ports --> Browser[Browser adapter]
-  Ports --> Android[Capacitor bridge and Kotlin core]
-  Browser --> IDB[IndexedDB drafts and pending requests]
-  Android --> Room[Room cache and durable capture queue]
-  Android --> Pending[App-private pending media]
-  Uploader[Android WorkManager uploader] --> Android
+  Ports --> Android["Android bridge<br/>Kotlin core"]
+  Browser --> IDB["IndexedDB<br/>Drafts and requests"]
+  Android --> Room["Room database<br/>Cache and queue"]
+  Android --> Pending[Pending media]
+  Uploader[WorkManager] --> Android
   Browser --> API[Household API]
   Android --> API
-  API --> Modules[Feature modules and shared write boundary]
-  Modules --> DB[(SQLite records, history and receipts)]
+  API --> Modules["Feature modules<br/>Shared write boundary"]
+  Modules --> DB[("SQLite<br/>Records and history")]
   Modules --> Files[Immutable media files]
 ```
 
@@ -61,6 +62,49 @@ See the [connected schema](md/DATA_MODEL.md) and
 [worked transactions](md/WORKED_TRANSACTIONS.md) for cross-feature relationships,
 privacy boundaries and examples of guarded reversals.
 
+### How household records connect
+
+This simplified map comes from the [connected data model](md/DATA_MODEL.md).
+Filing retains the original inbox capture; projects reference existing records;
+recipes can supply shopping ingredients or a cooking task. History and attachments
+are shared capabilities across these features.
+
+```mermaid
+%%{init: {"flowchart": {"htmlLabels": false}}}%%
+flowchart TB
+  Inbox[Inbox capture] --> Tasks[Tasks]
+  Inbox --> Shopping[Shopping]
+  Inbox --> Projects[Project pages]
+  Inbox --> Recipes[Recipes]
+  Recipes -->|ingredients| Shopping
+  Recipes -->|cooking| Tasks
+  Projects -->|references| Tasks
+  Projects -->|references| Recipes
+  Tasks --> Done[Completions]
+  Shopping --> Purchases[Purchases]
+  Records[Household records] --> History[Change history]
+  Records --> Attachments[Attachments]
+  Attachments --> Media[Media files]
+```
+
+### Tasks and maintenance
+
+A task definition has dated occurrences and completion history. Maintenance uses
+that same task lifecycle, linking the work and its service record to a household
+asset. This is the smaller task/maintenance diagram from the data-model document,
+with readable labels in place of table names.
+
+```mermaid
+erDiagram
+  Task ||--o| Recurrence : repeats
+  Task ||--|{ Occurrence : schedules
+  Occurrence ||--o{ Completion : records
+  Task ||--o| Plan : extends
+  Asset ||--o{ Plan : needs
+  Asset ||--o{ Service : history
+  Completion o|--o| Service : documents
+```
+
 ### Deployment and backups
 
 The Docker data volume survives app replacement. Online exports combine a database
@@ -69,13 +113,14 @@ independent host process copies them to secondary storage. Tests and restore
 rehearsals use isolated data, never the live household volume.
 
 ```mermaid
-flowchart LR
-  App[Household app container] --> Data[Persistent Linux data volume]
-  Data --> Export[Online database snapshot and media export]
+%%{init: {"flowchart": {"htmlLabels": false}}}%%
+flowchart TB
+  App[App container] --> Data[Persistent data]
+  Data --> Export["Online snapshot<br/>and media export"]
   App --> Export
-  Export --> Local[Dedicated local backup folder]
-  Local --> Verify[Host replication and verification]
-  Verify --> Secondary[Independent secondary backup storage]
+  Export --> Local[Local backups]
+  Local --> Verify["Host replication<br/>and verification"]
+  Verify --> Secondary[Secondary backups]
 ```
 
 [Windows deployment](md/WINDOWS_DEPLOYMENT.md) explains the storage boundaries;
