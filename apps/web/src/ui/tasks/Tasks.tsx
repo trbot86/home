@@ -422,24 +422,24 @@ export function Tasks({
           Showing the linked task. <button onClick={() => setFocusId(null)}>Show all tasks</button>
         </p>
       )}
-      <div className="task-toolbar">
+      <div className="collection-toolbar">
+        <div className="task-views" role="group" aria-label="Task views">
+          {(['focus', 'all', 'completed', 'deleted'] as const).map((tab) => (
+            <button
+              key={tab}
+              aria-pressed={view === tab}
+              onClick={() => {
+                setView(tab);
+                setLimit(30);
+              }}
+            >
+              {{ focus: 'Focus', all: 'All tasks', completed: 'Completed', deleted: 'Deleted' }[tab]}
+            </button>
+          ))}
+        </div>
         <button className="primary" disabled={!state.online} onClick={() => setEditor({ mode: 'create' })}>
           <Icon name="plus" size={17} /> New task
         </button>
-      </div>
-      <div className="task-views" role="group" aria-label="Task views">
-        {(['focus', 'all', 'completed', 'deleted'] as const).map((tab) => (
-          <button
-            key={tab}
-            aria-pressed={view === tab}
-            onClick={() => {
-              setView(tab);
-              setLimit(30);
-            }}
-          >
-            {{ focus: 'Focus', all: 'All tasks', completed: 'Completed', deleted: 'Deleted' }[tab]}
-          </button>
-        ))}
       </div>
       <div className="task-filters">
         <label>

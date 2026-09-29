@@ -177,14 +177,6 @@ export function Projects({
   }
   return (
     <section className="projects-section" aria-label="Projects and pages">
-      {!project && (
-        <div className="section-heading">
-          <button className="primary" onClick={() => setEditor({ kind: 'project' })}>
-            <Icon name="plus" size={18} />
-            New project
-          </button>
-        </div>
-      )}
       {!state.online && (
         <p className="notice">
           Your saved projects are here. Reconnect to change them; unfinished editor text stays on this device.
@@ -239,6 +231,10 @@ export function Projects({
                   ))}
               </select>
             </label>
+            <button className="primary" onClick={() => setEditor({ kind: 'project' })}>
+              <Icon name="plus" size={18} />
+              New project
+            </button>
           </div>
           <div className="project-grid">
             {visible.slice(0, limit).map((p) => (

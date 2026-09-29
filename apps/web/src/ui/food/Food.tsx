@@ -210,31 +210,31 @@ export function Food({
   };
   return (
     <section className="food-section" aria-label="Food and recipes">
-      <div className="section-heading">
-        <button className="primary" onClick={() => setEditor('new')}>
-          <Icon name="plus" size={18} />
-          Add a recipe
-        </button>
-      </div>
       <div className="food-toolbar">
-        <div className="food-segment" role="group" aria-label="Recipe collection">
-          {[
-            { id: 'want_to_try', name: 'Want to try' },
-            { id: 'favourites', name: 'Favourites' },
-            { id: 'soon', name: 'Make soon' },
-            { id: 'all', name: 'All recipes' },
-          ].map((item) => (
-            <button
-              key={item.id}
-              aria-pressed={view === item.id}
-              onClick={() => {
-                setView(item.id);
-                setLimit(24);
-              }}
-            >
-              {item.name}
-            </button>
-          ))}
+        <div className="collection-toolbar">
+          <div className="food-segment" role="group" aria-label="Recipe collection">
+            {[
+              { id: 'want_to_try', name: 'Want to try' },
+              { id: 'favourites', name: 'Favourites' },
+              { id: 'soon', name: 'Make soon' },
+              { id: 'all', name: 'All recipes' },
+            ].map((item) => (
+              <button
+                key={item.id}
+                aria-pressed={view === item.id}
+                onClick={() => {
+                  setView(item.id);
+                  setLimit(24);
+                }}
+              >
+                {item.name}
+              </button>
+            ))}
+          </div>
+          <button className="primary" onClick={() => setEditor('new')}>
+            <Icon name="plus" size={18} />
+            Add a recipe
+          </button>
         </div>
         <label className="food-search">
           <Icon name="search" size={18} />

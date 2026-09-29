@@ -50,12 +50,7 @@ export function AgendaTasks({
     .sort(compareOpenTasks);
   return (
     <section className="agenda-panel agenda-focus" aria-label="Your tasks" data-agenda-section="tasks">
-      <p className="eyebrow">For {state.session!.person.displayName}</p>
       <h2>Your tasks</h2>
-      <p className="fine">
-        Tasks needing attention today and dated tasks from {start} through {through}. Assigned to you or
-        unassigned. Open a task to complete, edit or postpone it.
-      </p>
       {!tasks.length && <p>No tasks need attention today or are scheduled for these dates.</p>}
       {tasks.slice(0, limit).map(({ task, occurrence }) => (
         <button className="agenda-task" key={occurrence.recordId} onClick={() => onTask(occurrence.recordId)}>

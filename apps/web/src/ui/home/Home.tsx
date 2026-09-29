@@ -206,32 +206,32 @@ export function Home({
   };
   return (
     <section className="home-section">
-      <div className="task-toolbar">
+      {!state.online && (
+        <p className="notice">Saved household details are available offline. Connect to make changes.</p>
+      )}
+      <div className="collection-toolbar">
+        <div className="task-views">
+          {[
+            ['active', 'In use'],
+            ['archived', 'Archived'],
+            ['deleted', 'Removed'],
+          ].map(([id, title]) => (
+            <button
+              key={id}
+              aria-pressed={view === id}
+              onClick={() => {
+                setView(id!);
+                setLimit(20);
+              }}
+            >
+              {title}
+            </button>
+          ))}
+        </div>
         <button className="primary" disabled={!state.online} onClick={() => setEditor({ mode: 'asset' })}>
           <Icon name="plus" size={18} />
           Add asset
         </button>
-      </div>
-      {!state.online && (
-        <p className="notice">Saved household details are available offline. Connect to make changes.</p>
-      )}
-      <div className="task-views">
-        {[
-          ['active', 'In use'],
-          ['archived', 'Archived'],
-          ['deleted', 'Removed'],
-        ].map(([id, title]) => (
-          <button
-            key={id}
-            aria-pressed={view === id}
-            onClick={() => {
-              setView(id!);
-              setLimit(20);
-            }}
-          >
-            {title}
-          </button>
-        ))}
       </div>
       <div className="task-filters">
         <select

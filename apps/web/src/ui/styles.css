@@ -1843,3 +1843,48 @@ a {
   justify-content: flex-end;
   margin-bottom: 12px;
 }
+
+.collection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+.collection-toolbar > :is(.task-views, .food-segment) {
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.collection-toolbar button {
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-height: 44px;
+}
+@media (max-width: 540px) {
+  .collection-toolbar {
+    gap: 6px;
+  }
+  .collection-toolbar > :is(.task-views, .food-segment) {
+    gap: 2px;
+  }
+  .collection-toolbar button {
+    padding: 8px;
+    font-size: 12px;
+  }
+}
+
+.food-toolbar > .collection-toolbar {
+  margin-bottom: 0;
+}
+.project-filters > .primary {
+  margin-left: auto;
+  align-self: flex-end;
+  min-height: 44px;
+  white-space: nowrap;
+}
