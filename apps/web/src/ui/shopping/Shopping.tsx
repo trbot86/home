@@ -227,7 +227,7 @@ export function Shopping({
         {list && (
           <details className="shopping-list-options">
             <summary aria-label="List options" title="List options">
-              <Icon name="settings" size={18} />
+              <Icon name="options" size={18} />
             </summary>
             {tools(list)}
           </details>

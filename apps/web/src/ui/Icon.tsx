@@ -12,6 +12,7 @@ export function Icon({
     | 'tasks'
     | 'trash'
     | 'settings'
+    | 'options'
     | 'plus'
     | 'arrow'
     | 'photo'
@@ -43,7 +44,8 @@ export function Icon({
     tasks: 'M9 3h6v4H9ZM9 5H5v16h14V5h-4M8 13l3 3 5-6',
     trash: 'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7',
     settings:
-      'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2',
+      'M9 2h6l.5 3 2 1.2 2.8-1 3 5.2L21 12l2.3 1.6-3 5.2-2.8-1-2 1.2-.5 3H9l-.5-3-2-1.2-2.8 1-3-5.2L3 12 .7 10.4l3-5.2 2.8 1 2-1.2ZM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8',
+    options: 'M3 7h10m6 0h2M3 17h2m6 0h10M16 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6M8 14a3 3 0 1 0 0 6 3 3 0 0 0 0-6',
     plus: 'M12 5v14M5 12h14',
     arrow: 'M5 12h14m-6-6 6 6-6 6',
     photo: 'M3 4h18v16H3Zm0 12 5-5 5 5 3-3 5 5M15 8h.01',
