@@ -1,3 +1,4 @@
+import { registerShoppingPreferencesRoutes } from './application/shopping-preferences-routes.js';
 import { registerRecordSecurityRoutes } from './application/record-security.js';
 import { RecordSharing } from './application/record-sharing.js';
 import { registerFilingAdviceRoutes } from './application/inbox-filing-advice-routes.js';
@@ -202,6 +203,7 @@ export async function buildApp(options: AppOptions) {
   });
   app.get('/health', async () => ({ status: 'ok', contractVersion: 1, development: !!options.development }));
   registerRecordSecurityRoutes(app, db, records, authenticate);
+  registerShoppingPreferencesRoutes(app, db, authenticate);
   const filingAdvice = registerFilingAdviceRoutes(
     app,
     db,

@@ -30,6 +30,10 @@ test('photo edits survive reload, reorder with captions, support undo and comple
   page.on('pageerror', (error) => errors.push(error.message));
   await login(page);
   const card = await task(page, 'Photo test: replace filter');
+  if (!(await card.locator('details.task-card-body').getAttribute('open'))) {
+    if (!(await card.locator('details.task-card-body').evaluate((el) => (el as HTMLDetailsElement).open)))
+      await card.locator('summary.task-summary').click();
+  }
   await card.getByRole('button', { name: 'Photos & receipts', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Photos & receipts', exact: true });
   await dialog.locator('input[type=file]').setInputFiles([file('label.png'), file('receipt.png')]);
@@ -43,6 +47,10 @@ test('photo edits survive reload, reorder with captions, support undo and comple
   await page.reload();
   await page.getByRole('button', { name: 'Tasks', exact: true }).click();
   await page.getByRole('button', { name: 'All tasks', exact: true }).click();
+  if (!(await card.locator('details.task-card-body').getAttribute('open'))) {
+    if (!(await card.locator('details.task-card-body').evaluate((el) => (el as HTMLDetailsElement).open)))
+      await card.locator('summary.task-summary').click();
+  }
   await card.getByRole('button', { name: 'Photos & receipts', exact: true }).click();
   await expect(dialog.getByLabel('Caption for photo 1')).toHaveValue('Receipt from the shop');
   await expect(dialog.locator('img')).toHaveCount(2);
@@ -69,6 +77,7 @@ test('photo edits survive reload, reorder with captions, support undo and comple
   await partner.getByRole('button', { name: 'Tasks', exact: true }).click();
   await partner.getByRole('button', { name: 'All tasks', exact: true }).click();
   const shared = partner.locator('.task-card').filter({ hasText: 'Photo test: replace filter' });
+  await shared.locator('summary.task-summary').click();
   await expect(shared.locator('img')).toHaveCount(2);
   await expect
     .poll(() =>
@@ -109,6 +118,10 @@ test('photo edits survive reload, reorder with captions, support undo and comple
 test('a lost attachment reply keeps the frozen draft and recovers without reuploading', async ({ page }) => {
   await login(page);
   const card = await task(page, 'Photo test: uncertain save');
+  if (!(await card.locator('details.task-card-body').getAttribute('open'))) {
+    if (!(await card.locator('details.task-card-body').evaluate((el) => (el as HTMLDetailsElement).open)))
+      await card.locator('summary.task-summary').click();
+  }
   await card.getByRole('button', { name: 'Photos & receipts', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Photos & receipts', exact: true });
   await dialog.locator('input[type=file]').setInputFiles(file('pending.png'));
@@ -139,6 +152,10 @@ test('a lost attachment reply keeps the frozen draft and recovers without reuplo
   await page.getByRole('button', { name: 'Tasks', exact: true }).click();
   await page.getByRole('button', { name: 'All tasks', exact: true }).click();
   await expect(card.locator('img')).toHaveCount(1);
+  if (!(await card.locator('details.task-card-body').getAttribute('open'))) {
+    if (!(await card.locator('details.task-card-body').evaluate((el) => (el as HTMLDetailsElement).open)))
+      await card.locator('summary.task-summary').click();
+  }
   await card.getByRole('button', { name: 'Photos & receipts', exact: true }).click();
   await dialog.getByRole('button', { name: 'Finish', exact: true }).click();
   await expect(dialog).toHaveCount(0);

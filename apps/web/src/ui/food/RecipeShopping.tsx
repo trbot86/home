@@ -1,3 +1,4 @@
+import { IngredientStores } from './IngredientStores.js';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
 import type { Recipe } from '@our-place/contracts';
@@ -58,7 +59,10 @@ export function RecipeShopping({
     () => ({
       recordId: crypto.randomUUID(),
       name: recipe.title,
-      listId: lists[0]?.recordId ?? '',
+      listId: lists[0]?.recordId ?? 'new',
+      newListId: crypto.randomUUID(),
+      newListName: recipe.title,
+      buyingNotes: '',
       listRevision: String(lists[0]?.revision ?? 1),
       selection: JSON.stringify(
         recipe.ingredients.map((i) => ({
@@ -75,6 +79,7 @@ export function RecipeShopping({
     recipe.revision,
     session.serverEpoch,
     onError,
+    (saved) => ({ newListId: crypto.randomUUID(), newListName: recipe.title, buyingNotes: '', ...saved }),
   );
   const form = buffer.values,
     rows = readSelection(form.selection),
@@ -91,7 +96,7 @@ export function RecipeShopping({
       session.serverEpoch !== buffer.epoch ||
       (list && list.revision !== Number(form.listRevision));
   const valid =
-    !!list &&
+    (form.listId === 'new' ? !!form.newListName.trim() : !!list) &&
     !!rows &&
     chosen.length > 0 &&
     chosen.length <= 100 &&
@@ -133,8 +138,11 @@ export function RecipeShopping({
           recordId: form.recordId,
           recipeId: recipe.recordId,
           expectedRecipeRevision: buffer.baseRevision,
-          listId: form.listId,
-          expectedListRevision: Number(form.listRevision),
+          listId: form.listId === 'new' ? form.newListId : form.listId,
+          expectedListRevision: form.listId === 'new' ? 1 : Number(form.listRevision),
+          ...(form.listId === 'new'
+            ? { newList: { name: form.newListName, purpose: 'groceries', notes: form.buyingNotes } }
+            : {}),
           name: form.name,
           ingredients: chosen.map(({ ingredientId, entryId, sourceId, label, quantity }) => ({
             ingredientId,
@@ -142,7 +150,7 @@ export function RecipeShopping({
             sourceId,
             label,
             quantity,
-            notes: '',
+            notes: form.listId === 'new' ? '' : form.buyingNotes,
           })),
         },
         'Recipe ingredients added to shopping',
@@ -194,11 +202,12 @@ export function RecipeShopping({
                 buffer.field('listId', e.target.value);
                 buffer.field(
                   'listRevision',
-                  String(lists.find((l) => l.recordId === e.target.value)!.revision),
+                  String(lists.find((l) => l.recordId === e.target.value)?.revision ?? 1),
                 );
               }}
             >
-              {!list && <option value={form.listId}>Choose a list</option>}
+              {!list && form.listId !== 'new' && <option value={form.listId}>Choose a list</option>}
+              <option value="new">Create a new list…</option>
               {lists.map((l) => (
                 <option key={l.recordId} value={l.recordId}>
                   {l.name}
@@ -206,18 +215,41 @@ export function RecipeShopping({
               ))}
             </select>
           </label>
-          {!lists.length && (
-            <p className="notice">
-              Create a{' '}
-              {session.scopes.find((s) => s.scopeId === recipe.scopeId)?.kind === 'private'
-                ? 'private'
-                : 'shared'}{' '}
-              shopping list first.{' '}
-              <button type="button" onClick={() => void buffer.flush().then(onOpenShopping).catch(onError)}>
-                Open shopping
-              </button>
-            </p>
+          {form.listId === 'new' && (
+            <label className="task-field">
+              New list name
+              <input
+                aria-label="New list name"
+                value={form.newListName}
+                maxLength={300}
+                required
+                onChange={(e) => buffer.field('newListName', e.target.value)}
+              />
+            </label>
           )}
+          <IngredientStores
+            client={client}
+            ingredients={chosen.map((row) => row.label)}
+            appendNote={(text) =>
+              buffer.field(
+                'buyingNotes',
+                [form.buyingNotes, text].filter(Boolean).join('\n\n').slice(0, 10000),
+              )
+            }
+          />
+          <label className="task-field">
+            Buying notes
+            <textarea
+              aria-label="Buying notes"
+              value={form.buyingNotes}
+              maxLength={10000}
+              rows={3}
+              onChange={(e) => buffer.field('buyingNotes', e.target.value)}
+            />
+          </label>
+          <p className="fine">
+            Notes are saved on a new list, or with each selected item when adding to an existing list.
+          </p>
           <label className="task-field">
             Group name
             <input

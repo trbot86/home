@@ -384,14 +384,13 @@ test('task migration preserves existing shopping purchases, receipts and history
   try {
     const listId = randomUUID(),
       entryId = randomUUID();
-    applied(
-      f.run('CreateShoppingList', {
-        recordId: listId,
-        scopeId: f.shared,
-        name: 'Keep this list',
-        purpose: 'household',
-      }),
-    );
+    // Seed the historical list shape; current list writes include migration 032's notes.
+    f.db
+      .prepare("INSERT INTO records VALUES (?,'shopping_list',?,1,?,?,NULL)")
+      .run(listId, f.shared, f.now(), f.now());
+    f.db
+      .prepare('INSERT INTO shopping_lists VALUES (?,?,?,?,?)')
+      .run(listId, 'shopping_list', f.shared, 'Keep this list', 'household');
     applied(
       f.run('AddShoppingEntry', {
         recordId: entryId,
@@ -436,5 +435,24 @@ test('task migration preserves existing shopping purchases, receipts and history
   } finally {
     f.close();
     rmSync(path, { recursive: true, force: true });
+  }
+});
+
+test('private tasks default to their owner through creation and recurrence; shared tasks stay unassigned', () => {
+  const f = fixture();
+  try {
+    const args = f.create(monthly, f.privateScope);
+    applied(f.run('CreateTask', args));
+    assert.equal(f.tasks.get(f.a, args.recordId).content.defaultAssigneeId, f.a.personId);
+    assert.equal(f.tasks.get(f.a, args.occurrenceId).content.assigneeId, f.a.personId);
+    const completion = f.complete(args.recordId, args.occurrenceId);
+    applied(f.run('CompleteTaskOccurrence', completion));
+    assert.equal(f.tasks.get(f.a, completion.nextOccurrenceId!).content.assigneeId, f.a.personId);
+    const shared = f.create();
+    applied(f.run('CreateTask', shared));
+    assert.equal(f.tasks.get(f.a, shared.recordId).content.defaultAssigneeId, null);
+    assert.equal(f.tasks.get(f.a, shared.occurrenceId).content.assigneeId, null);
+  } finally {
+    f.close();
   }
 });

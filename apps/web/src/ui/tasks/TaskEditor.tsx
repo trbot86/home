@@ -142,7 +142,9 @@ export function TaskEditor({
         title: form.title,
         instructions: form.instructions,
         context: form.context,
-        defaultAssigneeId: (mode === 'create' ? form.assigneeId : form.defaultAssigneeId) || null,
+        defaultAssigneeId: privateScope
+          ? session.person.personId
+          : (mode === 'create' ? form.assigneeId : form.defaultAssigneeId) || null,
         defaultPriority: Number(mode === 'create' ? form.priority : form.defaultPriority),
         recurrence,
         maintenance: form.maintenanceAssetId
@@ -151,7 +153,7 @@ export function TaskEditor({
         cooking: form.cookingRecipeId ? { recipeId: form.cookingRecipeId } : null,
       };
       const plan = {
-        assigneeId: form.assigneeId || null,
+        assigneeId: privateScope ? session.person.personId : form.assigneeId || null,
         priority: Number(form.priority),
         deadlineDate: form.deadlineDate || null,
         targetDate: form.targetDate || null,
@@ -215,10 +217,11 @@ export function TaskEditor({
       {label}
       <select
         aria-label={label}
-        value={form[key]}
+        value={privateScope ? session.person.personId : form[key]}
+        disabled={privateScope}
         onChange={(event) => buffer.field(key, event.target.value)}
       >
-        <option value="">Unassigned</option>
+        {!privateScope && <option value="">Unassigned</option>}
         {state.tasks.people
           .filter((person) => !privateScope || person.personId === session.person.personId)
           .map((person) => (

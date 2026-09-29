@@ -103,23 +103,8 @@ export function PersonalAgenda({
           </select>
         </label>
         <button onClick={() => setStart(today)}>Today</button>
-        <button onClick={onSettings}>Manage calendars</button>
         <button onClick={() => setEditing(true)}>Customise agenda</button>
       </div>
-      <p className="fine agenda-help">
-        Times shown in {state.tasks.timeZone}. Calendars refresh automatically about every ten minutes.
-      </p>
-      {!state.online && (
-        <p className="calendar-message" role="status">
-          Offline · showing the last download. Calendar changes and access changes will appear after
-          reconnecting.
-        </p>
-      )}
-      {!state.agenda.configured && (
-        <p className="calendar-message agenda-help">
-          Calendar connection is optional. Your tasks appear without a connected calendar.
-        </p>
-      )}
       {state.agenda.needsReconnect && (
         <p className="calendar-message" role="status">
           A Google account needs reconnection in Settings. Its events are hidden until access is renewed.
@@ -176,6 +161,23 @@ export function PersonalAgenda({
           ),
         )}
       </div>
+      <footer className="agenda-footer">
+        <button onClick={onSettings}>Manage calendars</button>
+        <p className="fine agenda-help">
+          Times shown in {state.tasks.timeZone}. Calendars refresh automatically about every ten minutes.
+        </p>
+        {!state.online && (
+          <p className="calendar-message" role="status">
+            Offline · showing the last download. Calendar changes and access changes will appear after
+            reconnecting.
+          </p>
+        )}
+        {!state.agenda.configured && (
+          <p className="calendar-message agenda-help">
+            Calendar connection is optional. Your tasks appear without a connected calendar.
+          </p>
+        )}
+      </footer>
       {editing && (
         <AgendaLayoutEditor
           client={client}

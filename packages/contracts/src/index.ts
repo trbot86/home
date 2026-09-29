@@ -251,3 +251,5 @@ export function invalidFields(schema: TSchema, value: unknown): string[] {
   return [...new Set([...Value.Errors(schema, value)].map((error) => error.path))].slice(0, 20);
 }
 export * from './filing-advice.js';
+
+export * from './shopping-preferences.js';

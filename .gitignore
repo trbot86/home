@@ -18,6 +18,7 @@ test-results/
 !.env.example
 local.properties
 .gradle/
+.kotlin/
 build/
 *.jks
 *.keystore

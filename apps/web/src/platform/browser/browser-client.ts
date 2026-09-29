@@ -56,6 +56,14 @@ export class BrowserClient implements ClientPlatform {
       ? this.post(path, request, this.requireSession().clientId)
       : this.request(path, {}, this.requireSession().clientId);
   }
+  shoppingSettings(request?: {
+    expectedRevision: number;
+    preferences: import('@our-place/contracts').ShoppingPreferences;
+  }): Promise<import('@our-place/contracts').ShoppingSettings> {
+    return request
+      ? this.post('/shopping/settings', request, this.requireSession().clientId)
+      : this.request('/shopping/settings', {}, this.requireSession().clientId);
+  }
   filingAdviceSettings(): Promise<import('@our-place/contracts').FilingAdviceSettings> {
     return this.request('/filing-advice/settings', {}, this.requireSession().clientId);
   }

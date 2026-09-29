@@ -424,3 +424,29 @@
     gap: 4px;
   }
 }
+
+.ingredient-stores {
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.ingredient-stores details {
+  margin: 10px 0;
+}
+.ingredient-stores summary {
+  cursor: pointer;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.ingredient-stores li {
+  margin-bottom: 12px;
+}
+.ingredient-stores a {
+  display: inline-block;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.shopping-store-setting {
+  margin-bottom: 12px;
+}

@@ -30,7 +30,10 @@ async function runImport(page: Page) {
 async function shoppingList(page: Page, name: string) {
   await page.getByRole('button', { name: 'Shopping', exact: true }).click();
   await page.getByRole('button', { name: 'New list', exact: true }).click();
-  await page.getByRole('dialog').getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
+  await page
+    .getByRole('dialog')
+    .getByLabel('Who can see this', { exact: true })
+    .selectOption({ label: 'Shared' });
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill(name);
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).press('Control+Enter');
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -337,6 +340,11 @@ test('recipe cooking tasks preserve plans, link back from Tasks, postpone indepe
   await page.getByRole('button', { name: 'Tasks', exact: true }).click();
   await page.getByLabel('Task person').selectOption('everyone');
   await page.getByRole('button', { name: 'All tasks', exact: true }).click();
+  await page
+    .locator('.task-card')
+    .filter({ hasText: 'Make Planned lentil soup' })
+    .locator('summary.task-summary')
+    .click();
   await page.getByRole('button', { name: 'Recipe: Planned lentil soup', exact: true }).click();
   await expect(page.locator('.food-detail-heading')).toContainText('Planned lentil soup');
   plan = page.locator('.food-cooking-task').filter({ hasText: 'Make Planned lentil soup' });
@@ -358,4 +366,62 @@ test('recipe cooking tasks preserve plans, link back from Tasks, postpone indepe
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.setViewportSize({ width: 320, height: 1100 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('recipe ingredients create a named list with store-search notes and preserve the saved selection', async ({
+  page,
+}) => {
+  await login(page);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const settings = page.getByRole('region', { name: 'Shopping preferences' });
+  await settings.getByLabel('City or postal code').fill('Example city');
+  await settings.getByRole('button', { name: 'Add store', exact: true }).click();
+  await settings.getByLabel('Store 1', { exact: true }).fill('Neighbourhood market');
+  await settings.getByRole('button', { name: 'Add store', exact: true }).click();
+  await settings.getByLabel('Store 2', { exact: true }).fill('Bulk warehouse');
+  await settings.getByLabel('Prefer for larger orders').nth(1).check();
+  await settings.getByRole('button', { name: 'Save shopping preferences', exact: true }).click();
+  await expect(settings.getByRole('status')).toHaveText('Shopping preferences saved.');
+  await page.getByRole('button', { name: 'Food', exact: true }).click();
+  await manual(page, 'New list soup');
+  await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
+  await page.getByLabel('Ingredient shopping list').selectOption('new');
+  await page.getByLabel('New list name', { exact: true }).fill('Dinner supplies');
+  await page.getByRole('button', { name: 'Check nearby stores', exact: true }).click();
+  await expect(page.getByText('Neighbourhood market', { exact: true })).toBeVisible();
+  await expect(page.getByText('Bulk warehouse · larger orders', { exact: true })).toHaveCount(0);
+  await page.getByLabel('Larger order: include bulk stores').check();
+  await expect(page.getByText('Bulk warehouse · larger orders', { exact: true })).toBeVisible();
+  await page.getByText('Neighbourhood market', { exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Find 2 carrots', exact: true })).toHaveAttribute(
+    'href',
+    /Neighbourhood%20market%20Example%20city%202%20carrots/,
+  );
+  await page.getByRole('button', { name: 'Save search to buying notes', exact: true }).first().click();
+  await expect(page.getByLabel('Buying notes', { exact: true })).toHaveValue(/stock unverified/);
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.getByRole('button', { name: 'Shop for this recipe', exact: true }).click();
+  await expect(page.getByLabel('New list name', { exact: true })).toHaveValue('Dinner supplies');
+  await page.getByRole('button', { name: 'Add 2 items to shopping', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Shopping', exact: true }).click();
+  await page.getByLabel('Shopping list', { exact: true }).selectOption({ label: 'Dinner supplies' });
+  await page.getByText('List notes', { exact: true }).click();
+  await expect(page.locator('.shopping-list-notes')).toContainText('Neighbourhood market');
+  await expect(page.locator('.shopping-group')).toHaveCount(1);
+  await page.locator('h1').click();
+  await page.keyboard.press('Control+z');
+  await expect(
+    page
+      .getByLabel('Shopping list', { exact: true })
+      .locator('option')
+      .filter({ hasText: 'Dinner supplies' }),
+  ).toHaveCount(0);
+  await page.keyboard.press('Control+Shift+z');
+  await expect(
+    page
+      .getByLabel('Shopping list', { exact: true })
+      .locator('option')
+      .filter({ hasText: 'Dinner supplies' }),
+  ).toHaveCount(1);
 });

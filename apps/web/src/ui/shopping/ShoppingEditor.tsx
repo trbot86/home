@@ -47,7 +47,7 @@ export function ShoppingEditor({
     name: record && 'name' in record ? record.name : mode === 'list' ? 'Groceries' : '',
     label: record?.kind === 'shopping_entry' ? record.label : '',
     quantity: record && 'quantity' in record ? record.quantity : '',
-    notes: record && 'notes' in record ? record.notes : '',
+    notes: record && 'notes' in record ? (record.notes ?? '') : '',
     model: record?.kind === 'restock_item' ? record.model : '',
     productUrl: record?.kind === 'restock_item' ? (record.productUrl ?? '') : '',
     purpose: record?.kind === 'shopping_list' ? record.purpose : 'groceries',
@@ -137,7 +137,7 @@ export function ShoppingEditor({
         };
       } else if (mode === 'list') {
         kind = record ? 'UpdateShoppingList' : 'CreateShoppingList';
-        args = { ...target, name: form.name, purpose: form.purpose };
+        args = { ...target, name: form.name, purpose: form.purpose, notes: form.notes };
       } else if (mode === 'restock') {
         kind = record ? 'UpdateRestockItem' : 'CreateRestockItem';
         args = {
@@ -250,7 +250,7 @@ export function ShoppingEditor({
               {field('productUrl', 'Product link (optional)', 4096)}
             </>
           )}
-          {mode !== 'list' && mode !== 'group' && (
+          {mode !== 'group' && (
             <label className="shopping-field">
               Notes
               <textarea

@@ -40,7 +40,8 @@ test('tasks separate deadlines from targets, repeat from actual completion and k
     await dialog.getByLabel('Repeat every', { exact: true }).fill('1');
   });
   await expect(page.getByRole('heading', { name: 'Past a real deadline', exact: false })).toBeVisible();
-  await card.locator('summary').click();
+  await card.locator('summary.task-summary').click();
+  await card.locator('.task-postpone summary').click();
   await card.getByRole('button', { name: '+1 week', exact: true }).click();
   await expect(card.locator('.task-late')).toContainText('Aug 15, 2026');
   await card.getByRole('button', { name: 'Plan', exact: true }).click();
@@ -76,6 +77,7 @@ test('tasks separate deadlines from targets, repeat from actual completion and k
   await expect(
     flexible.locator('..').getByRole('heading', { name: 'Ready when you are', exact: false }),
   ).toBeVisible();
+  await flexible.locator('summary.task-summary').click();
   await flexible.getByRole('button', { name: 'Delete Review the garden ideas', exact: true }).click();
   await expect(flexible).toHaveCount(0);
   await page.keyboard.press('Control+z');
@@ -180,6 +182,7 @@ test('task editor buffers, uncertain creation, private tasks and offline viewing
   await page.getByRole('button', { name: 'Tasks', exact: true }).click();
   await page.getByRole('button', { name: 'All tasks', exact: true }).click();
   await expect(card).toContainText('Keep these unfinished details');
+  await card.locator('summary.task-summary').click();
   await expect(card.getByRole('button', { name: 'Plan', exact: true })).toBeDisabled();
   await context.setOffline(false);
 });
@@ -211,7 +214,7 @@ test('revisit picker starts at the target without saving provisional dates', asy
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: '.cache/revisit-picker.png' });
   });
-  await card.locator('summary').click();
+  await card.locator('summary.task-summary').click();
   await card.getByRole('button', { name: 'Plan', exact: true }).click();
   const dialog = page.getByRole('dialog');
   const selection = dialog.getByLabel('Revisit date selection', { exact: true });
@@ -248,4 +251,29 @@ test('revisit picker starts at the target without saving provisional dates', asy
   await selection.fill('');
   await dialog.getByRole('button', { name: 'Use date', exact: true }).click();
   await expect(dialog.getByRole('button', { name: 'Revisit on Choose date', exact: true })).toBeVisible();
+});
+
+test('task rows are compact, expandable and remember the selected tab after reload', async ({ page }) => {
+  await openTasks(page);
+  await page.getByRole('button', { name: 'All tasks', exact: true }).click();
+  const card = await createTask(page, 'Compact task', async (dialog) => {
+    await dialog.getByLabel('Instructions', { exact: true }).fill('Details only when requested');
+  });
+  await expect(card.getByRole('button', { name: 'Edit', exact: true })).not.toBeVisible();
+  await expect(card.getByRole('button', { name: 'Complete Compact task', exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 900 });
+  expect((await card.boundingBox())!.height).toBeLessThan(150);
+  await card.locator('summary.task-summary').click();
+  await expect(card.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
+  await expect(card.getByText('Details only when requested', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Completed', exact: true }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Tasks', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Completed', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await page.getByRole('button', { name: 'All tasks', exact: true }).click();
+  await page.getByRole('button', { name: 'New task', exact: true }).click();
+  await expect(page.getByLabel('Assigned to', { exact: true })).toBeDisabled();
 });

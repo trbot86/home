@@ -168,6 +168,23 @@ export class ShoppingGroupsRepository {
   private mutate(context: Context, kind: Kind, payload: unknown, now: number): RecordMutation {
     if (kind === 'CreateShoppingGroup' || kind === 'AddRecipeIngredients') {
       const args = payload as Command<'AddRecipeIngredients'>['arguments'];
+      const createdLists: TrackedRecord[] = [];
+      if (kind === 'AddRecipeIngredients' && args.newList) {
+        const recipe = this.recipes.project(this.recipes.get(context, args.recipeId, 'recipe')) as Recipe;
+        if (recipe.deletedAt !== null || recipe.revision !== args.expectedRecipeRevision)
+          throw new Rejection('revision_conflict');
+        const created = this.shopping.execute(
+          context,
+          'CreateShoppingList',
+          {
+            recordId: args.listId,
+            scopeId: recipe.scopeId,
+            ...args.newList,
+          },
+          now,
+        );
+        createdLists.push(...created.records);
+      }
       const list = this.liveList(
         context,
         args.listId,
@@ -197,7 +214,7 @@ export class ShoppingGroupsRepository {
         recipe ? { recipeId: recipe.recordId, revision: recipe.revision, title: recipe.title } : null,
         now,
       );
-      const records = [group];
+      const records = [...createdLists, group];
       if (recipe)
         for (const item of args.ingredients) {
           records.push(

@@ -74,6 +74,7 @@ export class ShoppingRepository {
         throw new Rejection('invalid_product_url');
       }
     }
+    if (kind === 'shopping_list') return { ...content, notes: content.notes ?? '' };
     return kind === 'shopping_entry'
       ? { ...content, groupId: content.groupId ?? null, recipeSources: content.recipeSources ?? [] }
       : hasPhotos(kind)
@@ -90,7 +91,13 @@ export class ShoppingRepository {
       setContent: (context, before, content, now) => this.setContent(context, before, content, now),
       project: (record) => this.project(record),
       validateContent: (content) => this.content(kind, content),
-      ...(kind === 'shopping_list' ? { assertConsistent: () => this.assertConsistent() } : {}),
+      ...(kind === 'shopping_list'
+        ? {
+            assertConsistent: () => this.assertConsistent(),
+            reversalOrder: (_before: TrackedRecord, content: RecordContent) =>
+              content.deletedAt === null ? -2 : 2,
+          }
+        : {}),
     }));
   }
   get(context: RequestContext, id: string, expectedKind?: ShoppingKind): TrackedRecord {
@@ -107,7 +114,8 @@ export class ShoppingRepository {
     const data = this.db.prepare(`SELECT * FROM ${table} WHERE ${key}=?`).get(id) as Record<string, unknown>;
     if (!data) throw new Error('Shopping payload missing');
     let fields: Record<string, unknown>;
-    if (row.kind === 'shopping_list') fields = { name: data.name, purpose: data.purpose };
+    if (row.kind === 'shopping_list')
+      fields = { name: data.name, purpose: data.purpose, notes: data.notes ?? '' };
     else if (row.kind === 'restock_item')
       fields = {
         name: data.name,
@@ -228,8 +236,8 @@ export class ShoppingRepository {
     this.db.prepare('INSERT INTO records VALUES (?,?,?,1,?,?,NULL)').run(id, kind, c.scopeId, now, now);
     if (kind === 'shopping_list')
       this.db
-        .prepare("INSERT INTO shopping_lists VALUES (?,'shopping_list',?,?,?)")
-        .run(id, c.scopeId, c.name, c.purpose);
+        .prepare("INSERT INTO shopping_lists VALUES (?,'shopping_list',?,?,?,?)")
+        .run(id, c.scopeId, c.name, c.purpose, c.notes ?? '');
     else if (kind === 'restock_item')
       this.db
         .prepare("INSERT INTO restock_items VALUES (?,'restock_item',?,?,?,?,?,?)")
@@ -280,8 +288,8 @@ export class ShoppingRepository {
     const id = before.recordId;
     if (before.kind === 'shopping_list')
       this.db
-        .prepare('UPDATE shopping_lists SET name=?,purpose=? WHERE shopping_list_id=?')
-        .run(c.name, c.purpose, id);
+        .prepare('UPDATE shopping_lists SET name=?,purpose=?,notes=? WHERE shopping_list_id=?')
+        .run(c.name, c.purpose, c.notes ?? '', id);
     else if (before.kind === 'restock_item')
       this.db
         .prepare(

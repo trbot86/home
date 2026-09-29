@@ -26,6 +26,7 @@ try {
   await expect(dialog).toHaveCount(0);
   const card = page.locator('.task-card').filter({ hasText: title });
   await expect(card).toHaveCount(1);
+  await card.locator('summary.task-summary').click();
   await card.getByRole('button', { name: 'Edit', exact: true }).click();
   await dialog.getByLabel('Instructions', { exact: true }).fill('Check the filter size; saved native draft');
   await dialog.getByRole('heading').click();

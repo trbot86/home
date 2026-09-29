@@ -331,3 +331,47 @@ test('failed commit leaves no group, item, source or receipt, and an exact retry
     f.close();
   }
 });
+
+test('recipe export creates a named list and notes atomically, replays, and reverses all children', () => {
+  const f = fixture();
+  try {
+    const recipe = f.recipe(f.privateScope),
+      listId = randomUUID();
+    const args = {
+      ...f.selection(recipe, listId),
+      newList: { name: 'Soup ingredients', purpose: 'groceries', notes: 'Check the market' },
+    };
+    const request = f.envelope(args);
+    const saved = applied(f.writes.execute(f.a, 'AddRecipeIngredients', request));
+    assert.equal(saved.result.records.length, 4);
+    assert.equal(f.shopping.get(f.a, listId).content.notes, 'Check the market');
+    assert.equal(f.shopping.get(f.a, listId).content.scopeId, f.privateScope);
+    assert.throws(() => f.shopping.get(f.b, listId), NotFound);
+    assert.equal(applied(f.writes.execute(f.a, 'AddRecipeIngredients', request)).replayed, true);
+    const undo = applied(f.run('UndoChangeSet', { changeSetId: saved.changeSetId }));
+    assert.ok(f.shopping.get(f.a, listId).content.deletedAt);
+    assert.ok(f.get(args.recordId).deletedAt);
+    assert.ok(f.get(args.ingredients[0]!.entryId).deletedAt);
+    applied(f.run('RedoChangeSet', { changeSetId: undo.changeSetId }));
+    assert.equal(f.shopping.get(f.a, listId).content.deletedAt, null);
+    assert.equal(f.shopping.get(f.a, listId).content.notes, 'Check the market');
+    assert.equal(f.get(args.ingredients[0]!.entryId).deletedAt, null);
+    const badList = randomUUID(),
+      bad = { ...f.selection(recipe, badList), newList: args.newList };
+    bad.ingredients[0]!.ingredientId = randomUUID();
+    assert.equal(f.run('AddRecipeIngredients', bad).status, 'Rejected');
+    assert.equal(f.db.prepare('SELECT 1 FROM records WHERE record_id=?').get(badList), undefined);
+    // An older client does not erase newly added notes when renaming a list.
+    applied(
+      f.run('UpdateShoppingList', {
+        recordId: listId,
+        expectedRevision: f.shopping.get(f.a, listId).revision,
+        name: 'Renamed',
+        purpose: 'groceries',
+      }),
+    );
+    assert.equal(f.shopping.get(f.a, listId).content.notes, 'Check the market');
+  } finally {
+    f.close();
+  }
+});

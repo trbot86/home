@@ -1,6 +1,6 @@
 import { useNavigationState } from '../NavigationHistory.js';
 import { usePagePreference } from '../usePagePreference.js';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CaptureSources } from '../inbox/FilingLinks.js';
 import {
   openTasks,
@@ -82,7 +82,16 @@ export function Tasks({
     `Tasks.${initialRecordId ?? ''}.focusId`,
     initialTask?.recordId ?? null,
   );
-  const [view, setView] = useNavigationState<View>(
+  const [savedView, saveView] = usePagePreference<View>(state, 'tasks.view', 'focus', (v): v is View =>
+    ['focus', 'all', 'completed', 'deleted'].includes(String(v)),
+  );
+  const [expanded, setExpanded] = useNavigationState<string[]>(
+    `Tasks.${initialRecordId ?? ''}.expanded`,
+    initialTask
+      ? state.tasks.occurrences.filter((o) => o.taskId === initialTask.recordId).map((o) => o.recordId)
+      : [],
+  );
+  const [view, setNavigationView] = useNavigationState<View>(
       `Tasks.${initialRecordId ?? ''}.view`,
       initialTask?.deletedAt != null
         ? 'deleted'
@@ -90,7 +99,7 @@ export function Tasks({
           ? 'completed'
           : initial
             ? 'all'
-            : 'focus',
+            : savedView,
     ),
     [person, setPerson] = usePagePreference<string>(
       state,
@@ -98,7 +107,7 @@ export function Tasks({
       initial ? 'everyone' : 'mine',
       (v): v is string =>
         typeof v === 'string' &&
-        (['everyone', 'mine'].includes(v) || state.tasks.people.some((p) => p.personId === v)),
+        (['everyone', 'mine', 'unassigned'].includes(v) || state.tasks.people.some((p) => p.personId === v)),
       Boolean(initial),
     ),
     [context, setContext] = usePagePreference<string>(
@@ -130,6 +139,13 @@ export function Tasks({
     ),
     [working, setWorking] = useState<string[]>([]),
     locks = useRef(new Set<string>());
+  function setView(next: View) {
+    if (!initialRecordId) saveView(next);
+    setNavigationView(next);
+  }
+  useEffect(() => {
+    if (!initialRecordId) saveView(view);
+  }, [view, initialRecordId]);
   const snapshot = state.tasks,
     session = state.session!,
     today = calendarDateAt(Date.now(), snapshot.timeZone),
@@ -149,8 +165,13 @@ export function Tasks({
     (!focusId || task.recordId === focusId) &&
     (context === 'both' || task.context === context) &&
     `${task.title} ${task.instructions}`.toLowerCase().includes(search.toLowerCase());
+  const effectiveAssignee = (task: TaskDefinition, item: TaskOccurrence) =>
+    item.assigneeId ??
+    (session.scopes.find((s) => s.scopeId === task.scopeId)?.kind === 'private'
+      ? session.person.personId
+      : null);
   const open = openTasks(snapshot)
-    .filter(({ task, occurrence }) => matches(task) && matchPerson(occurrence.assigneeId))
+    .filter(({ task, occurrence }) => matches(task) && matchPerson(effectiveAssignee(task, occurrence)))
     .sort(compareOpenTasks);
   const completed = snapshot.completions
     .filter(
@@ -229,140 +250,166 @@ export function Tasks({
         >
           <Icon name="check" size={22} />
         </button>
-        <div className="task-card-body">
-          <div className="task-title">
-            <h3>{task.title}</h3>
-            {item.priority >= 2 && <span className="task-priority">{priorityNames[item.priority]}</span>}
-          </div>
-          <p className="task-meta">
-            {personName(item.assigneeId)} · {task.context === 'home' ? 'Home' : 'Work'}
-            {session.scopes.find((scope) => scope.scopeId === task.scopeId)?.kind === 'private'
-              ? ' · Just me'
-              : ''}
-            {task.recurrence
-              ? ` · Every ${task.recurrence.count === 1 ? task.recurrence.unit.slice(0, -1) : `${task.recurrence.count} ${task.recurrence.unit}`} after completion`
-              : ''}
-          </p>
-          {task.instructions && (
-            <p className="task-instructions">
-              <LinkedText client={client} text={task.instructions} />
+        <details
+          className="task-card-body"
+          open={expanded.includes(item.recordId)}
+          onToggle={(e) => {
+            const open = e.currentTarget.open;
+            setExpanded((ids) =>
+              open
+                ? ids.includes(item.recordId)
+                  ? ids
+                  : [...ids, item.recordId]
+                : ids.filter((id) => id !== item.recordId),
+            );
+          }}
+        >
+          <summary className="task-summary" aria-label={`Task details: ${task.title}`}>
+            <div className="task-title">
+              <h3>{task.title}</h3>
+              {item.priority >= 2 && <span className="task-priority">{priorityNames[item.priority]}</span>}
+            </div>
+            <p className="task-meta">
+              {personName(effectiveAssignee(task, item))} · {task.context === 'home' ? 'Home' : 'Work'}
+              {session.scopes.find((scope) => scope.scopeId === task.scopeId)?.kind === 'private'
+                ? ' · Just me'
+                : ''}
+              {item.deadlineDate
+                ? ` · Deadline ${displayDate(item.deadlineDate)}`
+                : item.targetDate
+                  ? ` · Target ${displayDate(item.targetDate)}`
+                  : item.reviewDate
+                    ? ` · Revisit ${displayDate(item.reviewDate)}`
+                    : ''}
             </p>
-          )}
-          {task.maintenance && (
-            <p className="fine">
-              Maintains{' '}
-              {state.home.assets.find((asset) => asset.recordId === task.maintenance!.assetId)?.name ??
-                'linked asset'}
-            </p>
-          )}
-          {task.cooking && (
-            <p className="fine">
-              <button className="task-recipe-link" onClick={() => onOpenRecipe(task.cooking!.recipeId)}>
-                Recipe:{' '}
-                {state.recipes.recipes.find((recipe) => recipe.recordId === task.cooking!.recipeId)?.title ??
-                  'Open recipe'}
-              </button>
-            </p>
-          )}
-          <AttachmentGallery client={client} attachments={task.attachments ?? []} />
-          <div className="task-dates">
-            {item.deadlineDate && (
-              <span className={item.deadlineDate < today ? 'task-late' : ''}>
-                Deadline · {displayDate(item.deadlineDate)}
-              </span>
+          </summary>
+          <div className="task-expanded">
+            {task.recurrence && (
+              <p className="fine">
+                Repeats every {task.recurrence.count} {task.recurrence.unit} after completion.
+              </p>
             )}
-            {item.targetDate && <span>Target · {displayDate(item.targetDate)}</span>}
-            {item.reviewDate && <span>Revisit · {displayDate(item.reviewDate)}</span>}
-          </div>
-          {last && (
-            <p className="fine">
-              Last done {date(last.completedAt)} by {last.performerName}
-            </p>
-          )}
-          {state.pendingEdits.some((id) => id === item.recordId || id === task.recordId) && (
-            <p className="fine" role="status">
-              Waiting for confirmation…
-            </p>
-          )}
-          <CaptureSources recordId={task.recordId} state={state} />
-          <div className="task-actions">
-            <button
+            {task.instructions && task.instructions.trim() !== task.title.trim() && (
+              <p className="task-instructions">
+                <LinkedText client={client} text={task.instructions} />
+              </p>
+            )}
+            {task.maintenance && (
+              <p className="fine">
+                Maintains{' '}
+                {state.home.assets.find((asset) => asset.recordId === task.maintenance!.assetId)?.name ??
+                  'linked asset'}
+              </p>
+            )}
+            {task.cooking && (
+              <p className="fine">
+                <button className="task-recipe-link" onClick={() => onOpenRecipe(task.cooking!.recipeId)}>
+                  Recipe:{' '}
+                  {state.recipes.recipes.find((recipe) => recipe.recordId === task.cooking!.recipeId)
+                    ?.title ?? 'Open recipe'}
+                </button>
+              </p>
+            )}
+            <AttachmentGallery client={client} attachments={task.attachments ?? []} />
+            <div className="task-dates">
+              {item.deadlineDate && (
+                <span className={item.deadlineDate < today ? 'task-late' : ''}>
+                  Deadline · {displayDate(item.deadlineDate)}
+                </span>
+              )}
+              {item.targetDate && <span>Target · {displayDate(item.targetDate)}</span>}
+              {item.reviewDate && <span>Revisit · {displayDate(item.reviewDate)}</span>}
+            </div>
+            {last && (
+              <p className="fine">
+                Last done {date(last.completedAt)} by {last.performerName}
+              </p>
+            )}
+            {state.pendingEdits.some((id) => id === item.recordId || id === task.recordId) && (
+              <p className="fine" role="status">
+                Waiting for confirmation…
+              </p>
+            )}
+            <CaptureSources recordId={task.recordId} state={state} />
+            <div className="task-actions">
+              <button
+                disabled={blocked}
+                onClick={() => setEditor({ mode: 'definition', taskId: task.recordId })}
+              >
+                Edit
+              </button>
+              <button
+                disabled={blocked}
+                onClick={() =>
+                  setEditor({ mode: 'occurrence', taskId: task.recordId, occurrenceId: item.recordId })
+                }
+              >
+                Plan
+              </button>
+              <button disabled={blocked} onClick={() => setCompletionId(item.recordId)}>
+                Done earlier…
+              </button>
+              {historyButton(task)}
+              <button onClick={() => setPhotosId(task.recordId)}>Photos & receipts</button>
+              <button
+                disabled={blocked}
+                onClick={() => {
+                  void action(
+                    task.recordId,
+                    item,
+                    'UpdateTaskOccurrence',
+                    {
+                      recordId: item.recordId,
+                      expectedRevision: item.revision,
+                      assigneeId: item.assigneeId,
+                      priority: item.priority >= 2 ? 1 : 2,
+                      deadlineDate: item.deadlineDate,
+                      targetDate: item.targetDate,
+                      reviewDate: item.reviewDate,
+                    },
+                    item.priority >= 2 ? 'Priority cleared' : 'Pinned as important',
+                  );
+                }}
+              >
+                {item.priority >= 2 ? 'Unpin' : 'Pin'}
+              </button>
+              <button
+                aria-label={`Delete ${task.title}`}
+                disabled={blocked}
+                onClick={() => {
+                  void action(
+                    task.recordId,
+                    task,
+                    'DeleteTask',
+                    {
+                      recordId: task.recordId,
+                      expectedRevision: task.revision,
+                      occurrence: { recordId: item.recordId, expectedRevision: item.revision },
+                    },
+                    'Task moved to deleted',
+                  );
+                }}
+              >
+                <Icon name="trash" size={16} />
+              </button>
+            </div>
+            <PostponeTask
+              initialOpen={initialAction === 'postpone' && initialOccurrence?.recordId === item.recordId}
+              item={item}
+              today={today}
               disabled={blocked}
-              onClick={() => setEditor({ mode: 'definition', taskId: task.recordId })}
-            >
-              Edit
-            </button>
-            <button
-              disabled={blocked}
-              onClick={() =>
-                setEditor({ mode: 'occurrence', taskId: task.recordId, occurrenceId: item.recordId })
-              }
-            >
-              Plan
-            </button>
-            <button disabled={blocked} onClick={() => setCompletionId(item.recordId)}>
-              Done earlier…
-            </button>
-            {historyButton(task)}
-            <button onClick={() => setPhotosId(task.recordId)}>Photos & receipts</button>
-            <button
-              disabled={blocked}
-              onClick={() => {
+              move={(field, value) => {
                 void action(
                   task.recordId,
                   item,
-                  'UpdateTaskOccurrence',
-                  {
-                    recordId: item.recordId,
-                    expectedRevision: item.revision,
-                    assigneeId: item.assigneeId,
-                    priority: item.priority >= 2 ? 1 : 2,
-                    deadlineDate: item.deadlineDate,
-                    targetDate: item.targetDate,
-                    reviewDate: item.reviewDate,
-                  },
-                  item.priority >= 2 ? 'Priority cleared' : 'Pinned as important',
+                  'PostponeTaskOccurrence',
+                  { recordId: item.recordId, expectedRevision: item.revision, field, date: value },
+                  field === 'targetDate' ? 'Target moved' : 'Review date moved',
                 );
               }}
-            >
-              {item.priority >= 2 ? 'Unpin' : 'Pin'}
-            </button>
-            <button
-              aria-label={`Delete ${task.title}`}
-              disabled={blocked}
-              onClick={() => {
-                void action(
-                  task.recordId,
-                  task,
-                  'DeleteTask',
-                  {
-                    recordId: task.recordId,
-                    expectedRevision: task.revision,
-                    occurrence: { recordId: item.recordId, expectedRevision: item.revision },
-                  },
-                  'Task moved to deleted',
-                );
-              }}
-            >
-              <Icon name="trash" size={16} />
-            </button>
+            />
           </div>
-          <PostponeTask
-            initialOpen={initialAction === 'postpone' && initialOccurrence?.recordId === item.recordId}
-            item={item}
-            today={today}
-            disabled={blocked}
-            move={(field, value) => {
-              void action(
-                task.recordId,
-                item,
-                'PostponeTaskOccurrence',
-                { recordId: item.recordId, expectedRevision: item.revision, field, date: value },
-                field === 'targetDate' ? 'Target moved' : 'Review date moved',
-              );
-            }}
-          />
-        </div>
+        </details>
       </article>
     );
   }

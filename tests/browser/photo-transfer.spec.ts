@@ -141,6 +141,10 @@ test('photo editor accepts drop and real clipboard images, preserves captions an
   await page.getByLabel('Task title', { exact: true }).fill('Transferred task photos');
   await page.getByLabel('Instructions', { exact: true }).press('Control+Enter');
   const card = page.locator('.task-card').filter({ hasText: 'Transferred task photos' });
+  if (!(await card.locator('details.task-card-body').getAttribute('open'))) {
+    if (!(await card.locator('details.task-card-body').evaluate((el) => (el as HTMLDetailsElement).open)))
+      await card.locator('summary.task-summary').click();
+  }
   await card.getByRole('button', { name: 'Photos & receipts', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Photos & receipts', exact: true }),
     editor = page.getByRole('form', { name: 'Photo editor' });
@@ -154,6 +158,10 @@ test('photo editor accepts drop and real clipboard images, preserves captions an
   await page.reload();
   await page.getByRole('button', { name: 'Tasks', exact: true }).click();
   await page.getByRole('button', { name: 'All tasks', exact: true }).click();
+  if (!(await card.locator('details.task-card-body').getAttribute('open'))) {
+    if (!(await card.locator('details.task-card-body').evaluate((el) => (el as HTMLDetailsElement).open)))
+      await card.locator('summary.task-summary').click();
+  }
   await card.getByRole('button', { name: 'Photos & receipts', exact: true }).click();
   await expect(dialog.locator('img')).toHaveCount(2);
   await expect(dialog.getByLabel('Caption for photo 1')).toHaveValue('Keep this caption');
@@ -166,6 +174,10 @@ test('photo editor accepts drop and real clipboard images, preserves captions an
   await page.reload();
   await page.getByRole('button', { name: 'Tasks', exact: true }).click();
   await page.getByRole('button', { name: 'All tasks', exact: true }).click();
+  if (!(await card.locator('details.task-card-body').getAttribute('open'))) {
+    if (!(await card.locator('details.task-card-body').evaluate((el) => (el as HTMLDetailsElement).open)))
+      await card.locator('summary.task-summary').click();
+  }
   await card.getByRole('button', { name: 'Photos & receipts', exact: true }).click();
   await expect(dialog.getByRole('button', { name: 'Save photos', exact: true })).toBeDisabled();
   await drop(page, editor);
@@ -179,6 +191,10 @@ test('photo editor accepts drop and real clipboard images, preserves captions an
   await page.getByLabel('Refresh and sync', { exact: true }).click();
   await page.getByRole('button', { name: 'Tasks', exact: true }).click();
   await page.getByRole('button', { name: 'All tasks', exact: true }).click();
+  if (!(await card.locator('details.task-card-body').getAttribute('open'))) {
+    if (!(await card.locator('details.task-card-body').evaluate((el) => (el as HTMLDetailsElement).open)))
+      await card.locator('summary.task-summary').click();
+  }
   await card.getByRole('button', { name: 'Photos & receipts', exact: true }).click();
   await dialog.getByLabel('Caption for photo 1').press('Control+Enter');
   await expect(dialog).toHaveCount(0);

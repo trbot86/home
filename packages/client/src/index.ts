@@ -102,6 +102,10 @@ export interface ClientPlatform {
     recordId: string,
     request?: import('@our-place/contracts').RecordSecurityRequest,
   ): Promise<import('@our-place/contracts').RecordSecurity>;
+  shoppingSettings(preferences?: {
+    expectedRevision: number;
+    preferences: import('@our-place/contracts').ShoppingPreferences;
+  }): Promise<import('@our-place/contracts').ShoppingSettings>;
   filingAdviceSettings(): Promise<import('@our-place/contracts').FilingAdviceSettings>;
   saveFilingAdviceSettings(
     expectedRevision: number,

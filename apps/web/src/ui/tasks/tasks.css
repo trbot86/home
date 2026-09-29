@@ -381,3 +381,60 @@
     padding: 20px 20px 0;
   }
 }
+
+/* List rows expose only the title, a short planning summary and completion. */
+.tasks .task-card {
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 7px;
+}
+.task-summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 44px;
+  padding-right: 22px;
+  position: relative;
+}
+.task-summary::-webkit-details-marker {
+  display: none;
+}
+.task-summary::after {
+  content: '›';
+  position: absolute;
+  right: 2px;
+  top: 6px;
+  color: var(--muted);
+}
+.task-card-body[open] > .task-summary::after {
+  transform: rotate(90deg);
+}
+.task-summary:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.task-summary .task-title h3 {
+  font-size: 15px;
+  line-height: 1.4;
+}
+.task-summary .task-meta {
+  margin-top: 3px;
+}
+.task-expanded {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+.task-expanded .task-actions button {
+  border: 1px solid var(--line);
+}
+.tasks .task-group {
+  margin: 18px 0;
+}
+.tasks .task-toolbar {
+  margin-bottom: 14px;
+}
+.tasks .task-filters,
+.tasks .task-views {
+  margin-bottom: 14px;
+}

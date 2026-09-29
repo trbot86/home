@@ -111,10 +111,17 @@ test('activity follows completion undo and keeps cached notes, photo status and 
   await page.getByLabel('What’s on your mind?').fill('Keep this unfinished capture while reading activity');
   await page.getByRole('button', { name: 'Tasks', exact: true }).click();
   await page.getByRole('button', { name: 'New task', exact: true }).click();
-  await page.getByRole('dialog').getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Shared' });
+  await page
+    .getByRole('dialog')
+    .getByLabel('Who can see this', { exact: true })
+    .selectOption({ label: 'Shared' });
   await page.getByLabel('Task title', { exact: true }).fill('Feed undo fixture');
   await page.getByLabel('Instructions', { exact: true }).press('Control+Enter');
   const task = page.locator('.task-card').filter({ hasText: 'Feed undo fixture' });
+  if (!(await task.locator('details.task-card-body').getAttribute('open'))) {
+    if (!(await task.locator('details.task-card-body').evaluate((el) => (el as HTMLDetailsElement).open)))
+      await task.locator('summary.task-summary').click();
+  }
   await task.getByRole('button', { name: 'Done earlier…', exact: true }).click();
   await page.getByLabel('Completion note', { exact: true }).fill('Keep the spare in the cupboard');
   await page.getByLabel('Completion note', { exact: true }).press('Control+Enter');

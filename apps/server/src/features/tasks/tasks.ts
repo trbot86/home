@@ -221,6 +221,13 @@ export class TasksRepository {
     if (record.content.deletedAt !== null) throw new Rejection('deleted');
     return record;
   }
+  private defaultAssignee(scopeId: string, personId: string | null): string | null {
+    if (personId !== null) return personId;
+    const row = this.db
+      .prepare("SELECT owner_person_id FROM visibility_scopes WHERE scope_id=? AND kind='private'")
+      .get(scopeId) as { owner_person_id: string } | undefined;
+    return row?.owner_person_id ?? null;
+  }
   private person(context: RequestContext, scopeId: string, personId: string | null): void {
     this.access.requireScope(context, scopeId);
     if (personId === null) return;
@@ -291,6 +298,10 @@ export class TasksRepository {
     now: number,
   ): TrackedRecord {
     const c = this.content(kind, value);
+    if (kind === 'task')
+      c.defaultAssigneeId = this.defaultAssignee(c.scopeId, c.defaultAssigneeId as string | null);
+    if (kind === 'task_occurrence')
+      c.assigneeId = this.defaultAssignee(c.scopeId, c.assigneeId as string | null);
     this.access.requireScope(context, c.scopeId);
     this.checkReferences(context, kind, id, c);
     if (this.db.prepare('SELECT 1 FROM records WHERE record_id=?').get(id))
@@ -473,6 +484,7 @@ export class TasksRepository {
     this.live(before);
     if (kind === 'UpdateTaskDefinition') {
       const { recordId: _id, expectedRevision: _revision, ...fields } = a;
+      fields.defaultAssigneeId = this.defaultAssignee(before.content.scopeId, fields.defaultAssigneeId);
       change(before, { ...before.content, ...fields });
       return result();
     }
@@ -490,6 +502,7 @@ export class TasksRepository {
         expectedRevision: _revision,
         ...fields
       } = payload as Command<'UpdateTaskOccurrence'>['arguments'];
+      fields.assigneeId = this.defaultAssignee(before.content.scopeId, fields.assigneeId);
       change(before, { ...before.content, ...fields });
       return result();
     }

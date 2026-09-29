@@ -9,7 +9,7 @@ const quantity = Type.String({ maxLength: 120 });
 const notes = Type.String({ maxLength: 10000 });
 const nullableId = Type.Union([Id, Type.Null()]);
 const commonContent = { scopeId: Id, deletedAt: Type.Union([Instant, Type.Null()]) };
-export const ShoppingListFields = { name, purpose: ShoppingPurpose };
+export const ShoppingListFields = { name, purpose: ShoppingPurpose, notes: Type.Optional(notes) };
 export const RestockItemFields = {
   name,
   model: Type.String({ maxLength: 500 }),
@@ -119,6 +119,7 @@ export const shoppingGroupCommands = {
     expectedRecipeRevision: Revision,
     listId: Id,
     expectedListRevision: Revision,
+    newList: Type.Optional(object({ ...ShoppingListFields })),
     name,
     ingredients: Type.Array(object({ ingredientId: Id, entryId: Id, sourceId: Id, ...ShoppingEntryFields }), {
       minItems: 1,

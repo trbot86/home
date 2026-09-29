@@ -206,3 +206,18 @@
     grid-column: 1/-1;
   }
 }
+
+.agenda-footer {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.agenda-footer .agenda-help {
+  margin: 6px 0;
+  font-size: 12px;
+}
+.agenda-footer .calendar-message.agenda-help {
+  padding: 0;
+  background: none;
+  color: var(--muted);
+}

@@ -1,3 +1,4 @@
+import { ShoppingSettings } from './shopping/ShoppingSettings.js';
 import {
   NavigationHistoryProvider,
   useNavigationBoundary,
@@ -870,7 +871,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                 notice
               />
             )}
-            <header className="page-header">
+            <header className={`page-header ${view === 'agenda' ? 'page-header-compact' : ''}`}>
               <div>
                 <h1>
                   {view === 'suggestions'
@@ -878,7 +879,12 @@ function AppContent({ client }: { client: ClientPlatform }) {
                     : (navigationItems.find((item) => item.id === view)?.label ?? 'Our place')}
                 </h1>
               </div>
-              <div className="connection">
+              <div
+                className="connection"
+                role="status"
+                aria-label={state.online ? 'Connected' : 'Offline · on this device'}
+                title={state.online ? 'Connected' : 'Offline · on this device'}
+              >
                 <span className={`status-dot ${state.online ? '' : 'offline'}`} />
                 <span>{state.online ? 'Connected' : 'Offline · on this device'}</span>
                 <button
@@ -1017,7 +1023,16 @@ function AppContent({ client }: { client: ClientPlatform }) {
                     onError={showError}
                   />
                 )}
-                <FilingSettings key={state.session.person.personId} client={client} state={state} />
+                <FilingSettings
+                  key={`filing:${state.session.person.personId}`}
+                  client={client}
+                  state={state}
+                />
+                <ShoppingSettings
+                  key={`shopping:${state.session.person.personId}`}
+                  client={client}
+                  state={state}
+                />
                 <CalendarSettings client={client} state={state} run={runCommand} />
                 <Storage client={client} state={state} onError={showError} />
                 <AppUpdates client={client} online={state.online} onError={showError} version={appVersion} />

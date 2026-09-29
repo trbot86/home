@@ -241,6 +241,14 @@ export function Shopping({
           </button>
         ))}
       </div>
+      {list?.notes && (
+        <details className="shopping-list-notes">
+          <summary>List notes</summary>
+          <p className="shopping-notes">
+            <LinkedText client={client} text={list.notes} />
+          </p>
+        </details>
+      )}
       {list && tab === 'needed' && (
         <QuickAdd key={list.recordId} client={client} state={state} list={list} run={run} onError={onError} />
       )}

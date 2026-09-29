@@ -130,30 +130,6 @@ export function AgendaCalendar({
       data-agenda-section="calendar"
     >
       <h2>Calendar events</h2>
-      <div className="agenda-sources">
-        {calendars.map((c) => (
-          <div className="agenda-source" key={c.calendarId}>
-            <strong>{c.title || 'Untitled calendar'}</strong>
-            <span>{c.context === 'work' ? 'Work · private' : 'Home'}</span>
-            <span>
-              {c.refreshedAt === null ? 'Waiting for the first download' : `Updated ${date(c.refreshedAt)}`}
-            </span>
-            {c.errorCode && (
-              <span role="status">
-                Refresh unavailable.{' '}
-                {c.refreshedAt === null
-                  ? 'No events have been downloaded.'
-                  : 'Showing the previous download.'}
-              </span>
-            )}
-            {c.window &&
-              (calendarDateAt(c.window.from, timeZone) >= start ||
-                calendarDateAt(c.window.until, timeZone) <= through) && (
-                <span role="status">Some selected dates are outside this download.</span>
-              )}
-          </div>
-        ))}
-      </div>
       {!calendars.length && !state.agenda.issue && (
         <p>No calendars selected. You can add calendars in Settings; tasks appear independently.</p>
       )}
@@ -198,6 +174,30 @@ export function AgendaCalendar({
           Show more calendar entries ({total - limit - extra} remaining)
         </button>
       )}
+      <div className="agenda-sources">
+        {calendars.map((c) => (
+          <div className="agenda-source" key={c.calendarId}>
+            <strong>{c.title || 'Untitled calendar'}</strong>
+            <span>{c.context === 'work' ? 'Work · private' : 'Home'}</span>
+            <span>
+              {c.refreshedAt === null ? 'Waiting for the first download' : `Updated ${date(c.refreshedAt)}`}
+            </span>
+            {c.errorCode && (
+              <span role="status">
+                Refresh unavailable.{' '}
+                {c.refreshedAt === null
+                  ? 'No events have been downloaded.'
+                  : 'Showing the previous download.'}
+              </span>
+            )}
+            {c.window &&
+              (calendarDateAt(c.window.from, timeZone) >= start ||
+                calendarDateAt(c.window.until, timeZone) <= through) && (
+                <span role="status">Some selected dates are outside this download.</span>
+              )}
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
