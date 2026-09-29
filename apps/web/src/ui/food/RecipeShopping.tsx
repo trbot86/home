@@ -250,6 +250,11 @@ export function RecipeShopping({
               ))}
             </select>
           </label>
+          <p className="fine">
+            {form.listId === 'new'
+              ? 'Creates a new shopping list with these ingredients together in a named group.'
+              : `Adds these ingredients as a new group inside ${list?.name ?? 'the selected list'}. Your existing items stay as they are.`}
+          </p>
           {form.listId === 'new' && (
             <label className="task-field">
               New list name

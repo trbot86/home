@@ -2,7 +2,7 @@ import { useNavigationState } from '../NavigationHistory.js';
 import { useState } from 'react';
 import { LinkedText, WebLink } from '../LinkedText.js';
 import type { ClientPlatform, ClientState } from '@our-place/client';
-import type { ShoppingRecord } from '@our-place/contracts';
+import type { ShoppingRecord, ShoppingList, Command } from '@our-place/contracts';
 import { Icon } from '../Icon.js';
 import { ShoppingItems, ShoppingEntryDetails } from './ShoppingItems.js';
 import { ShoppingEditor } from './ShoppingEditor.js';
@@ -68,6 +68,11 @@ export function Shopping({
     `Shopping.${initialRecordId ?? ''}.removingGroup`,
     null,
   );
+  const [removingList, setRemovingList] = useState<{
+    list: ShoppingList;
+    members: Command<'DeleteShoppingList'>['arguments']['members'];
+    itemCount: number;
+  } | null>(null);
   const [photosId, setPhotosId] = useNavigationState<string | null>(
     `Shopping.${initialRecordId ?? ''}.photosId`,
     null,
@@ -152,6 +157,16 @@ export function Shopping({
     });
   const remove = (record: ShoppingRecord) => {
     if (editor?.record?.recordId === record.recordId) setEditor(null);
+    if (record.kind === 'shopping_list') {
+      const items = snapshot.entries.filter((e) => !e.deletedAt && e.listId === record.recordId);
+      const groups = (snapshot.groups ?? []).filter((g) => !g.deletedAt && g.listId === record.recordId);
+      setRemovingList({
+        list: record,
+        itemCount: items.length,
+        members: [...items, ...groups].map((r) => ({ recordId: r.recordId, expectedRevision: r.revision })),
+      });
+      return;
+    }
     if (record.kind === 'shopping_group') {
       setRemovingGroup(record.recordId);
       return;
@@ -502,6 +517,35 @@ export function Shopping({
               }}
             >
               Remove group, keep items
+            </button>
+          </div>
+        </ShoppingDialog>
+      )}
+      {removingList && (
+        <ShoppingDialog client={client} title="Delete shopping list" close={() => setRemovingList(null)}>
+          <p>
+            Delete “{removingList.list.name}” and all {removingList.itemCount} items in it, including
+            purchased items and ingredient groups?
+          </p>
+          <p className="fine">Undo restores the list and its contents together. Purchase history is kept.</p>
+          <div className="dialog-footer">
+            <button onClick={() => setRemovingList(null)}>Keep list</button>
+            <button
+              disabled={disabled(removingList.list.recordId)}
+              onClick={() => {
+                void action(
+                  removingList.list,
+                  'DeleteShoppingList',
+                  {
+                    recordId: removingList.list.recordId,
+                    expectedRevision: removingList.list.revision,
+                    members: removingList.members,
+                  },
+                  'List and items moved to shopping trash',
+                ).then(() => setRemovingList(null));
+              }}
+            >
+              Delete list and items
             </button>
           </div>
         </ShoppingDialog>

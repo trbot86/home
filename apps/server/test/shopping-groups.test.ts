@@ -152,6 +152,49 @@ function fixture() {
     },
   };
 }
+test('list deletion checks the confirmed contents and atomically supports retry, undo and redo', () => {
+  const f = fixture();
+  try {
+    const list = f.list(),
+      args = f.selection(f.recipe(), list);
+    applied(f.run('AddRecipeIngredients', args));
+    const ids = [...args.ingredients.map((i) => i.entryId), args.recordId];
+    const stale = ids.map(f.target);
+    const purchaseId = randomUUID();
+    applied(
+      f.run(
+        'PurchaseShoppingEntry',
+        { ...f.target(ids[0]!), purchaseId, purchaseItemId: randomUUID(), boughtAt: 1234 },
+        f.b,
+      ),
+    );
+    rejected(f.run('DeleteShoppingList', { ...f.target(list), members: stale }), 'list_members_changed');
+    assert.equal(f.get(list).deletedAt, null);
+    rejected(
+      f.run('DeleteShoppingList', { ...f.target(list), members: ids.slice(1).map(f.target) }),
+      'list_members_changed',
+    );
+    const request = f.envelope({ ...f.target(list), members: ids.map(f.target) });
+    f.setFailure(true);
+    assert.throws(() => f.writes.execute(f.a, 'DeleteShoppingList', request));
+    f.setFailure(false);
+    for (const id of [list, ...ids]) assert.equal(f.get(id).deletedAt, null);
+    const saved = applied(f.writes.execute(f.a, 'DeleteShoppingList', request));
+    assert.equal(saved.result.records.length, 4);
+    assert.equal(applied(f.writes.execute(f.a, 'DeleteShoppingList', request)).replayed, true);
+    for (const id of [list, ...ids]) assert.ok(f.get(id).deletedAt);
+    assert.equal(f.shopping.get(f.a, purchaseId).content.deletedAt, null);
+    const undo = applied(f.run('UndoChangeSet', { changeSetId: saved.changeSetId }));
+    for (const id of [list, ...ids]) assert.equal(f.get(id).deletedAt, null);
+    assert.equal((f.get(ids[0]!) as ShoppingEntry).groupId, args.recordId);
+    assert.equal((f.get(ids[0]!) as ShoppingEntry).state, 'purchased');
+    applied(f.run('RedoChangeSet', { changeSetId: undo.changeSetId }));
+    for (const id of [list, ...ids]) assert.ok(f.get(id).deletedAt);
+  } finally {
+    f.close();
+  }
+});
+
 test('recipe checklist is one durable action, with exact source snapshots, replay and guarded compound undo', () => {
   const f = fixture();
   try {

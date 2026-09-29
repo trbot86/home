@@ -31,6 +31,29 @@ async function add(page: Page, label: string, quantity = '') {
   return row;
 }
 
+test('nonempty list deletion confirms its contents and undo restores them', async ({ page }) => {
+  await openShopping(page);
+  await newList(page, 'Delete list rehearsal');
+  await add(page, 'Keep until confirmed');
+  await page.getByLabel('List options').click();
+  await page.getByRole('button', { name: 'Delete Delete list rehearsal', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('all 1 items');
+  await page.getByRole('button', { name: 'Keep list', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Edit Keep until confirmed', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete Delete list rehearsal', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete list and items', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(
+    page
+      .getByLabel('Shopping list', { exact: true })
+      .locator('option')
+      .filter({ hasText: 'Delete list rehearsal' }),
+  ).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await page.getByLabel('Shopping list', { exact: true }).selectOption({ label: 'Delete list rehearsal' });
+  await expect(page.getByRole('button', { name: 'Edit Keep until confirmed', exact: true })).toBeVisible();
+});
+
 test('named shopping groups can be renamed, searched, rearranged and restored without losing items', async ({
   page,
 }) => {

@@ -583,7 +583,9 @@ function AppContent({ client }: { client: ClientPlatform }) {
         new Error(
           outcome.code === 'revision_conflict'
             ? 'This entry changed. Your text is kept; reload the latest version before saving.'
-            : outcome.code.replaceAll('_', ' '),
+            : outcome.code === 'list_members_changed'
+              ? 'This list changed while you were confirming. Review its current items, then try deleting it again.'
+              : outcome.code.replaceAll('_', ' '),
         ),
       );
     else

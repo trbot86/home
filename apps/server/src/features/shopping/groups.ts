@@ -158,6 +158,64 @@ export class ShoppingGroupsRepository {
   }
   private execute(context: Context, kind: Kind, payload: unknown, now: number): RecordMutation {
     requireHuman(context);
+    if (kind === 'DeleteShoppingList') {
+      const args = payload as Command<'DeleteShoppingList'>['arguments'];
+      const list = this.liveList(context, args.recordId, args.expectedRevision);
+      const members = this.db
+        .prepare(
+          `
+        SELECT r.record_id,r.revision,r.kind FROM records r
+        JOIN shopping_entries e ON e.shopping_entry_id=r.record_id
+        WHERE e.shopping_list_id=? AND r.deleted_at IS NULL
+        UNION ALL
+        SELECT r.record_id,r.revision,r.kind FROM records r
+        JOIN shopping_groups g ON g.group_id=r.record_id
+        WHERE g.list_id=? AND r.deleted_at IS NULL
+      `,
+        )
+        .all(list.recordId, list.recordId) as { record_id: string; revision: number; kind: string }[];
+      const expected = new Map(args.members.map((m) => [m.recordId, m.expectedRevision]));
+      if (
+        args.members.length !== members.length ||
+        expected.size !== members.length ||
+        members.some((m) => expected.get(m.record_id) !== m.revision)
+      )
+        throw new Rejection('list_members_changed');
+      const result: RecordMutation = { records: [], changes: [] };
+      // Entries first, then groups, then the list; history restores them in reverse dependency order.
+      for (const member of members) {
+        if (member.kind === 'shopping_group') {
+          const before = this.get(context, member.record_id);
+          const after = this.setContent(context, before, { ...before.content, deletedAt: now }, now);
+          result.records.push(after);
+          result.changes.push({ before, after });
+        } else {
+          const deleted = this.shopping.execute(
+            context,
+            'DeleteShoppingRecord',
+            {
+              recordId: member.record_id,
+              expectedRevision: member.revision,
+            },
+            now,
+          );
+          result.records.push(...deleted.records);
+          result.changes.push(...deleted.changes);
+        }
+      }
+      const deleted = this.shopping.execute(
+        context,
+        'DeleteShoppingRecord',
+        {
+          recordId: list.recordId,
+          expectedRevision: list.revision,
+        },
+        now,
+      );
+      result.records.push(...deleted.records);
+      result.changes.push(...deleted.changes);
+      return result;
+    }
     try {
       return this.mutate(context, kind, payload, now);
     } catch (error) {

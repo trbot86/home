@@ -109,6 +109,7 @@ export const shoppingCommands = {
   RestoreShoppingRecord: object(target),
 } as const;
 export const shoppingGroupCommands = {
+  DeleteShoppingList: object({ ...target, members: Type.Array(object(target), { maxItems: 4000 }) }),
   CreateShoppingGroup: object({ recordId: Id, listId: Id, name }),
   UpdateShoppingGroup: object({ ...target, name }),
   DeleteShoppingGroup: object({ ...target, members: Type.Array(object(target), { maxItems: 2000 }) }),
