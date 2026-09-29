@@ -237,3 +237,7 @@
 .agenda-sources { margin-top: .8rem; border-top: 1px solid var(--line); }
 .agenda-source { padding: .45rem 0; gap: .2rem .6rem; align-items: center; }
 .agenda-source strong::before { content: ''; display: inline-block; width: .65rem; height: .65rem; border-radius: 50%; background: var(--calendar-color); margin-right: .4rem; }
+
+.agenda-event-heading { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); align-items: baseline; gap: .5rem; }
+.agenda-event-heading .agenda-time, .agenda-event-heading h4 { margin: 0; }
+.agenda-event-heading .agenda-time { font-variant-numeric: tabular-nums; }

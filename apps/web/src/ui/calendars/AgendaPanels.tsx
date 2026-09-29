@@ -81,16 +81,15 @@ const dayLabel = (day: string) =>
   }).format(new Date(`${day}T12:00:00Z`));
 function eventTime(event: AgendaEvent, timeZone: string, day: string) {
   if (event.timing.kind === 'all_day') return 'All day';
-  const format = (at: number) =>
-    new Intl.DateTimeFormat(undefined, {
-      ...(calendarDateAt(at, timeZone) !== day ? { month: 'short' as const, day: 'numeric' as const } : {}),
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZone,
-    }).format(at);
-  return (
-    format(event.timing.startAt) + (event.timing.endUnspecified ? '' : ` – ${format(event.timing.endAt)}`)
-  );
+  const at = event.timing.startAt;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone,
+  }).formatToParts(at);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  const time = `${part('hour')}:${part('minute')}${part('dayPeriod') === 'AM' ? 'a' : 'p'}`;
+  // Keep the original start date clear when an event continues into another day.
+  return calendarDateAt(at, timeZone) === day ? time :
+    `${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone }).format(at)} ${time}`;
 }
 function calendarStyle(id: string): CSSProperties {
   let hash = 0;
@@ -149,8 +148,10 @@ export function AgendaCalendar({
               aria-label={`${event.title || 'Untitled event'} — ${calendar.title}`}
               key={JSON.stringify([calendar.calendarId, event.eventId, event.instanceKey])}
             >
+              <div className="agenda-event-heading">
               <p className="agenda-time">{eventTime(event, timeZone, day.date)}</p>
               <h4>{event.title || 'Untitled event'}</h4>
+              </div>
               <p className="fine">
                 {event.status === 'tentative' ? ' · Tentative' : ''}
                 {event.participation === 'declined' ? ' · Declined' : ''}
