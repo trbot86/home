@@ -1793,22 +1793,16 @@ a {
   }
 }
 
-/* Agenda content takes precedence over a repeated page title and connection text. */
-.main-agenda .page-header-compact {
+/* Connection details belong after the page content, not above it. */
+.page-status {
+  display: flex;
   justify-content: flex-end;
-  margin-bottom: 4px;
-  min-height: 32px;
+  margin-top: 24px;
 }
-.main-agenda .page-header-compact > div:first-child {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-.main-agenda .page-header-compact .connection > span:not(.status-dot) {
-  display: none;
-}
-.main-agenda .page-header-compact .connection {
-  margin: 0;
+.page-status .connection > span:not(.status-dot) {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
 }

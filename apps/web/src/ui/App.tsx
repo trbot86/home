@@ -871,32 +871,11 @@ function AppContent({ client }: { client: ClientPlatform }) {
                 notice
               />
             )}
-            <header className={`page-header ${view === 'agenda' ? 'page-header-compact' : ''}`}>
-              <div>
-                <h1>
-                  {view === 'suggestions'
-                    ? 'App suggestions'
-                    : (navigationItems.find((item) => item.id === view)?.label ?? 'Our place')}
-                </h1>
-              </div>
-              <div
-                className="connection"
-                role="status"
-                aria-label={state.online ? 'Connected' : 'Offline · on this device'}
-                title={state.online ? 'Connected' : 'Offline · on this device'}
-              >
-                <span className={`status-dot ${state.online ? '' : 'offline'}`} />
-                <span>{state.online ? 'Connected' : 'Offline · on this device'}</span>
-                <button
-                  aria-label="Refresh and sync"
-                  onClick={() => {
-                    void client.sync().catch(showError);
-                  }}
-                >
-                  <Icon name="refresh" size={16} />
-                </button>
-              </div>
-            </header>
+            <h1 className="sr-only">
+              {view === 'suggestions'
+                ? 'App suggestions'
+                : (navigationItems.find((item) => item.id === view)?.label ?? 'Our place')}
+            </h1>
             {state.recoveryRequired && (
               <div className="notice">
                 <Icon name="clock" />
@@ -1261,23 +1240,6 @@ function AppContent({ client }: { client: ClientPlatform }) {
                 )}
                 <section className="collection">
                   <div className="collection-heading">
-                    <div>
-                      <p className="eyebrow">
-                        {view === 'trash'
-                          ? 'Kept in history'
-                          : view === 'suggestions'
-                            ? 'Ideas for the app'
-                            : 'A little breathing room'}
-                      </p>
-                      <h2>
-                        {view === 'trash'
-                          ? 'Recently deleted'
-                          : view === 'suggestions'
-                            ? 'App suggestions'
-                            : 'Your inbox'}
-                        <span className="count">{activeEntries.length}</span>
-                      </h2>
-                    </div>
                     <label className="search">
                       <Icon name="search" size={17} />
                       <input
@@ -1691,6 +1653,25 @@ function AppContent({ client }: { client: ClientPlatform }) {
                 </section>
               </>
             )}
+            <footer className="page-status">
+              <div
+                className="connection"
+                role="status"
+                aria-label={state.online ? 'Connected' : 'Offline · on this device'}
+                title={state.online ? 'Connected' : 'Offline · on this device'}
+              >
+                <span className={`status-dot ${state.online ? '' : 'offline'}`} />
+                <span>{state.online ? 'Connected' : 'Offline · on this device'}</span>
+                <button
+                  aria-label="Refresh and sync"
+                  onClick={() => {
+                    void client.sync().catch(showError);
+                  }}
+                >
+                  <Icon name="refresh" size={16} />
+                </button>
+              </div>
+            </footer>
           </main>
           {selectedEntry && selected && (
             <EntryDialog

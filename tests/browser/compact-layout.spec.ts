@@ -5,7 +5,10 @@ test('compact phone chrome, remembered agenda choices and isolated profile setti
   await page.getByRole('button', { name: 'Alex', exact: true }).click();
   const nav = page.getByRole('navigation');
   await nav.getByRole('button', { name: 'Tasks', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Tasks', exact: true })).toBeVisible();
+  // Keep the page heading accessible without spending a row on a repeated title.
+  expect(
+    (await page.getByRole('heading', { name: 'Tasks', exact: true }).boundingBox())!.height,
+  ).toBeLessThanOrEqual(1);
   const filters = page.locator('.task-filters');
   expect((await filters.boundingBox())!.y).toBeLessThan(330);
   await page.screenshot({ path: '.cache/layout-tasks-phone.png', fullPage: true });
