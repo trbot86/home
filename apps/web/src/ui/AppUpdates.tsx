@@ -92,6 +92,25 @@ export function AppUpdates({
           ? 'Your phone handles the download and asks before installing.'
           : 'Reconnect to the household server to check for an update.'}
       </p>
+      {!notice && (
+        <details>
+          <summary>Android widgets</summary>
+          <p>
+            Add two separate widgets: voice capture for a new inbox note, and tasks with completion and date
+            controls.
+          </p>
+          {client.openWidgetSetup ? (
+            <button onClick={() => void client.openWidgetSetup!().catch(onError)}>
+              Set up Android widgets
+            </button>
+          ) : (
+            <p>
+              On your phone, open Settings in the installed app and choose Set up Android widgets. You can
+              also long-press an empty part of the home screen, choose Widgets, then Our place.
+            </p>
+          )}
+        </details>
+      )}
     </section>
   );
 }

@@ -56,6 +56,68 @@ const sectionOrder = (page: Page) =>
     .locator('[data-agenda-section]')
     .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-agenda-section')));
 
+test('narrow agenda packs controls and task date badges without hiding accessible controls', async ({
+  page,
+}) => {
+  await login(page);
+  await setLayout(page);
+  const session = await (await page.request.get('/api/session')).json();
+  const scopeId = session.scopes.find((s: { kind: string }) => s.kind === 'private').scopeId;
+  const today = calendarDateAt(Date.now(), 'America/Toronto');
+  const ids: string[] = [];
+  for (const [title, offset] of [
+    ['Compact past task', -1],
+    ['Compact upcoming task', 1],
+  ] as const) {
+    const recordId = randomUUID();
+    ids.push(recordId);
+    await command(page, 'CreateTask', {
+      recordId,
+      occurrenceId: randomUUID(),
+      scopeId,
+      title,
+      instructions: 'Full detail remains available.',
+      context: 'home',
+      defaultAssigneeId: null,
+      defaultPriority: 1,
+      recurrence: null,
+      assigneeId: null,
+      priority: 1,
+      deadlineDate: null,
+      targetDate: addCalendarDate(today, offset, 'days'),
+      reviewDate: addCalendarDate(today, 10, 'days'),
+    });
+  }
+  await page.route('**/api/cache/inbox', async (route) => {
+    const response = await route.fetch(),
+      snapshot = await response.json();
+    snapshot.tasks.definitions = snapshot.tasks.definitions.filter((t: { recordId: string }) =>
+      ids.includes(t.recordId),
+    );
+    snapshot.tasks.occurrences = snapshot.tasks.occurrences.filter((o: { taskId: string }) =>
+      ids.includes(o.taskId),
+    );
+    await route.fulfill({ response, json: snapshot });
+  });
+  await page.getByLabel('Refresh and sync', { exact: true }).click();
+  for (const width of [320, 390, 600]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(page.getByLabel('Starting', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your tasks', exact: true })).toBeHidden();
+    const past = page.locator('.agenda-task').filter({ hasText: 'Compact past task' });
+    await expect(past.locator('.agenda-compact-date')).toHaveText('LATE');
+    await expect(past.locator('.agenda-task-meta')).toBeHidden();
+    const upcoming = page.locator('.agenda-task').filter({ hasText: 'Compact upcoming task' });
+    await expect(upcoming.locator('.agenda-compact-date')).toHaveText(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/);
+    const todayBox = await page.getByRole('button', { name: 'Today', exact: true }).boundingBox();
+    const gearBox = await page.getByRole('button', { name: 'Customise agenda', exact: true }).boundingBox();
+    expect(Math.abs(todayBox!.y - gearBox!.y)).toBeLessThan(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `.cache/compact-agenda-${width}.png`, fullPage: true });
+  }
+  await edit(page);
+});
+
 test('personal sections, counts, order and defaults sync across devices, retain offline drafts and open the pinned recipe or project page', async ({
   page,
   browser,

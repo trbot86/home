@@ -1,4 +1,5 @@
 import { useNavigationState } from '../NavigationHistory.js';
+import { Icon } from '../Icon.js';
 import { useEffect, useRef, useState } from 'react';
 import { usePagePreference } from '../usePagePreference.js';
 import type { ClientPlatform, ClientState, RunRecordCommand } from '@our-place/client';
@@ -69,10 +70,10 @@ export function PersonalAgenda({
     (s) => s.enabled && (context !== 'work' || !['food_soon', 'project_next'].includes(s.kind)),
   );
   return (
-    <section className="agenda" aria-label="Personal agenda">
+    <section className="agenda personal-agenda" aria-label="Personal agenda">
       <div className="agenda-controls">
         <label>
-          Show
+          <span className="agenda-control-label">Show</span>
           <select
             aria-label="Show"
             value={context}
@@ -84,8 +85,9 @@ export function PersonalAgenda({
           </select>
         </label>
         <label>
-          Starting
+          <span className="agenda-control-label">Starting</span>
           <input
+            aria-label="Starting"
             type="date"
             value={start}
             min={addCalendarDate(today, -7, 'days')}
@@ -96,14 +98,22 @@ export function PersonalAgenda({
           />
         </label>
         <label>
-          Days
+          <span className="agenda-control-label">Days</span>
           <select aria-label="Days" value={count} onChange={(e) => setCount(Number(e.target.value))}>
             <option value={7}>7 days</option>
             <option value={30}>30 days</option>
           </select>
         </label>
         <button onClick={() => setStart(today)}>Today</button>
-        <button onClick={() => setEditing(true)}>Customise agenda</button>
+        <button
+          className="agenda-customise"
+          aria-label="Customise agenda"
+          title="Customise agenda"
+          onClick={() => setEditing(true)}
+        >
+          <Icon name="settings" />
+          <span>Customise agenda</span>
+        </button>
       </div>
       {state.agenda.needsReconnect && (
         <p className="calendar-message" role="status">

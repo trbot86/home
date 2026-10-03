@@ -46,7 +46,7 @@ const occurrence: TaskOccurrence = {
   targetDate: null,
   reviewDate: null,
 };
-test('planning buckets use civil week/month boundaries, dates precede approximate tasks and privacy filters remain', () => {
+test('planning buckets use rolling seven days, dates precede approximate tasks and privacy filters remain', () => {
   const s = emptyTasks();
   s.definitions = [task];
   s.occurrences = [
@@ -73,6 +73,23 @@ test('planning buckets use civil week/month boundaries, dates precede approximat
   assert.equal(
     planningGroups(s, 'me', 'work', '2026-09-29').flatMap((g) => [...g.dated, ...g.undated]).length,
     0,
+  );
+});
+test('Saturday includes Sunday and next Monday through day seven even across a month boundary', () => {
+  const s = emptyTasks();
+  s.definitions = [task];
+  s.occurrences = ['2026-01-31', '2026-02-01', '2026-02-02', '2026-02-07', '2026-02-08'].map(
+    (targetDate) => ({ ...occurrence, recordId: targetDate, targetDate }),
+  );
+  const groups = planningGroups(s, 'me', 'both', '2026-01-31');
+  assert.equal(groups[1]!.label, 'Next 7 days');
+  assert.deepEqual(
+    groups[1]!.dated.map((x) => x.occurrence.targetDate),
+    ['2026-02-01', '2026-02-02', '2026-02-07'],
+  );
+  assert.deepEqual(
+    groups[3]!.dated.map((x) => x.occurrence.targetDate),
+    ['2026-02-08'],
   );
 });
 test('calendar folds same-day completion, retains different planned day and includes hidden or approximate completions', () => {

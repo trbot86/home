@@ -45,27 +45,60 @@ export function AgendaTasks({
   }));
   const total = groups.reduce((n, g) => n + g.dated.length + g.undated.length, 0);
   let remaining = limit;
-  const row = ({ task, occurrence }: ReturnType<typeof openTasks>[number]) => (
-    <button
-      className={`agenda-task priority-row-${occurrence.priority}`}
-      key={occurrence.recordId}
-      onClick={() => onTask(occurrence.recordId)}
-    >
-      <strong>{task.title}</strong>
-      <span className="agenda-task-meta">
-        {occurrence.deadlineDate && <span>Deadline · {occurrence.deadlineDate}</span>}
-        {occurrence.targetDate && <span>Target · {occurrence.targetDate}</span>}
-        {occurrence.reviewDate && <span>Revisit · {occurrence.reviewDate}</span>}
-        {occurrence.approximateDate && <span>{approximateLabels[occurrence.approximateDate]}</span>}
-        {occurrence.priority >= 2 && (
-          <span className={`task-priority priority-${occurrence.priority}`}>Important</span>
-        )}
-        {occurrence.deadlineDate && occurrence.deadlineDate < today && (
-          <span className="agenda-overdue">Past deadline</span>
-        )}
-      </span>
-    </button>
-  );
+  const row = ({ task, occurrence }: ReturnType<typeof openTasks>[number]) => {
+    const due =
+      occurrence.deadlineDate && occurrence.deadlineDate < today
+        ? occurrence.deadlineDate
+        : (occurrence.targetDate ?? occurrence.deadlineDate ?? occurrence.reviewDate);
+    const dateKind =
+      due === occurrence.deadlineDate ? 'Deadline' : due === occurrence.targetDate ? 'Target' : 'Revisit';
+    const fullDate = due ? `${dateKind}: ${due}` : '';
+    const late = !!due && due < today;
+    const compact = !due
+      ? ''
+      : late
+        ? 'LATE'
+        : due === today
+          ? 'Today'
+          : new Intl.DateTimeFormat(
+              'en-US',
+              due <= addCalendarDate(today, 7, 'days')
+                ? { weekday: 'short', timeZone: 'UTC' }
+                : { month: 'short', day: 'numeric', timeZone: 'UTC' },
+            ).format(new Date(`${due}T12:00:00Z`));
+    return (
+      <button
+        className={`agenda-task priority-row-${occurrence.priority}`}
+        key={occurrence.recordId}
+        onClick={() => onTask(occurrence.recordId)}
+      >
+        <span className="agenda-task-heading">
+          <strong>{task.title}</strong>
+          {compact && (
+            <span
+              className={`agenda-compact-date ${late ? 'is-late' : ''}`}
+              title={fullDate}
+              aria-label={fullDate}
+            >
+              {compact}
+            </span>
+          )}
+        </span>
+        <span className="agenda-task-meta">
+          {occurrence.deadlineDate && <span>Deadline · {occurrence.deadlineDate}</span>}
+          {occurrence.targetDate && <span>Target · {occurrence.targetDate}</span>}
+          {occurrence.reviewDate && <span>Revisit · {occurrence.reviewDate}</span>}
+          {occurrence.approximateDate && <span>{approximateLabels[occurrence.approximateDate]}</span>}
+          {occurrence.priority >= 2 && (
+            <span className={`task-priority priority-${occurrence.priority}`}>Important</span>
+          )}
+          {occurrence.deadlineDate && occurrence.deadlineDate < today && (
+            <span className="agenda-overdue">Past deadline</span>
+          )}
+        </span>
+      </button>
+    );
+  };
   return (
     <section className="agenda-panel agenda-focus" aria-label="Your tasks" data-agenda-section="tasks">
       <h2>Your tasks</h2>

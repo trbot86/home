@@ -2,6 +2,27 @@
 
 Status: deployed on the private server and Android download, 2026-09-27.
 
+## Setup and capture tile
+
+Settings -> Android app & updates -> Android widgets opens native setup with
+separate Add voice capture widget and Add tasks widget buttons. The launcher asks
+before adding either widget. If pinning is unsupported, setup explains the manual
+widget picker. A newly pinned task widget's Settings button configures its profile
+and filters; it displays no task contents before configuration.
+
+Setup also offers a Quick Settings capture tile and microphone permission. The
+tile requires unlocking by default. An explicit opt-in permits fresh capture over
+the lock screen on Android 8.1+ after microphone permission is granted. This uses
+a separate non-exported activity, a fresh task and draft for each launch, and no
+task/history view. Opening the inbox requests keyguard dismissal. Wallet/device
+locking remains unchanged. Anyone holding the phone can add a note when enabled;
+the recognized note is read aloud. Device policy can still require unlocking to
+reach Quick Settings. Actual microphone and lock-screen behavior needs a physical
+device check; an emulator cannot establish OEM behavior.
+
+Android references: [widget pinning](https://developer.android.com/develop/ui/views/appwidgets/discoverability),
+[Quick Settings tiles and keyguard](https://developer.android.com/develop/ui/views/quicksettings-tiles).
+
 Add **Our place tasks** from the Android launcher’s widget picker while the
 desired profile is selected in the app. Each instance has Home/Work filtering,
 a maximum of one to five rows, an attention-only filter and a private-task toggle.

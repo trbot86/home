@@ -31,7 +31,9 @@ class TaskWidget : AppWidgetProvider() {
     override fun onDisabled(context: Context) { TaskWidgetWorker.cancel(context) }
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == REFRESH && ids(context).isNotEmpty()) UploadWorker.schedule(context)
+        if (intent.action == REFRESH && ids(context).isNotEmpty()) {
+            refreshAll(context); TaskWidgetWorker.schedule(context); UploadWorker.schedule(context)
+        }
     }
     companion object {
         const val REFRESH = "dev.ourplace.household.REFRESH_TASK_WIDGET"

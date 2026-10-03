@@ -238,7 +238,7 @@ export function Projects({
           </div>
           <div className="project-grid">
             {visible.slice(0, limit).map((p) => (
-              <button className="project-card" key={p.recordId} onClick={() => choose(p.recordId)}>
+              <article className="project-card" key={p.recordId} onClick={() => choose(p.recordId)}>
                 {p.attachments[0] ? (
                   <Photo client={client} id={p.attachments[0].mediaId} descriptor={p.attachments[0]} />
                 ) : (
@@ -259,10 +259,24 @@ export function Projects({
                     }{' '}
                     pages
                   </span>
-                  <h3>{p.title}</h3>
-                  <p>{p.description || 'A place for plans, photos and the details worth keeping.'}</p>
+                  <h3>
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        choose(p.recordId);
+                      }}
+                    >
+                      {p.title}
+                    </button>
+                  </h3>
+                  <p>
+                    <LinkedText
+                      client={client}
+                      text={p.description || 'A place for plans, photos and the details worth keeping.'}
+                    />
+                  </p>
                 </div>
-              </button>
+              </article>
             ))}
           </div>
           {!visible.length && (

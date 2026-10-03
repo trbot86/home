@@ -320,6 +320,7 @@ test('recipe forms survive reload and lost acknowledgement without duplicate sav
 test('recipe cooking tasks preserve plans, link back from Tasks, postpone independently and undo the whole meal completion', async ({
   page,
 }) => {
+  await page.clock.setFixedTime(new Date('2026-09-29T12:00:00Z'));
   await login(page);
   await manual(page, 'Planned lentil soup');
   await page.getByRole('button', { name: 'Create a to-do', exact: true }).click();

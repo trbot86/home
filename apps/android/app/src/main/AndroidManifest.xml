@@ -26,6 +26,11 @@
 
         <activity android:name=".capture.PhotoCaptureActivity" android:exported="false" android:theme="@style/AppTheme.NoActionBar" />
         <activity android:name=".capture.QuickCaptureActivity" android:exported="false" android:theme="@style/AppTheme.NoActionBar" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".capture.LockedCaptureActivity" android:exported="false" android:excludeFromRecents="true" android:taskAffinity="dev.ourplace.household.lockedcapture" android:theme="@style/AppTheme.NoActionBar" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".widgets.WidgetSetupActivity" android:exported="false" android:theme="@style/AppTheme.NoActionBar" />
+        <service android:name=".capture.CaptureTile" android:label="Our place capture" android:icon="@drawable/ic_capture_tile" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" android:exported="true">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+        </service>
         <activity android:name=".capture.ShareCaptureActivity" android:exported="true" android:theme="@style/AppTheme.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

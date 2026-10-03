@@ -23,6 +23,7 @@ import type {
   SuggestionMessage,
 } from '@our-place/contracts';
 type NativeMethod =
+  | 'openWidgetSetup'
   | 'recordSecurity'
   | 'ingredientSourcing'
   | 'shoppingSettings'
@@ -174,6 +175,9 @@ export class AndroidClient implements ClientPlatform {
   }
   openExternalUrl(url: string): Promise<void> {
     return this.invoke('openExternalUrl', { url });
+  }
+  openWidgetSetup(): Promise<void> {
+    return this.invoke('openWidgetSetup');
   }
   configureServer(url: string): Promise<void> {
     return this.invoke('configure', { url });

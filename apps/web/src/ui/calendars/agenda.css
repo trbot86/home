@@ -386,3 +386,98 @@
   margin: 1rem 0 0;
   font-size: 1rem;
 }
+
+.agenda-task-heading {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  text-align: left;
+}
+.agenda-task .agenda-task-heading {
+  font-size: inherit;
+  color: inherit;
+}
+.agenda-compact-date {
+  display: none;
+}
+@media (max-width: 600px) {
+  .personal-agenda .agenda-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 44px;
+    align-items: stretch;
+  }
+  .personal-agenda .agenda-controls > label:first-child {
+    grid-column: 1;
+  }
+  .personal-agenda .agenda-controls > label:nth-child(2) {
+    grid-column: 2 / 4;
+  }
+  .personal-agenda .agenda-controls input,
+  .personal-agenda .agenda-controls select {
+    min-height: 44px;
+    padding: 0.45rem;
+  }
+  .personal-agenda .agenda-control-label,
+  .personal-agenda .agenda-customise > span {
+    display: none;
+  }
+  .personal-agenda .agenda-customise {
+    padding: 0.45rem;
+    min-width: 44px;
+  }
+  .main .personal-agenda .agenda-focus {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .personal-agenda .agenda-focus > h2 {
+    display: none;
+  }
+  .personal-agenda .agenda-task-group {
+    padding: 0.45rem;
+    margin-top: 0.85rem;
+  }
+  .personal-agenda .agenda-task-group > h3 {
+    width: fit-content;
+    max-width: 100%;
+    margin: -1.05rem 0 0.15rem 0.25rem;
+    padding: 0 0.3rem;
+    background: var(--paper);
+    font-size: 0.85rem;
+  }
+  .personal-agenda .agenda-task {
+    padding: 0.45rem 0.55rem;
+    margin-top: 0.25rem;
+  }
+  .personal-agenda .agenda-task-meta {
+    display: none;
+  }
+  .personal-agenda .agenda-task-heading {
+    flex-wrap: wrap;
+    gap: 0.2rem 0.4rem;
+  }
+  .personal-agenda .agenda-task-heading > strong {
+    flex: 1 1 9rem;
+  }
+  .personal-agenda .agenda-compact-date {
+    display: inline-block;
+    margin-left: auto;
+    white-space: nowrap;
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    background: var(--paper);
+    font-size: 0.72rem;
+  }
+  .personal-agenda .agenda-compact-date.is-late {
+    color: #f2a0a0;
+    font-weight: 800;
+  }
+  .personal-agenda .agenda-undated {
+    margin: 0.25rem 0 0;
+    font-size: 0.7rem;
+  }
+  .personal-agenda .agenda-layout {
+    gap: 0.75rem;
+  }
+}

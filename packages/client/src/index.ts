@@ -181,6 +181,7 @@ export interface ClientPlatform {
   publishedAppVersion?(): Promise<{ sha256: string }>;
   /** Native hosts open web links outside the app so unfinished work stays in place. */
   openExternalUrl?(url: string): Promise<void>;
+  openWidgetSetup?(): Promise<void>;
   configureServer?(url: string): Promise<void>;
   acquirePhoto?(draftId: string, mode: 'camera' | 'gallery'): Promise<void>;
   dictate?(category?: EntryCategory): Promise<void>;

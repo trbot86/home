@@ -5,10 +5,9 @@ export const approximateLabels = { asap: 'ASAP', week: 'This week', month: 'This
 export const taskCalendarDate = (o: TaskOccurrence) =>
   o.approximateDate ? null : (o.targetDate ?? o.deadlineDate ?? o.reviewDate);
 export function planningGroups(snapshot: TaskSnapshot, personId: string, context: string, today: string) {
-  const weekday = new Date(`${today}T12:00:00Z`).getUTCDay();
-  const weekEnd = addCalendarDate(today, 6 - ((weekday + 6) % 7), 'days');
+  const weekEnd = addCalendarDate(today, 7, 'days');
   const monthEnd = addCalendarDate(today.slice(0, 7) + '-01', 1, 'months');
-  const labels = ['Today / ASAP', 'This week', 'This month', 'Later', 'Anytime'];
+  const labels = ['Today / ASAP', 'Next 7 days', 'This month', 'Later', 'Anytime'];
   const groups = labels.map((label) => ({ label, dated: [] as OpenTask[], undated: [] as OpenTask[] }));
   for (const item of openTasks(snapshot)) {
     const o = item.occurrence;

@@ -39,6 +39,32 @@ async function overview(page: Page, title: string) {
     .click();
 }
 
+test('project card links open separately while its title remains keyboard accessible', async ({ page }) => {
+  await login(page);
+  await page.getByRole('button', { name: 'New project', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'New project', exact: true });
+  await dialog.getByLabel('Title', { exact: true }).fill('Linked project');
+  await dialog.getByLabel('Description', { exact: true }).fill('Planner: https://example.com/planner');
+  await dialog.getByLabel('Description', { exact: true }).press('Control+Enter');
+  await expect(dialog).toHaveCount(0);
+  await page
+    .getByRole('navigation', { name: 'Project breadcrumb' })
+    .getByRole('button', { name: 'All projects', exact: true })
+    .click();
+  const card = page.locator('.project-card').filter({ hasText: 'Linked project' });
+  await page
+    .context()
+    .route('https://example.com/planner', (r) => r.fulfill({ body: 'Planner', contentType: 'text/html' }));
+  const popup = page.waitForEvent('popup');
+  await card.getByRole('link').click();
+  const opened = await popup;
+  await opened.close();
+  await expect(card).toBeVisible();
+  await card.getByRole('button', { name: 'Linked project', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.project-board-heading')).toContainText('Linked project');
+});
+
 test('Projects keeps unfinished blocks, photo placements, nested pages and priorities with undo and responsive layouts', async ({
   page,
 }) => {

@@ -32,6 +32,13 @@ class HouseholdPlugin : Plugin() {
     @PluginMethod fun invoke(call: PluginCall) {
         val method = call.getString("method") ?: return call.reject("method_required")
         val args = call.getObject("args") ?: JSObject()
+        if (method == "openWidgetSetup") {
+            activity.runOnUiThread {
+                try { activity.startActivity(Intent(activity, dev.ourplace.household.widgets.WidgetSetupActivity::class.java)); call.resolve(JSObject().put("value", JSONObject.NULL)) }
+                catch (error: Exception) { call.reject("Could not open widget setup", error) }
+            }
+            return
+        }
         if (method == "appVersion" || method == "publishedAppVersion") {
             network.execute {
                 try {

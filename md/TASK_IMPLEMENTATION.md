@@ -12,8 +12,10 @@ it does not manufacture a calendar date. A real deadline or review date remains
 independent. Old requests omit the new fields safely, and old navigation layouts
 gain Calendar immediately after Agenda without discarding their custom order.
 
-Agenda groups tasks into Today / ASAP, This week, This month, Later and Anytime.
-Weeks run Monday through Sunday; months use calendar boundaries. Dated tasks
+Agenda groups tasks into Today / ASAP, Next 7 days, This month, Later and Anytime.
+The seven-day window runs from tomorrow through today plus seven days, including
+across month boundaries; months use calendar boundaries. Approximate This week
+tasks appear in Next 7 days without acquiring an invented date. Dated tasks
 precede undated tasks in each group. Important priorities use coloured tags.
 
 Calendar shows a month selector and the selected day's tasks and external events.

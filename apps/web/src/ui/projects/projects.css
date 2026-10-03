@@ -33,6 +33,8 @@
   gap: 20px;
 }
 .project-card {
+  border: 1px solid var(--line);
+  cursor: pointer;
   padding: 0;
   overflow: hidden;
   display: block;

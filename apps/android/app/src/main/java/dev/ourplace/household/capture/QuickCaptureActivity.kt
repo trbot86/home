@@ -21,7 +21,8 @@ import java.util.Locale
 import java.util.concurrent.Executors
 
 /** A small foreground capture surface. Never starts a microphone from a background worker. */
-class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
+open class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
+    protected open val lockScreenCapture = false
     private lateinit var core: ClientCore
     private lateinit var editor: EditText
     private lateinit var status: TextView
@@ -39,6 +40,11 @@ class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) listen() else status.text = "Microphone permission is off. You can still type." }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState); core = ClientCore.get(this)
+        if (lockScreenCapture) {
+            if (!CaptureTile.allowLocked(this)) { finish(); return }
+            if (Build.VERSION.SDK_INT >= 27) { setShowWhenLocked(true); setTurnScreenOn(true) }
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(28, 72, 28, 32); setBackgroundColor(getColor(R.color.household_background)) }
         layout.addView(TextView(this).apply { text = "A thought for our place"; textSize = 26f; setTextColor(getColor(R.color.household_accent)) })
         status = TextView(this).apply { text = "Opening your capture…"; setTextColor(getColor(R.color.household_muted)); setPadding(0, 18, 0, 18) }; layout.addView(status)
@@ -56,7 +62,8 @@ class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
         }; layout.addView(secure)
         mic = Button(this).apply { text = "Start dictation"; isEnabled = false; setOnClickListener { if (listening) { recognizer?.stopListening(); text = "Finishing…"; isEnabled = false } else listen() } }; layout.addView(mic)
         save = Button(this).apply { text = "Save to inbox"; isEnabled = false; setOnClickListener { submit(false) } }; layout.addView(save)
-        layout.addView(Button(this).apply { text = "Open inbox"; setOnClickListener { startActivity(Intent(this@QuickCaptureActivity, MainActivity::class.java)); finish() } })
+        layout.addView(Button(this).apply { text = "Open inbox"; setOnClickListener { openInbox() } })
+        layout.addView(Button(this).apply { text = "Close"; setOnClickListener { finish() } })
         setContentView(layout)
         speech = TextToSpeech(this) { result -> speechReady = result == TextToSpeech.SUCCESS; if (speechReady) { speech?.language = Locale.getDefault(); queuedSpeech?.let(::speak) } }
         editor.addTextChangedListener(object : TextWatcher {
@@ -84,6 +91,13 @@ class QuickCaptureActivity : ComponentActivity(), RecognitionListener {
         }
     }
     override fun onSaveInstanceState(outState: Bundle) { outState.putString("draftId", draft?.draftId); super.onSaveInstanceState(outState) }
+    private fun openInbox() {
+        val keyguard = getSystemService(android.app.KeyguardManager::class.java)
+        val open = { startActivity(Intent(this, MainActivity::class.java)); finish() }
+        if (keyguard.isKeyguardLocked && Build.VERSION.SDK_INT >= 26) keyguard.requestDismissKeyguard(this, object : android.app.KeyguardManager.KeyguardDismissCallback() {
+            override fun onDismissSucceeded() { open() }
+        }) else open()
+    }
     private fun listen() {
         if (submitting) return
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) { permission.launch(Manifest.permission.RECORD_AUDIO); return }
