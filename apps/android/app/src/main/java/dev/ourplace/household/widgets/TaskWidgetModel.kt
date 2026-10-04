@@ -3,7 +3,7 @@ package dev.ourplace.household.widgets
 import org.json.JSONObject
 
 data class TaskWidgetOptions(val clientId: String, val personId: String, val serverEpoch: String,
-    val context: String = "both", val includePrivate: Boolean = false, val focusOnly: Boolean = true, val limit: Int = 3) {
+    val context: String = "both", val includePrivate: Boolean = false, val focusOnly: Boolean = false, val limit: Int = 3) {
     init { require(context in listOf("both", "home", "work") && limit in 1..5) }
     fun json() = JSONObject().put("version", 1).put("clientId", clientId).put("personId", personId)
         .put("serverEpoch", serverEpoch).put("context", context).put("includePrivate", includePrivate)
@@ -65,7 +65,13 @@ object TaskWidgetModel {
             }
             val sampledAt = data.getLong("sampledAt")
             require(sampledAt > 0 && sampledAt == state.getLong("sampledAt"))
-            TaskWidgetView(heading, if (items.isEmpty()) "Nothing in this view. Open Tasks for everything." else "",
+            val message = when {
+                items.isEmpty() && options.focusOnly -> "No tasks need attention in this view. Turn off Focus in Settings to see upcoming and undated tasks."
+                items.isEmpty() -> "Nothing in this view. Check Settings or open Tasks for everything."
+                capacity <= 0 -> "Resize to see tasks."
+                else -> ""
+            }
+            TaskWidgetView(heading, message,
                 sampledAt, items.take(minOf(options.limit, capacity.coerceIn(0, 5))), items.size, true)
         } catch (_: Exception) { TaskWidgetView(heading, "Open the app and refresh to load tasks.") }
     }

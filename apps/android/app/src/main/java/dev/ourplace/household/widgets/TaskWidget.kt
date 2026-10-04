@@ -106,6 +106,8 @@ class TaskWidget : AppWidgetProvider() {
         internal fun views(context: Context, id: Int, model: TaskWidgetView, options: TaskWidgetOptions?): RemoteViews {
                 val views = shell(context, id, model.heading, model.message)
                 views.setViewVisibility(R.id.widget_capture, if (model.ready) View.VISIBLE else View.GONE)
+                // The smallest layout has room for either the timestamp or the resize hint.
+                views.setViewVisibility(R.id.widget_sampled, if (model.ready && model.total > 0 && model.items.isEmpty()) View.GONE else View.VISIBLE)
                 views.setTextViewText(R.id.widget_sampled, model.sampledAt?.let {
                     "Downloaded " + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it))
                 } ?: "")
