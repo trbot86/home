@@ -3,10 +3,37 @@ import assert from 'node:assert/strict';
 import { mkdtemp, cp, writeFile, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { migrate, openDatabase, requireCurrentSchema } from '../src/infrastructure/database.js';
+import { migrate, openDatabase, openReadOnlyDatabase, pendingMigrations, requireCurrentSchema } from '../src/infrastructure/database.js';
 import { migrationsRoot } from '../src/paths.js';
 import { upgradeDatabase } from '../src/features/operations/upgrade.js';
 import type { Completion } from '../src/features/operations/backup-format.js';
+
+for (const original of ['\n', '\r\n']) {
+  test(`migration preflight tolerates Git newline conversion from ${JSON.stringify(original)} without changing receipts`, async () => {
+    const root = await mkdtemp(join(tmpdir(), 'our-place-newlines-'));
+    const filename = join(root, 'fixture.sqlite');
+    const sql = 'CREATE TABLE retained (value TEXT);\nINSERT INTO retained VALUES (\'keep\');\n';
+    const migration = join(root, '001_fixture.sql');
+    const db = openDatabase(filename);
+    try {
+      await writeFile(migration, sql.replace(/\n/g, original));
+      migrate(db, root);
+      const receipts = db.prepare('SELECT * FROM schema_migrations').all();
+      await writeFile(migration, sql.replace(/\n/g, original === '\n' ? '\r\n' : '\n'));
+      const readOnly = openReadOnlyDatabase(filename);
+      try {
+        assert.deepEqual(pendingMigrations(readOnly, root), []);
+        assert.throws(() => readOnly.exec('DELETE FROM retained'), /readonly/i);
+        assert.deepEqual(readOnly.prepare('SELECT * FROM schema_migrations').all(), receipts);
+        assert.deepEqual(readOnly.prepare('SELECT value FROM retained').all(), [{ value: 'keep' }]);
+        await writeFile(join(root, '002_next.sql'), 'CREATE TABLE next (n INTEGER);');
+        assert.deepEqual(pendingMigrations(readOnly, root), ['002_next.sql']);
+        await writeFile(migration, sql.replace('keep', 'changed'));
+        assert.throws(() => pendingMigrations(readOnly, root), /Changed migration/);
+      } finally { readOnly.close(); }
+    } finally { db.close(); await rm(root, { recursive: true, force: true }); }
+  });
+}
 
 test('attachment upgrade preserves existing placements and media while freeing only removed positions', async () => {
   const root = await mkdtemp(join(tmpdir(), 'our-place-attachment-upgrade-'));

@@ -1,6 +1,6 @@
 import { join, resolve } from 'node:path';
 import { open } from 'node:fs/promises';
-import { openDatabase, installation, requireCurrentSchema } from './infrastructure/database.js';
+import { openDatabase, openReadOnlyDatabase, pendingMigrations, installation, requireCurrentSchema } from './infrastructure/database.js';
 import { provisionSuggestionAgent } from './features/suggestions/agent-access.js';
 import { BackupCoordinator, initialiseBackupDestination } from './features/operations/backups.js';
 import { restoreBackup } from './features/operations/restore.js';
@@ -10,7 +10,13 @@ import { upgradeDatabase } from './features/operations/upgrade.js';
 
 const [operation, ...args] = process.argv.slice(2).filter((arg) => arg !== '--development');
 const development = process.argv.includes('--development');
-if (operation === 'init-suggestion-agent' && args.length === 1 && args[0] && process.env['DATA_ROOT']) {
+if (operation === 'check-upgrade' && process.env['DATA_ROOT']) {
+  const db = openReadOnlyDatabase(join(resolve(process.env['DATA_ROOT']), 'db/household.sqlite'));
+  try {
+    const pending = pendingMigrations(db);
+    process.stdout.write(`Migration compatibility verified; ${pending.length} pending migration(s).\n`);
+  } finally { db.close(); }
+} else if (operation === 'init-suggestion-agent' && args.length === 1 && args[0] && process.env['DATA_ROOT']) {
   const output = await open(resolve(args[0]), 'wx', 0o600);
   const db = openDatabase(join(resolve(process.env['DATA_ROOT']), 'db/household.sqlite'));
   try {
@@ -65,6 +71,6 @@ if (operation === 'init-suggestion-agent' && args.length === 1 && args[0] && pro
   process.stdout.write(`Restored verified backup with a new recovery epoch: ${JSON.stringify(result)}\n`);
 } else {
   throw new Error(
-    'Usage: with DATA_ROOT set, init-backups <empty-directory>; with DATA_ROOT and BACKUP_ROOT set, upgrade; or restore <complete.json> <new-data-directory>. Stop the app before upgrade or restore. Windows development only: --development.',
+    'Usage: with DATA_ROOT set, check-upgrade or init-backups <empty-directory>; with DATA_ROOT and BACKUP_ROOT set, upgrade; or restore <complete.json> <new-data-directory>. Stop the app before upgrade or restore. Windows development only: --development.',
   );
 }

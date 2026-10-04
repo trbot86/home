@@ -1,1 +1,2 @@
 apps/server/filing-client.mjs text eol=lf
+apps/server/migrations/*.sql text eol=lf

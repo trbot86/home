@@ -5,6 +5,21 @@ import { dirname, join, resolve } from 'node:path';
 import { migrationsRoot } from '../paths.js';
 
 export type Sqlite = Database.Database;
+export function openReadOnlyDatabase(filename: string): Sqlite {
+  return new Database(filename, { readonly: true, fileMustExist: true });
+}
+
+function migrationChecksum(bytes: string | Buffer): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+function matchesMigrationChecksum(bytes: Buffer, expected: string): boolean {
+  if (migrationChecksum(bytes) === expected) return true;
+  // Historical installations hashed raw checkout bytes. Admit only the two
+  // uniform Git newline representations; do not rewrite historical receipts.
+  const lf = bytes.toString('utf8').replace(/\r\n/g, '\n');
+  return migrationChecksum(lf) === expected || migrationChecksum(lf.replace(/\n/g, '\r\n')) === expected;
+}
 export type Installation = {
   installation_id: string;
   recovery_epoch: string;
@@ -49,10 +64,8 @@ export function pendingMigrations(db: Sqlite, migrationsPath = migrationsRoot): 
     if (!files.includes(row.version)) throw new Error(`Unknown applied migration: ${row.version}`);
   for (const [index, row] of applied.entries()) {
     if (files[index] !== row.version) throw new Error('Applied migrations are not a contiguous prefix');
-    const checksum = createHash('sha256')
-      .update(readFileSync(join(migrationsPath, row.version)))
-      .digest('hex');
-    if (row.checksum !== checksum) throw new Error(`Changed migration: ${row.version}`);
+    if (!matchesMigrationChecksum(readFileSync(join(migrationsPath, row.version)), row.checksum))
+      throw new Error(`Changed migration: ${row.version}`);
   }
   return files.slice(applied.length);
 }

@@ -157,6 +157,13 @@ request, so saving a suggestion alone does not start a coding process.
 
 ## Recovery and limits
 
+Before stopping the household app or capture helper, host upgrades run the
+candidate image's `check-upgrade` operation against a read-only data mount with
+network access disabled. Incompatible migration history leaves both services
+running. Migration verification accepts historical LF and CRLF representations
+without rewriting stored checksums; other content changes remain errors. SQL
+migrations use LF in Git checkouts to prevent new platform-dependent hashes.
+
 Before dispatch, the bridge durably records the exact server request and local
 launch intent. A detached supervisor retains Codex session events and the final
 structured result across bridge restarts. An existing launch intent is never

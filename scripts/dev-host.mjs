@@ -224,6 +224,15 @@ async function upgrade() {
   }
 }
 async function upgradeLocked() {
+  // Validate the candidate against live migration receipts before stopping
+  // either service. The candidate gets only a read-only data mount, no network.
+  requireOwned(await inspect('volume', volume));
+  console.log(await docker(
+    'run', '--rm', '--network', 'none',
+    '--mount', `type=volume,source=${volume},target=/data,readonly`,
+    '--entrypoint', 'node', image,
+    'apps/server/dist/operations.js', 'check-upgrade',
+  ));
   return withCaptureCompanionUpgrade({
     descriptor: await readCaptureDescriptor(join(root, 'capture-companion.json')),
     state: await requireState(),
