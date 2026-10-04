@@ -302,9 +302,9 @@ function AppContent({ client }: { client: ClientPlatform }) {
       setSelected(null);
       setFilingId(null);
       setRecipeTarget(null);
-      setLinkedTarget(request.recordId);
-      setWidgetTarget(request);
-      setView('tasks');
+      setLinkedTarget(request.action === 'agenda' ? null : request.recordId);
+      setWidgetTarget(request.action === 'agenda' ? null : request);
+      setView(request.action === 'agenda' ? 'agenda' : 'tasks');
       setError('');
     })()
       .catch(showError)
@@ -946,7 +946,11 @@ function AppContent({ client }: { client: ClientPlatform }) {
               <Tasks
                 key={widgetTarget?.recordId === linkedTarget ? widgetTarget.token : (linkedTarget ?? 'tasks')}
                 initialRecordId={linkedTarget}
-                initialAction={widgetTarget?.recordId === linkedTarget ? widgetTarget.action : 'show'}
+                initialAction={
+                  widgetTarget?.recordId === linkedTarget && widgetTarget.action !== 'agenda'
+                    ? widgetTarget.action
+                    : 'show'
+                }
                 client={client}
                 state={state}
                 run={runCommand}

@@ -94,6 +94,45 @@ class TaskWidgetTest {
         assertEquals(View.GONE, root.findViewById<View>(R.id.widget_sampled).visibility)
         assertEquals(View.VISIBLE, root.findViewById<View>(R.id.widget_message).visibility)
     }
+    @Test fun compactRowsFitFiveAt392dpAndRespectSmallerBounds() {
+        val context = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val state = state()
+        val rows = state.getJSONObject("taskWidget").getJSONArray("rows")
+        rows.put(JSONObject(rows.getJSONObject(0).toString()).put("taskId", "extra").put("occurrenceId", "extra-occurrence"))
+        val settings = options.copy(includePrivate = true, focusOnly = false, limit = 5)
+        for (height in listOf(140, 168, 224, 280, 336, 392, 600)) {
+            val count = TaskWidget.capacityForHeight(height)
+            val model = TaskWidgetModel.render(state, settings, count)
+            assertEquals(count, model.items.size)
+            val root = TaskWidget.views(context, 30, model, settings).apply(context, LinearLayout(context))
+            val density = context.resources.displayMetrics.density
+            root.measure(View.MeasureSpec.makeMeasureSpec((320 * density).toInt(), View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec((height * density).toInt(), View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, root.measuredWidth, root.measuredHeight)
+            val items = root.findViewById<LinearLayout>(R.id.widget_items)
+            assertEquals(count, items.childCount)
+            if (count > 0) assertTrue("Rows must fit at $height dp", items.getChildAt(count - 1).bottom <= items.height)
+            assertFalse(model.items.any { it.title == "Partner private" })
+        }
+        assertEquals(5, TaskWidget.capacityForHeight(392))
+        assertEquals(4, TaskWidget.capacityForHeight(336))
+        assertEquals(3, TaskWidgetModel.render(state, settings.copy(limit = 3), 5).items.size)
+    }
+    @Test fun headingAndMoreOpenAgendaWithProfileAndRecoveryGuards() {
+        val context = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val model = TaskWidgetModel.render(state(), options, 1)
+        val root = TaskWidget.views(context, 31, model, options).apply(context, LinearLayout(context))
+        assertEquals("Agenda · 1 more", root.findViewById<TextView>(R.id.widget_more).text.toString())
+        for (id in listOf(R.id.widget_title, R.id.widget_more)) {
+            root.findViewById<View>(id).performClick()
+            val intent = shadowOf(context).nextStartedActivity
+            assertEquals(WidgetNavigation.ACTION, intent.action)
+            assertEquals("agenda", intent.getStringExtra("taskAction"))
+            assertEquals("owner-client", intent.getStringExtra("clientId"))
+            assertEquals("epoch", intent.getStringExtra("serverEpoch"))
+            assertFalse(intent.hasExtra("recordId"))
+        }
+    }
     @Test fun optionsPersistPerInstanceAndRejectMalformedOrUnsupportedSettings() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val settings = TaskWidgetSettings(context)

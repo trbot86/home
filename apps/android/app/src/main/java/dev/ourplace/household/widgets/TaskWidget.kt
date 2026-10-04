@@ -94,15 +94,17 @@ class TaskWidget : AppWidgetProvider() {
                 fun forRows(count: Int) = views(context, id, TaskWidgetModel.render(state, options, count), options)
                 val responsive = if (Build.VERSION.SDK_INT >= 31) {
                     // Let the launcher select a layout for its actual bounds, including rotations and foldables.
-                    RemoteViews((0..5).associate { count -> SizeF(220f, 136f + 110f * count) to forRows(count) })
+                    RemoteViews((0..5).associate { count -> SizeF(220f, 112f + 56f * count) to forRows(count) })
                 } else {
                     val bounds = manager.getAppWidgetOptions(id)
-                    fun forHeight(key: String) = forRows(((bounds.getInt(key, 320) - 136) / 110).coerceIn(0, 5))
+                    fun forHeight(key: String) = forRows(capacityForHeight(bounds.getInt(key, 320)))
                     RemoteViews(forHeight(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT), forHeight(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT))
                 }
                 manager.updateAppWidget(id, responsive)
             }
         }
+        internal fun capacityForHeight(height: Int): Int = ((height - 112) / 56).coerceIn(0, 5)
+
         internal fun views(context: Context, id: Int, model: TaskWidgetView, options: TaskWidgetOptions?): RemoteViews {
                 val views = shell(context, id, model.heading, model.message)
                 views.setViewVisibility(R.id.widget_capture, if (model.ready) View.VISIBLE else View.GONE)
@@ -111,7 +113,15 @@ class TaskWidget : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_sampled, model.sampledAt?.let {
                     "Downloaded " + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it))
                 } ?: "")
-                views.setTextViewText(R.id.widget_more, if (model.total > model.items.size) "Open app · ${model.total - model.items.size} more" else "Open app")
+                views.setTextViewText(R.id.widget_more, if (model.total > model.items.size) "Agenda · ${model.total - model.items.size} more" else if (model.ready) "Open Agenda" else "Open app")
+                if (model.ready && options != null) {
+                    val agenda = Intent(context, MainActivity::class.java).setAction(WidgetNavigation.ACTION)
+                        .putExtra("clientId", options.clientId).putExtra("serverEpoch", options.serverEpoch)
+                        .putExtra("taskAction", "agenda")
+                    val pending = activity(context, id, "${options.clientId}/${options.serverEpoch}/agenda", agenda)
+                    views.setOnClickPendingIntent(R.id.widget_title, pending)
+                    views.setOnClickPendingIntent(R.id.widget_more, pending)
+                }
                 views.removeAllViews(R.id.widget_items)
                 if (model.ready && options != null) for (item in model.items) {
                     val row = RemoteViews(context.packageName, R.layout.task_widget_row)

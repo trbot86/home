@@ -4,6 +4,7 @@ export function widgetNavigationError(state: ClientState, request: WidgetNavigat
     return 'This widget belongs to another profile. Switch to that profile or change the widget’s settings.';
   if (state.recoveryRequired || state.session.serverEpoch !== request.serverEpoch)
     return 'The server was restored. Check recovery in the app, then set up this widget again.';
+  if (request.action === 'agenda') return null;
   if (!['show', 'complete', 'postpone'].includes(request.action))
     return 'This widget shortcut is unavailable.';
   const occurrence = state.tasks.occurrences.find(

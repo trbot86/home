@@ -45,3 +45,22 @@ test('widget shortcuts cannot switch profiles, cross recovery epochs, reveal rem
   state.tasks.definitions[0]!.deletedAt = 1;
   assert.match(widgetNavigationError(state, request)!, /no longer available/);
 });
+
+test('Agenda shortcut opens without a task but still rejects other profiles and recovery epochs', () => {
+  const state = {
+    session: { clientId: 'client', serverEpoch: 'epoch' },
+    recoveryRequired: false,
+  } as ClientState;
+  const request: WidgetNavigation = {
+    token: 'agenda-token',
+    clientId: 'client',
+    serverEpoch: 'epoch',
+    recordId: 'agenda',
+    action: 'agenda',
+  };
+  assert.equal(widgetNavigationError(state, request), null);
+  assert.match(widgetNavigationError(state, { ...request, clientId: 'other' })!, /another profile/);
+  assert.match(widgetNavigationError(state, { ...request, serverEpoch: 'old' })!, /restored/);
+  assert.match(widgetNavigationError({ ...state, recoveryRequired: true }, request)!, /restored/);
+  assert.match(widgetNavigationError({ ...state, session: null }, request)!, /another profile/);
+});

@@ -1,6 +1,7 @@
 # Android task widget
 
-Status: deployed on the private server and Android download, 2026-09-27.
+Base widget status: deployed on the private server and Android download, 2026-09-27.
+The compact-row and Agenda-navigation update below is local source work awaiting integration and release checks.
 
 ## Setup and capture tile
 
@@ -27,11 +28,12 @@ Add **Our place tasks** from the Android launcher’s widget picker while the
 desired profile is selected in the app. Each instance has Home/Work filtering,
 a maximum of one to five rows, an attention-only filter and a private-task toggle.
 Defaults include shared tasks assigned to the selected person or unassigned,
-Home and Work, attention-only, three rows, and no private tasks.
+Home and Work, all attention categories, three rows, and no private tasks.
+Existing saved attention-only preferences are retained.
 
 The widget shows task titles, the reason they need attention and when the cache
 was downloaded. Resize it to show more rows, within the configured maximum.
-**Done…** opens the existing completion form; **Move date…** opens flexible
+**Done…** opens the existing completion form; **Date…** opens flexible
 target/review controls. Both retain the app’s revision checks, durable pending
 requests and undo. A stale shortcut never resolves to a later recurring occurrence.
 The global **Dictate** shortcut uses the existing capture activity and currently
@@ -76,7 +78,26 @@ The task controls have 48dp height. Home-screen rotation, launcher layout and
 background behavior still vary by device; emulator evidence does not certify a
 physical phone’s launcher or speech recognizer.
 
-## Verification
+## Compact rows and Agenda navigation
+
+Task rows use 56dp with completion/date controls beside the title and date,
+keeping both action targets 48dp square. The surrounding controls use 112dp;
+five rows fit at 392dp high, four at 336dp, and three at 280dp. The configured
+maximum remains a cap; smaller widgets show fewer rows with a remaining count.
+Private visibility and task ordering are unchanged.
+
+The heading and remaining-count link open Agenda, checking the widget's profile
+and server epoch before navigation. Row shortcuts still open the exact task
+occurrence and never submit a command directly. The two-column calendar view
+is pending a product decision about calendar contents.
+
+Focused checks for this update: eight Robolectric widget tests (row fit, saved
+settings, privacy/recovery hiding and intents), two client navigation tests,
+one contract projection test, one isolated server read-only/privacy test, web
+TypeScript checking, and package boundaries. Full regression, distribution builds,
+and actual launcher/device checks are deferred to release integration.
+
+## Base widget verification
 
 - `pnpm check`: 215 package tests passed, one platform-specific Windows skip;
   type checking, package boundaries and builds passed. The production Linux

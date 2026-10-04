@@ -14,9 +14,9 @@ object WidgetNavigation {
         if (intent?.action != ACTION) return
         val clientId = intent.getStringExtra("clientId") ?: return
         val serverEpoch = intent.getStringExtra("serverEpoch") ?: return
-        val recordId = intent.getStringExtra("recordId") ?: return
         val action = intent.getStringExtra("taskAction") ?: return
-        if (action !in listOf("show", "complete", "postpone") ||
+        val recordId = if (action == "agenda") "agenda" else intent.getStringExtra("recordId") ?: return
+        if (action !in listOf("show", "complete", "postpone", "agenda") ||
             listOf(clientId, serverEpoch, recordId).any { it.length !in 1..160 }) return
         // Prevent configuration recreation from replaying an already-consumed launch intent.
         intent.action = Intent.ACTION_MAIN
