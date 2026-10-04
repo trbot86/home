@@ -1,3 +1,4 @@
+import { taskCalendarEntries } from './task-planning.js';
 import { calendarDateAt } from './calendar-date.js';
 import { openTasks, taskAttention, compareOpenTasks, type TaskAttention } from './task-views.js';
 import type { TaskSnapshot } from './tasks.js';
@@ -21,6 +22,14 @@ export type TaskWidgetSnapshot = {
   date: string;
   sampledAt: number;
   rows: TaskWidgetRow[];
+  calendarTasks: {
+    occurrenceId: string;
+    scopeId: string;
+    context: 'home' | 'work';
+    title: string;
+    day: string;
+    completed: boolean;
+  }[];
 };
 const order: TaskAttention[] = ['overdue', 'today', 'priority', 'ready', 'review', 'upcoming', 'anytime'];
 export function taskWidgetSnapshot(
@@ -54,5 +63,15 @@ export function taskWidgetSnapshot(
       targetDate: occurrence.targetDate,
       reviewDate: occurrence.reviewDate,
     }));
-  return { version: 1, personId, timeZone: snapshot.timeZone, date, sampledAt: now, rows };
+  const calendarTasks = taskCalendarEntries(snapshot, personId, 'both')
+    .filter(({ task, occurrence }) => allowed.has(task.scopeId) && occurrence.scopeId === task.scopeId)
+    .map(({ task, occurrence, day, completed }) => ({
+      occurrenceId: occurrence.recordId,
+      scopeId: task.scopeId,
+      context: task.context,
+      title: task.title,
+      day,
+      completed,
+    }));
+  return { version: 1, personId, timeZone: snapshot.timeZone, date, sampledAt: now, rows, calendarTasks };
 }

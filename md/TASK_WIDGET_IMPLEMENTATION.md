@@ -1,6 +1,7 @@
 # Android task widget
 
-Status: deployed on the private server and Android download, 2026-09-27.
+Base widget status: deployed on the private server and Android download, 2026-09-27.
+The compact-row and Agenda-navigation update below is local source work awaiting integration and release checks.
 
 ## Setup and capture tile
 
@@ -27,11 +28,12 @@ Add **Our place tasks** from the Android launcher’s widget picker while the
 desired profile is selected in the app. Each instance has Home/Work filtering,
 a maximum of one to five rows, an attention-only filter and a private-task toggle.
 Defaults include shared tasks assigned to the selected person or unassigned,
-Home and Work, attention-only, three rows, and no private tasks.
+Home and Work, all attention categories, three rows, and no private tasks.
+Existing saved attention-only preferences are retained.
 
 The widget shows task titles, the reason they need attention and when the cache
 was downloaded. Resize it to show more rows, within the configured maximum.
-**Done…** opens the existing completion form; **Move date…** opens flexible
+**Done…** opens the existing completion form; **Date…** opens flexible
 target/review controls. Both retain the app’s revision checks, durable pending
 requests and undo. A stale shortcut never resolves to a later recurring occurrence.
 The global **Dictate** shortcut uses the existing capture activity and currently
@@ -76,7 +78,25 @@ The task controls have 48dp height. Home-screen rotation, launcher layout and
 background behavior still vary by device; emulator evidence does not certify a
 physical phone’s launcher or speech recognizer.
 
-## Verification
+## Initial compact rows and Agenda navigation (superseded sizing below)
+
+Task rows use 56dp with completion/date controls beside the title and date,
+keeping both action targets 48dp square. The surrounding controls use 112dp;
+five rows fit at 392dp high, four at 336dp, and three at 280dp. The configured
+maximum remains a cap; smaller widgets show fewer rows with a remaining count.
+Private visibility and task ordering are unchanged.
+
+The heading and remaining-count link open Agenda, checking the widget's profile
+and server epoch before navigation. Row shortcuts still open the exact task
+occurrence and never submit a command directly. The mini Agenda update below adds calendar contents.
+
+Focused checks for this update: eight Robolectric widget tests (row fit, saved
+settings, privacy/recovery hiding and intents), two client navigation tests,
+one contract projection test, one isolated server read-only/privacy test, web
+TypeScript checking, and package boundaries. Full regression, distribution builds,
+and actual launcher/device checks are deferred to release integration.
+
+## Base widget verification
 
 - `pnpm check`: 215 package tests passed, one platform-specific Windows skip;
   type checking, package boundaries and builds passed. The production Linux
@@ -109,3 +129,30 @@ foreign-key checks passed. A fresh online release backup was copied and verified
 at the configured secondary location. The preceding deployment image is retained
 locally for rollback. Machine identifiers, paths, digests and evidence stay in
 ignored local reports.
+
+## Mini Agenda columns (awaiting batch integration)
+
+At 320dp wide the widget shows Tasks alongside Calendar for the next seven days
+of its downloaded snapshot. Narrower sizes keep one task column. Each column
+respects the configured limit (up to five); five 52dp rows fit at 392dp height,
+including the column headings. Remaining counts appear in the column headings.
+The downloaded timestamp remains visible. Calendar refresh failures are marked
+in the calendar heading; old caches request an app refresh.
+
+Calendar combines events and dated tasks using the existing task-calendar
+projection, including completion markers, hidden calendar dates and approximate
+date rules. Event ends are exclusive; overnight events appear on each occupied
+day, using the household time zone. Focus filters the task column only. Both
+columns respect Home/Work and private-scope settings; events explicitly marked
+private or confidential also require private opt-in. Profile, epoch and cache
+mismatches clear both columns. The widget adds no storage schema or mutations.
+
+Calendar rows and column headings open guarded Agenda. In the two-column layout,
+task titles open the task; completion and date forms are available there. Narrow
+layouts retain the direct Done and Date shortcuts.
+
+Focused verification: ten Robolectric widget tests, contract projection test,
+isolated server read-only/privacy test, two client navigation tests, web
+TypeScript check, package boundaries, code statistics and staged source audit.
+Full regression, distribution builds and actual launcher/device checks are
+reserved for combined batch release verification. This change is not deployed.

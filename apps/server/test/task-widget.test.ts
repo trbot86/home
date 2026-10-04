@@ -40,7 +40,7 @@ test('cache widget projection is read-only, coherent and authorised separately f
           assigneeId,
           priority: 2,
           deadlineDate: null,
-          targetDate: null,
+          targetDate: '2026-09-28',
           reviewDate: null,
         },
       });
@@ -64,6 +64,14 @@ test('cache widget projection is read-only, coherent and authorised separately f
       'Shared work',
     ]);
     assert.deepEqual(partner.taskWidget.rows.map((r: { title: string }) => r.title).sort(), [
+      'For partner',
+      'Shared work',
+    ]);
+    assert.deepEqual(mine.taskWidget.calendarTasks.map((r: { title: string }) => r.title).sort(), [
+      'Secret present',
+      'Shared work',
+    ]);
+    assert.deepEqual(partner.taskWidget.calendarTasks.map((r: { title: string }) => r.title).sort(), [
       'For partner',
       'Shared work',
     ]);

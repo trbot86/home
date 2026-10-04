@@ -88,7 +88,7 @@ export type WidgetNavigation = {
   clientId: string;
   serverEpoch: string;
   recordId: string;
-  action: 'show' | 'complete' | 'postpone';
+  action: 'show' | 'complete' | 'postpone' | 'agenda';
 };
 export type RunRecordCommand = (
   target: { recordId: string },

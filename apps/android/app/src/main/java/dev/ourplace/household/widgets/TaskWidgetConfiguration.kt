@@ -57,7 +57,7 @@ class TaskWidgetConfiguration : AppCompatActivity() {
         val focus = CheckBox(this).apply { text = "Focus on tasks needing attention"; isChecked = previous?.focusOnly ?: false; layout.addView(this) }
         val private = CheckBox(this).apply { text = "Include my private tasks"; isChecked = previous?.includePrivate ?: false; layout.addView(this) }
         label("Private task titles would be visible on this phone’s home screen. Shared tasks are shown by default. You can resize the widget to see more rows.", 14f)
-        label("Done and Move date open the app’s confirmation controls. Cached tasks stay visible offline. Background refresh timing is managed by Android.", 14f)
+        label("Done and Date open the app’s confirmation controls. Cached tasks stay visible offline. Background refresh timing is managed by Android.", 14f)
         val status = label("", 14f)
         layout.addView(Button(this).apply {
             text = "Save widget"
