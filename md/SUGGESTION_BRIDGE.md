@@ -27,6 +27,12 @@ worktree is reused across rounds of the same suggestion. This deliberately
 keeps recovery independent of a surviving desktop conversation. Questions and
 answers remain available after the agent process exits.
 
+If a desktop update removes the configured Windows Codex runtime, new runs
+resolve the newest installed hashed runtime in the same managed installation.
+Existing executable paths and custom installations remain unchanged. Saved
+launch specifications are never rewritten or automatically replayed after an
+ambiguous launch; a failed request can be retried from the suggestion.
+
 Resolved questions leave the active Questions list and remain in the discussion
 history. A person can also choose No longer relevant to record a resolution
 without answering or dispatching work. That action uses the normal per-user

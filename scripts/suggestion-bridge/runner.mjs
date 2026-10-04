@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { alive, createOnce, readJson, writeJson, deliver } from './journal.mjs';
 import { SuggestionWorktrees, WorktreeCapacityError } from './worktrees.mjs';
+import { resolveCodexExecutable } from './codex-executable.mjs';
 const schema = resolve(import.meta.dirname, 'result.schema.json');
 const supervisor = resolve(import.meta.dirname, 'supervisor.mjs');
 const safeId = (value) => {
@@ -125,7 +126,7 @@ export class SuggestionRunner {
       ...(this.config.codexProjectId ? { projectId: this.config.codexProjectId } : {}),
       promptPath,
       outputPath,
-      executable: this.config.codexExecutable,
+      executable: await resolveCodexExecutable(this.config.codexExecutable),
       transport: 'app-server',
       liveSteering: true,
       model: this.config.implementationModel ?? 'gpt-6-astra',
