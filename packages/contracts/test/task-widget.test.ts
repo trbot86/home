@@ -47,6 +47,8 @@ test('widget read model shares task attention ordering, keeps date meanings and 
   row('deadline', { deadlineDate: '2026-09-26' });
   row('today', { deadlineDate: '2026-09-27' });
   row('upcoming', { targetDate: '2026-09-28' });
+  row('hidden-date', { targetDate: '2026-09-28', calendarVisible: false });
+  row('approximate', { targetDate: '2026-09-28', approximateDate: 'week' });
   row('partner', { assigneeId: 'partner' });
   row('deleted', {}, { deletedAt: 3 });
   row('completed', { state: 'completed' });
@@ -59,12 +61,28 @@ test('widget read model shares task attention ordering, keeps date meanings and 
   row('broken-scope', { scopeId: 'other-private' });
   const now = Date.parse('2026-09-27T15:00:00Z');
   const result = taskWidgetSnapshot(snapshot, 'me', ['shared', 'my-private'], now);
+  assert.deepEqual(
+    result.calendarTasks.map((r) => r.title),
+    ['review', 'target', 'deadline', 'today', 'upcoming'],
+  );
+  assert.ok(!JSON.stringify(result.calendarTasks).includes('secret'));
   assert.equal(result.date, '2026-09-27');
   assert.equal(result.personId, 'me');
   assert.equal(result.sampledAt, now);
   assert.deepEqual(
     result.rows.map((r) => r.taskId),
-    ['deadline', 'today', 'priority', 'mine', 'target', 'review', 'upcoming', 'anytime'],
+    [
+      'deadline',
+      'today',
+      'priority',
+      'mine',
+      'target',
+      'review',
+      'approximate',
+      'hidden-date',
+      'upcoming',
+      'anytime',
+    ],
   );
   assert.equal(result.rows.find((r) => r.taskId === 'target')!.attention, 'ready');
   assert.equal(result.rows.find((r) => r.taskId === 'review')!.attention, 'review');

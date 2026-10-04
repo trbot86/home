@@ -91,22 +91,26 @@ class TaskWidget : AppWidgetProvider() {
             val state = core.widgetState()
             for (id in ids(context)) {
                 val options = TaskWidgetSettings(context).read(id)
-                fun forRows(count: Int) = views(context, id, TaskWidgetModel.render(state, options, count), options)
+                fun forRows(count: Int, wide: Boolean) = views(context, id, TaskWidgetModel.render(state, options, count), options, wide)
                 val responsive = if (Build.VERSION.SDK_INT >= 31) {
                     // Let the launcher select a layout for its actual bounds, including rotations and foldables.
-                    RemoteViews((0..5).associate { count -> SizeF(220f, 112f + 56f * count) to forRows(count) })
+                    RemoteViews(listOf(220f, 320f).flatMap { width -> (0..5).map { count ->
+                        SizeF(width, 132f + 52f * count) to forRows(count, width >= 320f) } }.toMap())
                 } else {
                     val bounds = manager.getAppWidgetOptions(id)
-                    fun forHeight(key: String) = forRows(capacityForHeight(bounds.getInt(key, 320)))
-                    RemoteViews(forHeight(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT), forHeight(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT))
+                    fun forBounds(height: String, width: String) = forRows(capacityForHeight(bounds.getInt(height, 320)), bounds.getInt(width, 220) >= 320)
+                    RemoteViews(forBounds(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH),
+                        forBounds(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH))
                 }
                 manager.updateAppWidget(id, responsive)
             }
         }
-        internal fun capacityForHeight(height: Int): Int = ((height - 112) / 56).coerceIn(0, 5)
+        internal fun capacityForHeight(height: Int): Int = ((height - 132) / 52).coerceIn(0, 5)
 
-        internal fun views(context: Context, id: Int, model: TaskWidgetView, options: TaskWidgetOptions?): RemoteViews {
-                val views = shell(context, id, model.heading, model.message)
+        internal fun views(context: Context, id: Int, model: TaskWidgetView, options: TaskWidgetOptions?, wide: Boolean = false): RemoteViews {
+                val views = shell(context, id, model.heading, if (wide && model.calendar.isNotEmpty()) "" else model.message)
+                views.setViewVisibility(R.id.widget_calendar_column, if (wide && model.ready) View.VISIBLE else View.GONE)
+                views.removeAllViews(R.id.widget_calendar_items)
                 views.setViewVisibility(R.id.widget_capture, if (model.ready) View.VISIBLE else View.GONE)
                 // The smallest layout has room for either the timestamp or the resize hint.
                 views.setViewVisibility(R.id.widget_sampled, if (model.ready && model.total > 0 && model.items.isEmpty()) View.GONE else View.VISIBLE)
@@ -121,11 +125,43 @@ class TaskWidget : AppWidgetProvider() {
                     val pending = activity(context, id, "${options.clientId}/${options.serverEpoch}/agenda", agenda)
                     views.setOnClickPendingIntent(R.id.widget_title, pending)
                     views.setOnClickPendingIntent(R.id.widget_more, pending)
+                    views.setOnClickPendingIntent(R.id.widget_calendar_heading, pending)
+                    views.setOnClickPendingIntent(R.id.widget_tasks_heading, pending)
+                    if (wide) {
+                        views.setTextViewText(R.id.widget_more, "Open Agenda")
+                        views.setTextViewText(R.id.widget_tasks_heading, if (model.total > model.items.size)
+                            "Tasks · +${model.total - model.items.size}" else "Tasks")
+                        views.setTextViewText(R.id.widget_calendar_heading, if (model.calendarMessage.contains("refresh", ignoreCase = true)) "Calendar · refresh" else if (model.calendarTotal > model.calendar.size)
+                            "Calendar · +${model.calendarTotal - model.calendar.size}" else "Calendar · 7 days")
+                        for (item in model.calendar) {
+                            val row = RemoteViews(context.packageName, R.layout.task_widget_row)
+                            row.setTextViewText(R.id.widget_item_title, item.title)
+                            row.setTextViewText(R.id.widget_item_detail, item.detail)
+                            row.setViewVisibility(R.id.widget_done, View.GONE)
+                            row.setViewVisibility(R.id.widget_move, View.GONE)
+                            row.setOnClickPendingIntent(R.id.widget_item_title, pending)
+                            row.setOnClickPendingIntent(R.id.widget_item_detail, pending)
+                            views.addView(R.id.widget_calendar_items, row)
+                        }
+                        if (model.calendarMessage.isNotEmpty() && model.calendar.size < minOf(options.limit, model.capacity)) {
+                            val row = RemoteViews(context.packageName, R.layout.task_widget_row)
+                            row.setTextViewText(R.id.widget_item_title, model.calendarMessage)
+                            row.setViewVisibility(R.id.widget_item_detail, View.GONE)
+                            row.setViewVisibility(R.id.widget_done, View.GONE)
+                            row.setViewVisibility(R.id.widget_move, View.GONE)
+                            row.setOnClickPendingIntent(R.id.widget_item_title, pending)
+                            views.addView(R.id.widget_calendar_items, row)
+                        }
+                    }
                 }
                 views.removeAllViews(R.id.widget_items)
                 if (model.ready && options != null) for (item in model.items) {
                     val row = RemoteViews(context.packageName, R.layout.task_widget_row)
                     row.setTextViewText(R.id.widget_item_title, item.title)
+                    if (wide) {
+                        row.setViewVisibility(R.id.widget_done, View.GONE)
+                        row.setViewVisibility(R.id.widget_move, View.GONE)
+                    }
                     row.setTextViewText(R.id.widget_item_detail, item.detail)
                     for ((viewId, action) in listOf(R.id.widget_item_title to "show", R.id.widget_done to "complete", R.id.widget_move to "postpone")) {
                         val intent = Intent(context, MainActivity::class.java).setAction(WidgetNavigation.ACTION)

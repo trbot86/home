@@ -20,7 +20,8 @@ data class TaskWidgetOptions(val clientId: String, val personId: String, val ser
 }
 data class TaskWidgetItem(val taskId: String, val occurrenceId: String, val title: String, val detail: String)
 data class TaskWidgetView(val heading: String, val message: String, val sampledAt: Long? = null,
-    val items: List<TaskWidgetItem> = emptyList(), val total: Int = 0, val ready: Boolean = false)
+    val items: List<TaskWidgetItem> = emptyList(), val total: Int = 0, val ready: Boolean = false,
+    val calendar: List<TaskWidgetItem> = emptyList(), val calendarTotal: Int = 0, val calendarMessage: String = "", val capacity: Int = 0)
 
 /** Filtering only: ordering and deadline/target classification come from the shared server read model. */
 object TaskWidgetModel {
@@ -32,7 +33,7 @@ object TaskWidgetModel {
             return TaskWidgetView("Our place", "Open the app with this widget’s profile.")
         if (state.optBoolean("recoveryRequired") || session.optString("serverEpoch") != options.serverEpoch)
             return TaskWidgetView("Our place", "Open the app to check recovery, then set up this widget again.")
-        val heading = session.getJSONObject("person").getString("displayName") + " · Tasks"
+        val heading = session.getJSONObject("person").getString("displayName") + " · Agenda"
         val data = state.optJSONObject("taskWidget")
         if (data == null || data.optInt("version") != 1 || data.optString("personId") != options.personId)
             return TaskWidgetView(heading, "Open the app and refresh to load tasks.")
@@ -63,6 +64,7 @@ object TaskWidgetModel {
                 }
                 TaskWidgetItem(it.getString("taskId"), it.getString("occurrenceId"), it.getString("title"), detail)
             }
+            val calendar = WidgetCalendar.read(state.optJSONObject("agenda"), data, allowed, options)
             val sampledAt = data.getLong("sampledAt")
             require(sampledAt > 0 && sampledAt == state.getLong("sampledAt"))
             val message = when {
@@ -72,7 +74,8 @@ object TaskWidgetModel {
                 else -> ""
             }
             TaskWidgetView(heading, message,
-                sampledAt, items.take(minOf(options.limit, capacity.coerceIn(0, 5))), items.size, true)
+                sampledAt, items.take(minOf(options.limit, capacity.coerceIn(0, 5))), items.size, true,
+                calendar.first.take(minOf(options.limit, capacity.coerceIn(0, 5))), calendar.first.size, calendar.second, capacity.coerceIn(0, 5))
         } catch (_: Exception) { TaskWidgetView(heading, "Open the app and refresh to load tasks.") }
     }
 }

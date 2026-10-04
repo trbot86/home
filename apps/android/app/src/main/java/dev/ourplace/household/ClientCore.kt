@@ -90,6 +90,7 @@ class ClientCore private constructor(val context: Context) {
         val cache = owner?.let { dao.value("$it:cache") }?.let(::JSONObject)
         JSONObject().put("session", current ?: JSONObject.NULL)
             .put("taskWidget", cache?.optJSONObject("taskWidget") ?: JSONObject.NULL)
+            .put("agenda", cache?.optJSONObject("agenda") ?: JSONObject.NULL)
             .put("sampledAt", cache?.optLong("sampledAt") ?: JSONObject.NULL)
             .put("recoveryRequired", owner != null && dao.value("$owner:recovery") == "true")
     })

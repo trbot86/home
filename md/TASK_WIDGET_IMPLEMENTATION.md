@@ -78,7 +78,7 @@ The task controls have 48dp height. Home-screen rotation, launcher layout and
 background behavior still vary by device; emulator evidence does not certify a
 physical phone’s launcher or speech recognizer.
 
-## Compact rows and Agenda navigation
+## Initial compact rows and Agenda navigation (superseded sizing below)
 
 Task rows use 56dp with completion/date controls beside the title and date,
 keeping both action targets 48dp square. The surrounding controls use 112dp;
@@ -88,8 +88,7 @@ Private visibility and task ordering are unchanged.
 
 The heading and remaining-count link open Agenda, checking the widget's profile
 and server epoch before navigation. Row shortcuts still open the exact task
-occurrence and never submit a command directly. The two-column calendar view
-is pending a product decision about calendar contents.
+occurrence and never submit a command directly. The mini Agenda update below adds calendar contents.
 
 Focused checks for this update: eight Robolectric widget tests (row fit, saved
 settings, privacy/recovery hiding and intents), two client navigation tests,
@@ -130,3 +129,30 @@ foreign-key checks passed. A fresh online release backup was copied and verified
 at the configured secondary location. The preceding deployment image is retained
 locally for rollback. Machine identifiers, paths, digests and evidence stay in
 ignored local reports.
+
+## Mini Agenda columns (awaiting batch integration)
+
+At 320dp wide the widget shows Tasks alongside Calendar for the next seven days
+of its downloaded snapshot. Narrower sizes keep one task column. Each column
+respects the configured limit (up to five); five 52dp rows fit at 392dp height,
+including the column headings. Remaining counts appear in the column headings.
+The downloaded timestamp remains visible. Calendar refresh failures are marked
+in the calendar heading; old caches request an app refresh.
+
+Calendar combines events and dated tasks using the existing task-calendar
+projection, including completion markers, hidden calendar dates and approximate
+date rules. Event ends are exclusive; overnight events appear on each occupied
+day, using the household time zone. Focus filters the task column only. Both
+columns respect Home/Work and private-scope settings; events explicitly marked
+private or confidential also require private opt-in. Profile, epoch and cache
+mismatches clear both columns. The widget adds no storage schema or mutations.
+
+Calendar rows and column headings open guarded Agenda. In the two-column layout,
+task titles open the task; completion and date forms are available there. Narrow
+layouts retain the direct Done and Date shortcuts.
+
+Focused verification: ten Robolectric widget tests, contract projection test,
+isolated server read-only/privacy test, two client navigation tests, web
+TypeScript check, package boundaries, code statistics and staged source audit.
+Full regression, distribution builds and actual launcher/device checks are
+reserved for combined batch release verification. This change is not deployed.

@@ -7,7 +7,16 @@
     </LinearLayout>
     <TextView android:id="@+id/widget_sampled" android:layout_width="match_parent" android:layout_height="16dp" android:maxLines="1" android:ellipsize="end" android:textSize="11sp" android:textColor="#B8C4AD" />
     <TextView android:id="@+id/widget_message" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Open the app to load tasks." android:textSize="13sp" android:textColor="#E5EBDF" android:paddingBottom="8dp" />
-    <LinearLayout android:id="@+id/widget_items" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical">
+            <TextView android:id="@+id/widget_tasks_heading" android:layout_width="match_parent" android:layout_height="20dp" android:text="Tasks" android:textSize="12sp" android:textStyle="bold" android:textColor="#B8C4AD" />
+            <LinearLayout android:id="@+id/widget_items" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/widget_calendar_column" android:visibility="gone" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:paddingLeft="8dp" android:orientation="vertical">
+            <TextView android:id="@+id/widget_calendar_heading" android:layout_width="match_parent" android:layout_height="20dp" android:text="Calendar · 7 days" android:textSize="12sp" android:textStyle="bold" android:textColor="#B8C4AD" />
+            <LinearLayout android:id="@+id/widget_calendar_items" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" />
+        </LinearLayout>
+    </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical">
         <TextView android:id="@+id/widget_more" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:gravity="center_vertical" android:text="Open app" android:maxLines="1" android:ellipsize="end" android:textSize="12sp" android:textColor="@color/household_accent" />
         <TextView android:id="@+id/widget_capture" android:layout_width="64dp" android:layout_height="match_parent" android:gravity="center" android:text="Dictate" android:textSize="12sp" android:textColor="@color/household_accent" />
