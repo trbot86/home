@@ -1,4 +1,4 @@
-<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/capture_button" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:text="Remember something" android:textColor="@color/household_accent" android:background="@color/household_surface"
-    android:gravity="center" android:textSize="16sp" android:padding="14dp" android:contentDescription="Dictate a thought to Our place" />
+    android:src="@drawable/ic_capture_microphone" android:background="@drawable/task_widget_background"
+    android:scaleType="centerInside" android:padding="8dp" android:contentDescription="Dictate a thought to Our place" />

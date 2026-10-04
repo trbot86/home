@@ -19,7 +19,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class TaskWidgetTest {
-    private val options = TaskWidgetOptions("owner-client", "owner", "epoch")
+    private val options = TaskWidgetOptions("owner-client", "owner", "epoch", focusOnly = true)
     private fun state(): JSONObject {
         fun row(id: String, scope: String, context: String, attention: String) = JSONObject()
             .put("taskId", id).put("occurrenceId", "$id-occurrence").put("title", id).put("scopeId", scope)
@@ -67,6 +67,32 @@ class TaskWidgetTest {
             val model = TaskWidgetModel.render(state, options.copy(includePrivate = true), 5)
             assertFalse(model.ready); assertTrue(model.items.isEmpty()); assertNull(model.sampledAt)
         }
+    }
+    @Test fun newWidgetsShowUpcomingAndUndatedTasksWithoutOptingIntoPrivateTasks() {
+        val state = state()
+        val rows = state.getJSONObject("taskWidget").getJSONArray("rows")
+        rows.getJSONObject(0).put("attention", "anytime")
+        val defaults = TaskWidgetOptions("owner-client", "owner", "epoch")
+        assertEquals(listOf("Priority", "Work target", "Later"),
+            TaskWidgetModel.render(state, defaults, 5).items.map { it.title })
+        assertFalse(defaults.includePrivate)
+        // A saved focus preference survives the change to new-widget defaults.
+        assertTrue(TaskWidgetOptions.read(options.json().toString())!!.focusOnly)
+    }
+    @Test fun emptyFocusAndTooSmallLayoutsExplainHowToSeeTasks() {
+        val state = state()
+        val rows = state.getJSONObject("taskWidget").getJSONArray("rows")
+        for (i in 0 until rows.length()) rows.getJSONObject(i).put("attention", "anytime")
+        val filtered = TaskWidgetModel.render(state, options, 3)
+        assertTrue(filtered.ready); assertTrue(filtered.items.isEmpty())
+        assertTrue(filtered.message.contains("Turn off Focus in Settings"))
+        val compact = TaskWidgetModel.render(state, options.copy(focusOnly = false), 0)
+        assertEquals(3, compact.total); assertTrue(compact.items.isEmpty())
+        assertEquals("Resize to see tasks.", compact.message)
+        val context = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val root = TaskWidget.views(context, 25, compact, options).apply(context, LinearLayout(context))
+        assertEquals(View.GONE, root.findViewById<View>(R.id.widget_sampled).visibility)
+        assertEquals(View.VISIBLE, root.findViewById<View>(R.id.widget_message).visibility)
     }
     @Test fun optionsPersistPerInstanceAndRejectMalformedOrUnsupportedSettings() {
         val context = ApplicationProvider.getApplicationContext<Context>()

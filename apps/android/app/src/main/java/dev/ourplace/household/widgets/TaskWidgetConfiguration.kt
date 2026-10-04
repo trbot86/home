@@ -9,6 +9,7 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import dev.ourplace.household.ClientCore
 import dev.ourplace.household.R
+import dev.ourplace.household.sync.UploadWorker
 import org.json.JSONObject
 
 class TaskWidgetConfiguration : AppCompatActivity() {
@@ -53,7 +54,7 @@ class TaskWidgetConfiguration : AppCompatActivity() {
         val contexts = listOf("both", "home", "work")
         val context = select("Home / Work", arrayOf("Home + Work", "Home", "Work"), contexts.indexOf(previous?.context ?: "both"))
         val limit = select("Maximum tasks", arrayOf("1", "2", "3", "4", "5"), (previous?.limit ?: 3) - 1)
-        val focus = CheckBox(this).apply { text = "Focus on tasks needing attention"; isChecked = previous?.focusOnly ?: true; layout.addView(this) }
+        val focus = CheckBox(this).apply { text = "Focus on tasks needing attention"; isChecked = previous?.focusOnly ?: false; layout.addView(this) }
         val private = CheckBox(this).apply { text = "Include my private tasks"; isChecked = previous?.includePrivate ?: false; layout.addView(this) }
         label("Private task titles would be visible on this phone’s home screen. Shared tasks are shown by default. You can resize the widget to see more rows.", 14f)
         label("Done and Move date open the app’s confirmation controls. Cached tasks stay visible offline. Background refresh timing is managed by Android.", 14f)
@@ -70,6 +71,7 @@ class TaskWidgetConfiguration : AppCompatActivity() {
                         check(current.getString("clientId") == clientId && current.getString("serverEpoch") == epoch) { "Profile changed. Reopen widget settings." }
                         TaskWidgetSettings(this@TaskWidgetConfiguration).save(id, options)
                         TaskWidget.refreshAll(this@TaskWidgetConfiguration); TaskWidgetWorker.schedule(this@TaskWidgetConfiguration)
+                        UploadWorker.schedule(this@TaskWidgetConfiguration)
                         runOnUiThread {
                             setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)); finish()
                         }

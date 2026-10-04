@@ -23,7 +23,7 @@ try {
   writeFileSync(list, selected.join('\n') + '\n');
   const raw = execFileSync(
     'perl',
-    [path.join(root, 'node_modules/cloc/lib/cloc'), '--json', '--quiet', `--list-file=${list}`],
+    [path.join(root, 'node_modules/cloc/lib/cloc'), '--json', '--quiet', '--timeout=30', `--list-file=${list}`],
     { cwd: root, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
   );
   const counts = JSON.parse(raw);
