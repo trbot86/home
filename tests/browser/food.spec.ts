@@ -280,20 +280,22 @@ test('pasted link saves immediately, ambiguous source is reviewed, duplicate lin
 test('recipe forms survive reload and lost acknowledgement without duplicate saves; private cards stay with their profile', async ({
   page,
 }) => {
+  const title = `Private unfinished pie ${crypto.randomUUID()}`;
   await login(page);
   await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await page.getByRole('button', { name: 'Write a recipe', exact: true }).click();
-  await page.getByLabel('Recipe name', { exact: true }).fill('Private unfinished pie');
+  await page.getByLabel('Recipe name', { exact: true }).fill(title);
   await page.getByLabel('Who can see this', { exact: true }).selectOption({ label: 'Just me' });
   await page.getByLabel('Description', { exact: true }).fill('Keep this draft and its private visibility.');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.reload();
   await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
-  await expect(page.getByLabel('Recipe name', { exact: true })).toHaveValue('Private unfinished pie');
+  await expect(page.getByLabel('Recipe name', { exact: true })).toHaveValue(title);
   await expect(page.getByLabel('Description', { exact: true })).toHaveValue(
     'Keep this draft and its private visibility.',
   );
+  const lostAcknowledgement = page.waitForEvent('requestfailed', request => request.url().endsWith('/api/commands/CreateRecipe'));
   await page.route(
     '**/api/commands/CreateRecipe',
     async (route) => {
@@ -303,18 +305,19 @@ test('recipe forms survive reload and lost acknowledgement without duplicate sav
     { times: 1 },
   );
   await page.getByLabel('Description', { exact: true }).press('Control+Enter');
+  await lostAcknowledgement;
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.getByRole('button', { name: 'Refresh and sync', exact: true }).click();
   await page.getByRole('button', { name: 'Add a recipe', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.locator('.food-card').filter({ hasText: 'Private unfinished pie' })).toHaveCount(1);
+  await expect(page.locator('.food-card').filter({ hasText: title })).toHaveCount(1);
   await page.getByLabel('Current profile').selectOption({ label: 'Sam' });
   await page.getByRole('button', { name: 'Recipes', exact: true }).click();
   await page
     .getByRole('group', { name: 'Recipe collection' })
     .getByRole('button', { name: 'All recipes', exact: true })
     .click();
-  await expect(page.locator('.food-card').filter({ hasText: 'Private unfinished pie' })).toHaveCount(0);
+  await expect(page.locator('.food-card').filter({ hasText: title })).toHaveCount(0);
 });
 
 test('recipe cooking tasks preserve plans, link back from Tasks, postpone independently and undo the whole meal completion', async ({
