@@ -22,7 +22,7 @@ internal object WidgetCalendar {
             val day = LocalDate.parse(task.getString("day"))
             if (day < start || day >= start.plusDays(7)) continue
             val title = (if (task.getBoolean("completed")) "✓ " else "") + task.getString("title")
-            entries.add(Triple(day.toString(), Long.MIN_VALUE, TaskWidgetItem("", task.getString("occurrenceId"), title, "$day · Task")))
+            entries.add(Triple(day.toString(), Long.MIN_VALUE, TaskWidgetItem("", task.getString("occurrenceId"), title, "$day · Task", WidgetDate.badge(day, start), day == start)))
         }
         val calendars = agenda?.optJSONArray("calendars")
         var stale = agenda == null || agenda.optBoolean("needsReconnect")
@@ -46,8 +46,13 @@ internal object WidgetCalendar {
                     val time = if (allDay) "All day" else if (day > first) "Continues" else
                         DateTimeFormatter.ofPattern("HH:mm").format(Instant.ofEpochMilli(instant).atZone(zone))
                     val status = if (event.optString("participation") == "declined") " · Declined" else ""
+                    val shortTime = if (allDay || day > first) null else
+                        DateTimeFormatter.ofPattern("h:mma", java.util.Locale.ENGLISH).format(Instant.ofEpochMilli(instant).atZone(zone))
+                            .lowercase(java.util.Locale.ENGLISH).replace("am", "a").replace("pm", "p")
+                    val badge = WidgetDate.badge(day, start, shortTime) +
+                        (if (day != start && shortTime != null) "\n$shortTime" else "")
                     entries.add(Triple(day.toString(), if (allDay) Long.MIN_VALUE else instant,
-                        TaskWidgetItem("", "", event.getString("title"), "$day · $time$status")))
+                        TaskWidgetItem("", "", event.getString("title") + status, "$day · $time$status", badge, day == start)))
                 }
             }
         }

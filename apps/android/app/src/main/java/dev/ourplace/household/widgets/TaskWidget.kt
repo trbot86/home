@@ -111,6 +111,14 @@ class TaskWidget : AppWidgetProvider() {
         internal fun twoColumns(width: Int): Boolean = width >= 250
         internal fun capacityForHeight(height: Int): Int = ((height - 144) / 56).coerceIn(0, 5)
 
+        private fun compactRow(context: Context, item: TaskWidgetItem): RemoteViews = RemoteViews(context.packageName, R.layout.task_widget_compact_row).apply {
+            setTextViewText(R.id.widget_item_title, item.title)
+            setTextViewText(R.id.widget_item_detail, item.badge)
+            setViewVisibility(R.id.widget_item_detail, if (item.badge.isEmpty()) View.GONE else View.VISIBLE)
+            setContentDescription(R.id.widget_item_title, "${item.title}. ${item.detail}")
+            setInt(R.id.widget_entry, "setBackgroundResource", if (item.today) R.drawable.widget_entry_today else R.drawable.widget_entry)
+        }
+
         internal fun views(context: Context, id: Int, model: TaskWidgetView, options: TaskWidgetOptions?, wide: Boolean = false): RemoteViews {
                 val views = shell(context, id, model.heading, if (wide && model.calendar.isNotEmpty()) "" else model.message)
                 views.setViewVisibility(R.id.widget_calendar_column, if (wide && model.ready) View.VISIBLE else View.GONE)
@@ -138,9 +146,7 @@ class TaskWidget : AppWidgetProvider() {
                         views.setTextViewText(R.id.widget_calendar_heading, if (model.calendarMessage.contains("refresh", ignoreCase = true)) "Calendar · refresh" else if (model.calendarTotal > model.calendar.size)
                             "Calendar · +${model.calendarTotal - model.calendar.size}" else "Calendar · 7 days")
                         for (item in model.calendar) {
-                            val row = RemoteViews(context.packageName, R.layout.task_widget_row)
-                            row.setTextViewText(R.id.widget_item_title, item.title)
-                            row.setTextViewText(R.id.widget_item_detail, item.detail)
+                            val row = compactRow(context, item)
                             row.setViewVisibility(R.id.widget_done, View.GONE)
                             row.setViewVisibility(R.id.widget_move, View.GONE)
                             row.setOnClickPendingIntent(R.id.widget_item_title, pending)
@@ -160,14 +166,14 @@ class TaskWidget : AppWidgetProvider() {
                 }
                 views.removeAllViews(R.id.widget_items)
                 if (model.ready && options != null) for (item in model.items) {
-                    val row = RemoteViews(context.packageName, R.layout.task_widget_row)
+                    val row = if (wide) compactRow(context, item) else RemoteViews(context.packageName, R.layout.task_widget_row)
                     row.setTextViewText(R.id.widget_item_title, item.title)
                     if (wide) {
                         row.setViewVisibility(R.id.widget_done, View.GONE)
                         row.setViewVisibility(R.id.widget_move, View.GONE)
                     }
-                    row.setTextViewText(R.id.widget_item_detail, item.detail)
-                    for ((viewId, action) in listOf(R.id.widget_item_title to "show", R.id.widget_done to "complete", R.id.widget_move to "postpone")) {
+                    if (!wide) row.setTextViewText(R.id.widget_item_detail, item.detail)
+                    for ((viewId, action) in listOf(R.id.widget_item_title to "show", R.id.widget_item_detail to "show", R.id.widget_done to "complete", R.id.widget_move to "postpone")) {
                         val intent = Intent(context, MainActivity::class.java).setAction(WidgetNavigation.ACTION)
                             .putExtra("clientId", options.clientId).putExtra("serverEpoch", options.serverEpoch)
                             .putExtra("recordId", item.occurrenceId).putExtra("taskAction", action)

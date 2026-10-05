@@ -169,3 +169,11 @@ Task and calendar titles use 15sp, with 12sp secondary text. Rows reserve 56dp
 so two-line titles and dates remain readable; smaller widgets show fewer rows
 instead of shrinking text. Full-width web Agenda uses the same compact date
 badges as its narrow layout, retaining full dates on hover and in task details.
+
+Two-column widgets render each entry in an outlined box with an inline date badge.
+Today uses a brighter background and either TODAY or a compact start time; the
+next seven days use weekday labels, with start times retained for timed events.
+Later task dates include the month and day (and year when different); overdue
+dates use LATE. Full task/date descriptions remain available to accessibility
+services. Undated tasks use the full title width. Privacy filtering, item limits,
+and guarded navigation are unchanged.

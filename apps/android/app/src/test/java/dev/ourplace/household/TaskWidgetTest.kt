@@ -19,6 +19,16 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class TaskWidgetTest {
+    @Test fun compactDatesHandleTodayWeekAndYearBoundaries() {
+        val today = java.time.LocalDate.parse("2026-12-28")
+        assertEquals("", WidgetDate.badge(null, today))
+        assertEquals("TODAY", WidgetDate.badge(today, today))
+        assertEquals("4:30p", WidgetDate.badge(today, today, "4:30p"))
+        assertEquals("LATE", WidgetDate.badge(today.minusDays(1), today))
+        assertEquals("FRI", WidgetDate.badge(today.plusDays(4), today))
+        assertEquals("MON", WidgetDate.badge(today.plusDays(7), today))
+        assertEquals("Jan 5 27", WidgetDate.badge(today.plusDays(8), today))
+    }
     private val options = TaskWidgetOptions("owner-client", "owner", "epoch", focusOnly = true)
     private fun state(): JSONObject {
         fun row(id: String, scope: String, context: String, attention: String) = JSONObject()
@@ -196,6 +206,11 @@ class TaskWidgetTest {
         assertEquals(listOf("Shared event", "Overnight", "Dated task", "Overnight"), model.calendar.map { it.title })
         assertEquals("2026-09-27 · 23:00", model.calendar[1].detail)
         assertEquals("2026-09-28 · Continues", model.calendar.last().detail)
+        assertEquals("TODAY", model.calendar.first().badge)
+        assertTrue(model.calendar.first().today)
+        assertEquals("11:00p", model.calendar[1].badge)
+        assertEquals("MON", model.calendar.last().badge)
+        assertFalse(model.calendar.last().today)
         assertEquals(6, TaskWidgetModel.render(state, settings.copy(includePrivate = true), 5).calendarTotal)
         assertEquals(listOf("My private event"), TaskWidgetModel.render(state,
             settings.copy(includePrivate = true, context = "work"), 5).calendar.map { it.title })
@@ -216,6 +231,9 @@ class TaskWidgetTest {
         assertEquals(5, calendar.childCount)
         assertTrue(calendar.getChildAt(4).bottom <= calendar.height)
         assertTrue(calendar.width > 0)
+        assertEquals("TODAY", calendar.getChildAt(0).findViewById<TextView>(R.id.widget_item_detail).text.toString())
+        assertNotNull(calendar.getChildAt(0).findViewById<View>(R.id.widget_entry).background)
+        assertTrue(calendar.getChildAt(0).findViewById<TextView>(R.id.widget_item_title).contentDescription.contains("2026-09-27"))
         calendar.getChildAt(0).findViewById<View>(R.id.widget_item_title).performClick()
         val intent = shadowOf(context).nextStartedActivity
         assertEquals("agenda", intent.getStringExtra("taskAction"))

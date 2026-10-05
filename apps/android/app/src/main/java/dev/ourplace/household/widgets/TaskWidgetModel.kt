@@ -18,7 +18,8 @@ data class TaskWidgetOptions(val clientId: String, val personId: String, val ser
         } catch (_: Exception) { null }
     }
 }
-data class TaskWidgetItem(val taskId: String, val occurrenceId: String, val title: String, val detail: String)
+data class TaskWidgetItem(val taskId: String, val occurrenceId: String, val title: String, val detail: String,
+    val badge: String = "", val today: Boolean = false)
 data class TaskWidgetView(val heading: String, val message: String, val sampledAt: Long? = null,
     val items: List<TaskWidgetItem> = emptyList(), val total: Int = 0, val ready: Boolean = false,
     val calendar: List<TaskWidgetItem> = emptyList(), val calendarTotal: Int = 0, val calendarMessage: String = "", val capacity: Int = 0)
@@ -62,7 +63,15 @@ object TaskWidgetModel {
                     date("reviewDate") != null -> "Revisit · " + date("reviewDate")
                     else -> "Without a date"
                 }
-                TaskWidgetItem(it.getString("taskId"), it.getString("occurrenceId"), it.getString("title"), detail)
+                val dayText = when {
+                    attention == "review" -> date("reviewDate")
+                    attention == "ready" -> date("targetDate") ?: date("deadlineDate")
+                    else -> date("deadlineDate") ?: date("targetDate") ?: date("reviewDate")
+                }
+                val day = dayText?.let(java.time.LocalDate::parse)
+                val today = if (data.has("date")) java.time.LocalDate.parse(data.getString("date")) else null
+                TaskWidgetItem(it.getString("taskId"), it.getString("occurrenceId"), it.getString("title"), detail,
+                    if (today != null) WidgetDate.badge(day, today) else "", day != null && day == today)
             }
             val calendar = WidgetCalendar.read(state.optJSONObject("agenda"), data, allowed, options)
             val sampledAt = data.getLong("sampledAt")
