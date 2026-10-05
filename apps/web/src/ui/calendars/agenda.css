@@ -399,7 +399,27 @@
   color: inherit;
 }
 .agenda-compact-date {
+  display: inline-block;
+  margin-left: auto;
+  white-space: nowrap;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  background: var(--paper);
+  font-size: 0.8rem;
+}
+.personal-agenda .agenda-task-meta {
   display: none;
+}
+.personal-agenda .agenda-task-heading {
+  flex-wrap: wrap;
+  gap: 0.2rem 0.4rem;
+}
+.personal-agenda .agenda-task-heading > strong {
+  flex: 1 1 9rem;
+}
+.agenda-compact-date.is-late {
+  color: #f2a0a0;
+  font-weight: 800;
 }
 @media (max-width: 600px) {
   .personal-agenda .agenda-controls {
@@ -450,29 +470,11 @@
     padding: 0.45rem 0.55rem;
     margin-top: 0.25rem;
   }
-  .personal-agenda .agenda-task-meta {
-    display: none;
-  }
-  .personal-agenda .agenda-task-heading {
-    flex-wrap: wrap;
-    gap: 0.2rem 0.4rem;
-  }
-  .personal-agenda .agenda-task-heading > strong {
-    flex: 1 1 9rem;
-  }
-  .personal-agenda .agenda-compact-date {
-    display: inline-block;
-    margin-left: auto;
-    white-space: nowrap;
-    padding: 0.1rem 0.3rem;
-    border-radius: 4px;
-    background: var(--paper);
-    font-size: 0.72rem;
-  }
-  .personal-agenda .agenda-compact-date.is-late {
-    color: #f2a0a0;
-    font-weight: 800;
-  }
+
+
+
+
+
   .personal-agenda .agenda-undated {
     margin: 0.25rem 0 0;
     font-size: 0.7rem;

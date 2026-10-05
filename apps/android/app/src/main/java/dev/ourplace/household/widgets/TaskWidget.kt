@@ -109,7 +109,7 @@ class TaskWidget : AppWidgetProvider() {
             }
         }
         internal fun twoColumns(width: Int): Boolean = width >= 250
-        internal fun capacityForHeight(height: Int): Int = ((height - 144) / 48).coerceIn(0, 5)
+        internal fun capacityForHeight(height: Int): Int = ((height - 144) / 56).coerceIn(0, 5)
 
         internal fun views(context: Context, id: Int, model: TaskWidgetView, options: TaskWidgetOptions?, wide: Boolean = false): RemoteViews {
                 val views = shell(context, id, model.heading, if (wide && model.calendar.isNotEmpty()) "" else model.message)

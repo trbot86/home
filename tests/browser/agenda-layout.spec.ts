@@ -100,12 +100,13 @@ test('narrow agenda packs controls and task date badges without hiding accessibl
     await route.fulfill({ response, json: snapshot });
   });
   await page.getByLabel('Refresh and sync', { exact: true }).click();
-  for (const width of [320, 390, 600]) {
+  for (const width of [320, 390, 600, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await expect(page.getByLabel('Starting', { exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Your tasks', exact: true })).toBeHidden();
+    if (width <= 600) await expect(page.getByRole('heading', { name: 'Your tasks', exact: true })).toBeHidden();
     const past = page.locator('.agenda-task').filter({ hasText: 'Compact past task' });
     await expect(past.locator('.agenda-compact-date')).toHaveText('LATE');
+    await expect(past.locator('.agenda-compact-date')).toBeVisible();
     await expect(past.locator('.agenda-task-meta')).toBeHidden();
     const upcoming = page.locator('.agenda-task').filter({ hasText: 'Compact upcoming task' });
     await expect(upcoming.locator('.agenda-compact-date')).toHaveText(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/);

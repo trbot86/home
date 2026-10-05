@@ -94,13 +94,13 @@ class TaskWidgetTest {
         assertEquals(View.GONE, root.findViewById<View>(R.id.widget_sampled).visibility)
         assertEquals(View.VISIBLE, root.findViewById<View>(R.id.widget_message).visibility)
     }
-    @Test fun compactRowsFitFiveAt392dpAndRespectSmallerBounds() {
+    @Test fun compactRowsFitFiveAt424dpAndRespectSmallerBounds() {
         val context = ApplicationProvider.getApplicationContext<android.app.Application>()
         val state = state()
         val rows = state.getJSONObject("taskWidget").getJSONArray("rows")
         rows.put(JSONObject(rows.getJSONObject(0).toString()).put("taskId", "extra").put("occurrenceId", "extra-occurrence"))
         val settings = options.copy(includePrivate = true, focusOnly = false, limit = 5)
-        for (height in listOf(140, 168, 224, 280, 336, 392, 600)) {
+        for (height in listOf(140, 168, 224, 280, 336, 424, 600)) {
             val count = TaskWidget.capacityForHeight(height)
             val model = TaskWidgetModel.render(state, settings, count)
             assertEquals(count, model.items.size)
@@ -114,8 +114,8 @@ class TaskWidgetTest {
             if (count > 0) assertTrue("Rows must fit at $height dp", items.getChildAt(count - 1).bottom <= items.height)
             assertFalse(model.items.any { it.title == "Partner private" })
         }
-        assertEquals(5, TaskWidget.capacityForHeight(392))
-        assertEquals(4, TaskWidget.capacityForHeight(336))
+        assertEquals(5, TaskWidget.capacityForHeight(424))
+        assertEquals(3, TaskWidget.capacityForHeight(336))
         assertEquals(3, TaskWidgetModel.render(state, settings.copy(limit = 3), 5).items.size)
     }
     @Test fun headingAndMoreOpenAgendaWithProfileAndRecoveryGuards() {
@@ -210,7 +210,7 @@ class TaskWidgetTest {
         val root = TaskWidget.views(context, 40, model, settings, TaskWidget.twoColumns(280)).apply(context, LinearLayout(context))
         val density = context.resources.displayMetrics.density
         root.measure(View.MeasureSpec.makeMeasureSpec((320 * density).toInt(), View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec((392 * density).toInt(), View.MeasureSpec.EXACTLY))
+            View.MeasureSpec.makeMeasureSpec((424 * density).toInt(), View.MeasureSpec.EXACTLY))
         root.layout(0, 0, root.measuredWidth, root.measuredHeight)
         val calendar = root.findViewById<LinearLayout>(R.id.widget_calendar_items)
         assertEquals(5, calendar.childCount)
