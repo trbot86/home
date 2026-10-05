@@ -450,3 +450,7 @@
 .shopping-store-setting {
   margin-bottom: 12px;
 }
+
+.food-filter-row { flex-wrap:nowrap; gap:6px; }
+.food-filter-row label { min-width:0; }
+.food-filter-row select { min-width:0; max-width:100%; padding:8px 6px; font-size:13px; }

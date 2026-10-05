@@ -81,7 +81,9 @@ export function TaskCalendar({
               onClick={() => setSelected(day)}
             >
               <span>{Number(day.slice(8))}</span>
-              <small>{count ? `${count}${items.some((t) => t.completed) ? ' ✓' : ''}` : '\u00a0'}</small>
+              <span className="calendar-pips" aria-hidden="true">
+                {Array.from({ length: Math.min(count, 5) }, (_, i) => <i key={i} className={i < items.length ? (items[i]?.completed ? 'completed' : 'task') : 'event'} />)}
+              </span>
             </button>
           );
         })}

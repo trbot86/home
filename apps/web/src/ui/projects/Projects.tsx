@@ -186,16 +186,15 @@ export function Projects({
         <>
           <div className="project-filters">
             <label>
-              Search projects
               <input
                 type="search"
                 value={search}
-                placeholder="Find an idea or project"
+                aria-label="Search projects" placeholder="Find an idea or project"
                 onChange={(e) => setSearch(e.target.value)}
               />
             </label>
             <label>
-              Show
+
               <select aria-label="Project view" value={view} onChange={(e) => setView(e.target.value)}>
                 <option value="active">Active</option>
                 <option value="archived">Archived</option>
@@ -203,7 +202,7 @@ export function Projects({
               </select>
             </label>
             <label>
-              Visibility
+
               <select
                 aria-label="Project visibility"
                 value={scope}
@@ -218,7 +217,7 @@ export function Projects({
               </select>
             </label>
             <label>
-              Cards
+
               <select
                 aria-label="Projects per page"
                 value={limit}

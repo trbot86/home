@@ -7,15 +7,15 @@ Counts the working source tree, including tests, documentation and configuration
 | Language | Files | Blank | Comment | Code |
 | --- | ---: | ---: | ---: | ---: |
 | Bourne Shell | 3 | 0 | 1 | 25 |
-| CSS | 15 | 26 | 6 | 5337 |
+| CSS | 15 | 30 | 7 | 5357 |
 | Dockerfile | 8 | 2 | 3 | 79 |
 | Gradle | 6 | 18 | 8 | 116 |
 | HTML | 2 | 0 | 0 | 62 |
 | Java | 1 | 2 | 0 | 30 |
 | JavaScript | 69 | 83 | 111 | 7959 |
 | JSON | 22 | 0 | 0 | 2947 |
-| Kotlin | 33 | 82 | 30 | 2381 |
-| Markdown | 56 | 1950 | 0 | 6298 |
+| Kotlin | 33 | 82 | 30 | 2397 |
+| Markdown | 56 | 1951 | 0 | 6303 |
 | PowerShell | 8 | 0 | 10 | 185 |
 | ProGuard | 1 | 3 | 18 | 0 |
 | Properties | 2 | 5 | 15 | 9 |
@@ -23,7 +23,7 @@ Counts the working source tree, including tests, documentation and configuration
 | SQL | 38 | 18 | 39 | 1005 |
 | SVG | 1 | 0 | 0 | 5 |
 | Text | 1 | 0 | 0 | 17 |
-| TypeScript | 308 | 640 | 376 | 58833 |
-| XML | 25 | 13 | 3 | 444 |
+| TypeScript | 310 | 648 | 376 | 58870 |
+| XML | 26 | 13 | 3 | 443 |
 | YAML | 7 | 0 | 5 | 291 |
-| Total | 607 | 2874 | 718 | 86160 |
+| Total | 610 | 2887 | 719 | 86237 |

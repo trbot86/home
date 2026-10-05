@@ -393,3 +393,8 @@
     width: 100%;
   }
 }
+
+.project-filters { gap:6px; align-items:center; }
+.project-filters input, .project-filters select { padding:8px 6px; font-size:13px; min-height:44px; }
+.project-filters label:first-child { min-width:160px; }
+.project-filters label:not(:first-child) { flex:0 1 auto; }

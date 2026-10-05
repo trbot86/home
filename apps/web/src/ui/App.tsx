@@ -53,6 +53,7 @@ import { Projects } from './projects/Projects.js';
 import type { RecordReference } from './RecordReferences.js';
 import { taskRecords } from './tasks/shared.js';
 import { Icon } from './Icon.js';
+import { CompactSearch } from './CompactSearch.js';
 import { BackupPanel } from './BackupPanel.js';
 import { SignIn } from './SignIn.js';
 import { CaptureMedia } from './CaptureMedia.js';
@@ -1282,17 +1283,6 @@ function AppContent({ client }: { client: ClientPlatform }) {
                   </section>
                 )}
                 <section className="collection">
-                  <div className="collection-heading">
-                    <label className="search">
-                      <Icon name="search" size={17} />
-                      <input
-                        aria-label={view === 'suggestions' ? 'Search suggestions' : 'Search inbox'}
-                        placeholder="Find a thought…"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                      />
-                    </label>
-                  </div>
                   {view === 'inbox' && (
                     <div className="tabs" aria-label="Inbox filing filter">
                       {[
@@ -1353,6 +1343,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                       ))}
                     </div>
                     <div className="list-options">
+                      <CompactSearch label={view === 'suggestions' ? 'Search suggestions' : 'Search inbox'} placeholder="Find a thought…" value={search} onChange={setSearch} />
                       <select aria-label="Sort inbox" value={sort} onChange={(e) => setSort(e.target.value)}>
                         <option value="personal">My order</option>
                         <option value="newest">Newest first</option>

@@ -125,15 +125,14 @@ class TaskWidgetTest {
             assertFalse(model.items.any { it.title == "Partner private" })
         }
         assertEquals(5, TaskWidget.capacityForHeight(424))
-        assertEquals(3, TaskWidget.capacityForHeight(336))
+        assertEquals(4, TaskWidget.capacityForHeight(336))
         assertEquals(3, TaskWidgetModel.render(state, settings.copy(limit = 3), 5).items.size)
     }
     @Test fun headingAndMoreOpenAgendaWithProfileAndRecoveryGuards() {
         val context = ApplicationProvider.getApplicationContext<android.app.Application>()
         val model = TaskWidgetModel.render(state(), options, 1)
         val root = TaskWidget.views(context, 31, model, options).apply(context, LinearLayout(context))
-        assertEquals("Agenda · 1 more", root.findViewById<TextView>(R.id.widget_more).text.toString())
-        for (id in listOf(R.id.widget_title, R.id.widget_more)) {
+        for (id in listOf(R.id.widget_surface, R.id.widget_tasks_heading)) {
             root.findViewById<View>(id).performClick()
             val intent = shadowOf(context).nextStartedActivity
             assertEquals(WidgetNavigation.ACTION, intent.action)
@@ -142,6 +141,11 @@ class TaskWidgetTest {
             assertEquals("epoch", intent.getStringExtra("serverEpoch"))
             assertFalse(intent.hasExtra("recordId"))
         }
+        root.findViewById<View>(R.id.widget_capture).performClick()
+        val capture = shadowOf(context).nextStartedActivity
+        assertTrue(capture.getBooleanExtra("voice", false))
+        assertEquals("inbox", capture.getStringExtra("category") ?: "inbox")
+        assertTrue(capture.component!!.className.endsWith("QuickCaptureActivity"))
     }
     @Test fun optionsPersistPerInstanceAndRejectMalformedOrUnsupportedSettings() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -158,7 +162,7 @@ class TaskWidgetTest {
         val context = ApplicationProvider.getApplicationContext<android.app.Application>()
         val model = TaskWidgetModel.render(state(), options, 1)
         val root = TaskWidget.views(context, 24, model, options).apply(context, LinearLayout(context))
-        assertEquals("Alex · Agenda", root.findViewById<TextView>(R.id.widget_title).text.toString())
+        assertEquals("Alex · Agenda. Open Agenda", root.findViewById<View>(R.id.widget_surface).contentDescription)
         assertEquals("Priority", root.findViewById<TextView>(R.id.widget_item_title).text.toString())
         assertEquals(1, root.findViewById<LinearLayout>(R.id.widget_items).childCount)
         for ((id, action) in listOf(R.id.widget_item_title to "show", R.id.widget_done to "complete", R.id.widget_move to "postpone")) {
@@ -240,6 +244,15 @@ class TaskWidgetTest {
         assertEquals("owner-client", intent.getStringExtra("clientId"))
         assertEquals("epoch", intent.getStringExtra("serverEpoch"))
         assertFalse(intent.hasExtra("title"))
+        val dated = (0 until calendar.childCount).map { calendar.getChildAt(it) }
+            .first { it.findViewById<TextView>(R.id.widget_item_title).text.toString() == "Dated task" }
+        dated.findViewById<View>(R.id.widget_entry).performClick()
+        val taskIntent = shadowOf(context).nextStartedActivity
+        assertEquals("show", taskIntent.getStringExtra("taskAction"))
+        assertEquals(model.calendar.first { it.title == "Dated task" }.occurrenceId, taskIntent.getStringExtra("recordId"))
+        val taskRow = root.findViewById<LinearLayout>(R.id.widget_items).getChildAt(0)
+        taskRow.findViewById<View>(R.id.widget_entry).performClick()
+        assertEquals(model.items.first().occurrenceId, shadowOf(context).nextStartedActivity.getStringExtra("recordId"))
         assertTrue(TaskWidget.twoColumns(250))
         assertTrue(TaskWidget.twoColumns(300))
         assertFalse(TaskWidget.twoColumns(220))

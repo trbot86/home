@@ -571,3 +571,9 @@
 .shopping-list-picker {
   min-width: 0;
 }
+
+.shopping-filter { justify-content:flex-start; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+.shopping-filter .shopping-actions { gap:6px; }
+.shopping-row { padding:1px 0; gap:6px; }
+.shopping-item-open { justify-content:flex-start; padding:3px 6px; min-height:44px; }
+.shopping-item-open .shopping-item-title { justify-content:flex-start; min-height:0; text-align:left; }

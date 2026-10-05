@@ -75,12 +75,11 @@ class TaskWidget : AppWidgetProvider() {
             return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
         private fun shell(context: Context, id: Int, heading: String, message: String) = RemoteViews(context.packageName, R.layout.task_widget).apply {
-            setTextViewText(R.id.widget_title, heading)
+            setContentDescription(R.id.widget_surface, "$heading. Open Agenda")
             setTextViewText(R.id.widget_message, message)
             setViewVisibility(R.id.widget_message, if (message.isBlank()) View.GONE else View.VISIBLE)
             setViewVisibility(R.id.widget_capture, View.GONE)
-            setOnClickPendingIntent(R.id.widget_title, activity(context, id, "open", Intent(context, MainActivity::class.java)))
-            setOnClickPendingIntent(R.id.widget_more, activity(context, id, "open", Intent(context, MainActivity::class.java)))
+            setOnClickPendingIntent(R.id.widget_surface, activity(context, id, "open", Intent(context, MainActivity::class.java)))
             setOnClickPendingIntent(R.id.widget_settings, activity(context, id, "settings", Intent(context, TaskWidgetConfiguration::class.java).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)))
             setOnClickPendingIntent(R.id.widget_capture, activity(context, id, "capture", Intent(context, QuickCaptureActivity::class.java).putExtra("voice", true)))
             val refresh = PendingIntent.getBroadcast(context, id, Intent(context, TaskWidget::class.java).setAction(REFRESH), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -109,7 +108,7 @@ class TaskWidget : AppWidgetProvider() {
             }
         }
         internal fun twoColumns(width: Int): Boolean = width >= 250
-        internal fun capacityForHeight(height: Int): Int = ((height - 144) / 56).coerceIn(0, 5)
+        internal fun capacityForHeight(height: Int): Int = ((height - 96) / 56).coerceIn(0, 5)
 
         private fun compactRow(context: Context, item: TaskWidgetItem): RemoteViews = RemoteViews(context.packageName, R.layout.task_widget_compact_row).apply {
             setTextViewText(R.id.widget_item_title, item.title)
@@ -127,20 +126,17 @@ class TaskWidget : AppWidgetProvider() {
                 // The smallest layout has room for either the timestamp or the resize hint.
                 views.setViewVisibility(R.id.widget_sampled, if (model.ready && model.total > 0 && model.items.isEmpty()) View.GONE else View.VISIBLE)
                 views.setTextViewText(R.id.widget_sampled, model.sampledAt?.let {
-                    "Updated " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))
+                    DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))
                 } ?: "")
-                views.setTextViewText(R.id.widget_more, if (model.total > model.items.size) "Agenda · ${model.total - model.items.size} more" else if (model.ready) "Open Agenda" else "Open app")
                 if (model.ready && options != null) {
                     val agenda = Intent(context, MainActivity::class.java).setAction(WidgetNavigation.ACTION)
                         .putExtra("clientId", options.clientId).putExtra("serverEpoch", options.serverEpoch)
                         .putExtra("taskAction", "agenda")
                     val pending = activity(context, id, "${options.clientId}/${options.serverEpoch}/agenda", agenda)
-                    views.setOnClickPendingIntent(R.id.widget_title, pending)
-                    views.setOnClickPendingIntent(R.id.widget_more, pending)
+                    views.setOnClickPendingIntent(R.id.widget_surface, pending)
                     views.setOnClickPendingIntent(R.id.widget_calendar_heading, pending)
                     views.setOnClickPendingIntent(R.id.widget_tasks_heading, pending)
                     if (wide) {
-                        views.setTextViewText(R.id.widget_more, "Open Agenda")
                         views.setTextViewText(R.id.widget_tasks_heading, if (model.total > model.items.size)
                             "Tasks · +${model.total - model.items.size}" else "Tasks")
                         views.setTextViewText(R.id.widget_calendar_heading, if (model.calendarMessage.contains("refresh", ignoreCase = true)) "Calendar · refresh" else if (model.calendarTotal > model.calendar.size)
@@ -149,8 +145,14 @@ class TaskWidget : AppWidgetProvider() {
                             val row = compactRow(context, item)
                             row.setViewVisibility(R.id.widget_done, View.GONE)
                             row.setViewVisibility(R.id.widget_move, View.GONE)
-                            row.setOnClickPendingIntent(R.id.widget_item_title, pending)
-                            row.setOnClickPendingIntent(R.id.widget_item_detail, pending)
+                            val target = if (item.occurrenceId.isNotEmpty()) activity(context, id,
+                                "${options.clientId}/${options.serverEpoch}/${item.occurrenceId}/show",
+                                Intent(context, MainActivity::class.java).setAction(WidgetNavigation.ACTION)
+                                    .putExtra("clientId", options.clientId).putExtra("serverEpoch", options.serverEpoch)
+                                    .putExtra("recordId", item.occurrenceId).putExtra("taskAction", "show")) else pending
+                            row.setOnClickPendingIntent(R.id.widget_entry, target)
+                            row.setOnClickPendingIntent(R.id.widget_item_title, target)
+                            row.setOnClickPendingIntent(R.id.widget_item_detail, target)
                             views.addView(R.id.widget_calendar_items, row)
                         }
                         if (model.calendarMessage.isNotEmpty() && model.calendar.size < minOf(options.limit, model.capacity)) {
@@ -178,6 +180,7 @@ class TaskWidget : AppWidgetProvider() {
                             .putExtra("clientId", options.clientId).putExtra("serverEpoch", options.serverEpoch)
                             .putExtra("recordId", item.occurrenceId).putExtra("taskAction", action)
                         row.setOnClickPendingIntent(viewId, activity(context, id, "${options.clientId}/${options.serverEpoch}/${item.occurrenceId}/$action", intent))
+                        if (wide && action == "show") row.setOnClickPendingIntent(R.id.widget_entry, activity(context, id, "${options.clientId}/${options.serverEpoch}/${item.occurrenceId}/$action", intent))
                     }
                     views.addView(R.id.widget_items, row)
                 }

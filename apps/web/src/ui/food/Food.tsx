@@ -247,7 +247,7 @@ export function Food({
         </label>
         <div className="food-filter-row">
           <label>
-            Visibility
+
             <select aria-label="Recipe visibility" value={scope} onChange={(e) => setScope(e.target.value)}>
               <option value="all">Shared + mine</option>
               {state.session!.scopes.map((s) => (
@@ -258,7 +258,7 @@ export function Food({
             </select>
           </label>
           <label>
-            Show
+
             <select aria-label="Recipe view" value={view} onChange={(e) => setView(e.target.value)}>
               <option value="want_to_try">Want to try</option>
               <option value="favourites">Favourites</option>
@@ -276,7 +276,7 @@ export function Food({
             </select>
           </label>
           <label>
-            Cards
+
             <select
               aria-label="Recipes per page"
               value={limit}

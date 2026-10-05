@@ -4,6 +4,7 @@ import { LinkedText, WebLink } from '../LinkedText.js';
 import type { ClientPlatform, ClientState } from '@our-place/client';
 import type { ShoppingRecord, ShoppingList, ShoppingGroup, Command } from '@our-place/contracts';
 import { Icon } from '../Icon.js';
+import { CompactSearch } from '../CompactSearch.js';
 import { ShoppingItems, ShoppingEntryDetails } from './ShoppingItems.js';
 import { ShoppingEditor } from './ShoppingEditor.js';
 import { ShoppingHistory } from './ShoppingHistory.js';
@@ -267,18 +268,7 @@ export function Shopping({
         <QuickAdd key={list.recordId} client={client} state={state} list={list} run={run} onError={onError} />
       )}
       <div className="shopping-filter">
-        <label className="search">
-          <Icon name="search" size={17} />
-          <input
-            aria-label="Search shopping"
-            placeholder={tab === 'restock' ? 'Find a restock product…' : 'Find an item…'}
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setLimit(40);
-            }}
-          />
-        </label>
+        <CompactSearch label="Search shopping" placeholder="Find an item…" value={search} onChange={(value) => { setSearch(value); setLimit(40); }} />
         {tab === 'restock' ? (
           <button disabled={!state.online} onClick={() => setEditor({ mode: 'restock' })}>
             <Icon name="plus" size={16} /> New product

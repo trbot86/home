@@ -1908,3 +1908,13 @@ a {
   min-height: 44px;
   white-space: nowrap;
 }
+
+/* Compact search retains a visible active query. */
+.compact-search { display:flex; align-items:center; gap:4px; min-width:0; flex-shrink:0; }
+.compact-search > button { width:44px; min-height:44px; padding:8px; flex-shrink:0; }
+.compact-search input { width: min(220px, 45vw); min-width:0; min-height:44px; }
+.list-options { flex-wrap:wrap; align-items:center; }
+.calendar-pips { display:flex; justify-content:center; gap:3px; min-height:8px; }
+.calendar-pips i { display:block; width:5px; height:5px; border-radius:50%; background:var(--green); }
+.calendar-pips .event { background:#8BBCE5; }
+.calendar-pips .completed { background:#B5C698; opacity:.6; }

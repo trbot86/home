@@ -177,3 +177,9 @@ Later task dates include the month and day (and year when different); overdue
 dates use LATE. Full task/date descriptions remain available to accessibility
 services. Undated tasks use the full title width. Privacy filtering, item limits,
 and guarded navigation are unchanged.
+
+The widget header contains Inbox dictation, last-refresh time, refresh and settings.
+There is no title or footer; tapping the background opens Agenda. Task boxes in
+either column open their specific occurrence, while calendar events open Agenda.
+All navigation retains the configured profile and recovery guards. The 48dp header
+replaces the former header/footer combination, leaving more vertical room for rows.

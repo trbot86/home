@@ -69,7 +69,8 @@ test('named shopping groups can be renamed, searched, rearranged and restored wi
   await page.getByRole('button', { name: 'Close shopping dialog' }).click();
   const group = page.locator('.shopping-group');
   await expect(group).not.toHaveAttribute('open', '');
-  await page.getByLabel('Search shopping').fill('Seeds');
+  await page.getByRole('button', { name: 'Search shopping', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search shopping', exact: true }).fill('Seeds');
   await expect(group).toHaveAttribute('open', '');
   await group.getByRole('button', { name: 'Edit', exact: true }).first().click();
   await page.getByRole('dialog').getByLabel('Name', { exact: true }).fill('Planting supplies');
@@ -80,7 +81,8 @@ test('named shopping groups can be renamed, searched, rearranged and restored wi
   await page.getByLabel('Group for Seeds', { exact: true }).selectOption('');
   await page.getByRole('button', { name: 'Close shopping dialog' }).click();
   await expect(group).toHaveCount(0);
-  await page.getByLabel('Search shopping').fill('');
+  await page.getByRole('button', { name: 'Search shopping', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search shopping', exact: true }).fill('');
   await expect(group).toHaveCount(1);
   await group.locator('summary').first().click();
   await group.getByRole('button', { name: 'Delete Planting supplies', exact: true }).click();
@@ -105,7 +107,8 @@ test('named shopping groups can be renamed, searched, rearranged and restored wi
   await expect(page.getByRole('button', { name: 'Edit Seeds', exact: true })).toHaveCount(0);
   await page.keyboard.press('Control+z');
   await expect(group).toHaveCount(1);
-  await page.getByLabel('Search shopping').fill('Seeds');
+  await page.getByRole('button', { name: 'Search shopping', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search shopping', exact: true }).fill('Seeds');
   await expect(group.getByRole('button', { name: 'Edit Seeds', exact: true })).toBeVisible();
 });
 

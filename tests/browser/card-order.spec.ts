@@ -3,9 +3,11 @@ import { expect, test, type Page } from '@playwright/test';
 async function login(page: Page, name = 'Alex') {
   await page.goto('/');
   await page.getByRole('button', { name, exact: true }).click();
+  await page.locator('.capture-disclosure > summary').click();
   await expect(page.locator('#capture-text')).toBeVisible();
 }
 async function capture(page: Page, text: string, suggestion = false) {
+  if (!(await page.locator('#capture-text').isVisible())) await page.locator('.capture-disclosure > summary').click();
   await page.locator('#capture-text').fill(text);
   await page
     .getByRole('button', { name: suggestion ? 'Save suggestion' : 'Save to inbox', exact: true })
@@ -25,24 +27,30 @@ test('personal inbox order persists across devices, keeps filtered slots and iso
     await page.getByLabel('Who can see this capture').selectOption({ label: 'Shared' });
     await capture(page, text);
   }
-  await page.getByLabel('Search inbox').fill('order-');
+  await page.getByRole('button', { name: 'Search inbox', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search inbox', exact: true }).fill('order-');
   await expect.poll(() => order(page)).toEqual(['order-match C', 'order-hidden B', 'order-match A']);
-  await page.getByLabel('Search inbox').fill('order-match');
+  await page.getByRole('button', { name: 'Search inbox', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search inbox', exact: true }).fill('order-match');
   await card(page, 'order-match A').getByRole('button', { name: 'Move card up', exact: true }).press('Enter');
   await expect(page.getByText('Card order saved for your profile.', { exact: true })).toBeVisible();
-  await page.getByLabel('Search inbox').fill('order-');
+  await page.getByRole('button', { name: 'Search inbox', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search inbox', exact: true }).fill('order-');
   await expect.poll(() => order(page)).toEqual(['order-match A', 'order-hidden B', 'order-match C']);
   await page.reload();
-  await page.getByLabel('Search inbox').fill('order-');
+  await page.getByRole('button', { name: 'Search inbox', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search inbox', exact: true }).fill('order-');
   await expect.poll(() => order(page)).toEqual(['order-match A', 'order-hidden B', 'order-match C']);
   const second = await browser.newContext();
   try {
     const other = await second.newPage();
     await login(other);
-    await other.getByLabel('Search inbox').fill('order-');
+    await other.getByRole('button', { name: 'Search inbox', exact: true }).click();
+    await other.getByRole('searchbox', { name: 'Search inbox', exact: true }).fill('order-');
     await expect.poll(() => order(other)).toEqual(['order-match A', 'order-hidden B', 'order-match C']);
     await other.getByLabel('Current profile').selectOption({ label: 'Sam' });
-    await other.getByLabel('Search inbox').fill('order-');
+    await other.getByRole('button', { name: 'Search inbox', exact: true }).click();
+    await other.getByRole('searchbox', { name: 'Search inbox', exact: true }).fill('order-');
     await expect.poll(() => order(other)).toEqual(['order-match C', 'order-hidden B', 'order-match A']);
   } finally {
     await second.close();
@@ -75,7 +83,8 @@ test('suggestion order supports touch and offline viewing without altering inbox
   await expect(page.getByText('Card order saved for your profile.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
   for (const text of ['touch-order A', 'touch-order B']) await capture(page, text, true);
-  await page.getByLabel('Search suggestions').fill('touch-order');
+  await page.getByRole('button', { name: 'Search suggestions', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search suggestions', exact: true }).fill('touch-order');
   await card(page, 'touch-order A').getByRole('button', { name: 'Move card up', exact: true }).click();
   await expect.poll(() => order(page)).toEqual(['touch-order A', 'touch-order B']);
   const handle = card(page, 'touch-order B').getByRole('button', { name: 'Drag to reorder card' });
@@ -99,14 +108,17 @@ test('suggestion order supports touch and offline viewing without altering inbox
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.reload();
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
-  await page.getByLabel('Search suggestions').fill('touch-order');
+  await page.getByRole('button', { name: 'Search suggestions', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search suggestions', exact: true }).fill('touch-order');
   await expect.poll(() => order(page)).toEqual(['touch-order B', 'touch-order A']);
   await page.screenshot({ path: '.cache/card-order-phone.png', fullPage: true });
   await page.getByRole('button', { name: 'Inbox', exact: true }).click();
-  await page.getByLabel('Search inbox').fill('category-order');
+  await page.getByRole('button', { name: 'Search inbox', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search inbox', exact: true }).fill('category-order');
   await expect.poll(() => order(page)).toEqual(['category-order A', 'category-order B']);
   await page.getByRole('button', { name: 'App suggestions', exact: true }).click();
-  await page.getByLabel('Search suggestions').fill('touch-order');
+  await page.getByRole('button', { name: 'Search suggestions', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search suggestions', exact: true }).fill('touch-order');
   await context.setOffline(true);
   await expect(handle).toBeDisabled();
   await expect.poll(() => order(page)).toEqual(['touch-order B', 'touch-order A']);
@@ -118,7 +130,8 @@ test('cancelled drags do not save, and lost order replies reconcile without chan
   await login(page);
   await capture(page, 'retry-order A');
   await capture(page, 'retry-order B');
-  await page.getByLabel('Search inbox').fill('retry-order');
+  await page.getByRole('button', { name: 'Search inbox', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search inbox', exact: true }).fill('retry-order');
   const handle = card(page, 'retry-order A').getByRole('button', { name: 'Drag to reorder card' });
   await handle.scrollIntoViewIfNeeded();
   const start = (await handle.boundingBox())!;
@@ -140,7 +153,8 @@ test('cancelled drags do not save, and lost order replies reconcile without chan
   await expect.poll(() => lost).toBe(true);
   await page.reload();
   await page.getByRole('button', { name: 'Refresh and sync' }).click();
-  await page.getByLabel('Search inbox').fill('retry-order');
+  await page.getByRole('button', { name: 'Search inbox', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search inbox', exact: true }).fill('retry-order');
   await expect.poll(() => order(page)).toEqual(['retry-order A', 'retry-order B']);
   await expect(
     card(page, 'retry-order A').getByRole('button', { name: 'Move card down', exact: true }),

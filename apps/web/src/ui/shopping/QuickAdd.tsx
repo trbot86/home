@@ -126,13 +126,13 @@ export function QuickAdd({
           Add item
         </button>
       </form>
-      <p className="fine">
+      {(pending || !state.online) && <p className="fine">
         {pending
           ? 'Waiting for confirmation · your request is kept unchanged'
           : !state.online
             ? 'Read-only while offline. Inbox is available for new captures.'
-            : 'Enter to add · unfinished text stays on this device'}
-      </p>
+            : ''}
+      </p>}
       {epoch !== state.session!.serverEpoch && (
         <div className="notice">
           The server was restored. Review this draft before submitting.
