@@ -1,11 +1,11 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
-    android:padding="8dp" android:background="@drawable/task_widget_background">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="32dp" android:gravity="center_vertical">
-        <TextView android:id="@+id/widget_title" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:gravity="center_vertical" android:text="Our place" android:textSize="18sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" android:textColor="@color/household_accent" />
-        <TextView android:id="@+id/widget_settings" android:layout_width="60dp" android:layout_height="match_parent" android:gravity="center" android:text="Settings" android:textColor="@color/household_accent" android:textSize="12sp" />
+    android:padding="10dp" android:background="@drawable/task_widget_background">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="36dp" android:gravity="center_vertical">
+        <TextView android:id="@+id/widget_title" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:gravity="center_vertical" android:text="Our place" android:textSize="15sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" android:textColor="@color/household_accent" />
+        <TextView android:id="@+id/widget_settings" android:layout_width="44dp" android:layout_height="match_parent" android:gravity="center" android:text="⚙" android:contentDescription="Widget settings" android:background="@drawable/widget_button" android:textColor="@color/household_accent" android:textSize="12sp" />
     </LinearLayout>
-    <TextView android:id="@+id/widget_sampled" android:layout_width="match_parent" android:layout_height="16dp" android:maxLines="1" android:ellipsize="end" android:textSize="11sp" android:textColor="#B8C4AD" />
+
     <TextView android:id="@+id/widget_message" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Open the app to load tasks." android:textSize="13sp" android:textColor="#E5EBDF" android:paddingBottom="8dp" />
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
         <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical">
@@ -17,9 +17,10 @@
             <LinearLayout android:id="@+id/widget_calendar_items" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" />
         </LinearLayout>
     </LinearLayout>
+    <TextView android:id="@+id/widget_sampled" android:layout_width="match_parent" android:layout_height="12dp" android:maxLines="1" android:ellipsize="end" android:textSize="9sp" android:textColor="#B8C4AD" />
     <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical">
-        <TextView android:id="@+id/widget_more" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:gravity="center_vertical" android:text="Open app" android:maxLines="1" android:ellipsize="end" android:textSize="12sp" android:textColor="@color/household_accent" />
-        <TextView android:id="@+id/widget_capture" android:layout_width="64dp" android:layout_height="match_parent" android:gravity="center" android:text="Dictate" android:textSize="12sp" android:textColor="@color/household_accent" />
-        <TextView android:id="@+id/widget_refresh" android:layout_width="58dp" android:layout_height="match_parent" android:gravity="center" android:text="Refresh" android:textSize="12sp" android:textColor="@color/household_accent" />
+        <TextView android:id="@+id/widget_more" android:background="@drawable/widget_button" android:layout_margin="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:gravity="center_vertical" android:text="Open app" android:maxLines="1" android:ellipsize="end" android:textSize="12sp" android:textColor="@color/household_accent" />
+        <TextView android:id="@+id/widget_capture" android:background="@drawable/widget_button" android:layout_margin="2dp" android:layout_width="64dp" android:layout_height="match_parent" android:gravity="center" android:text="Dictate" android:textSize="12sp" android:textColor="@color/household_accent" />
+        <TextView android:id="@+id/widget_refresh" android:background="@drawable/widget_button" android:layout_margin="2dp" android:layout_width="58dp" android:layout_height="match_parent" android:gravity="center" android:text="Refresh" android:textSize="12sp" android:textColor="@color/household_accent" />
     </LinearLayout>
 </LinearLayout>

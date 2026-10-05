@@ -1,9 +1,9 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="52dp" android:orientation="horizontal" android:gravity="center_vertical">
+    android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical">
     <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical">
-        <TextView android:id="@+id/widget_item_title" android:layout_width="match_parent" android:layout_height="32dp" android:gravity="center_vertical" android:maxLines="2" android:ellipsize="end" android:textSize="13sp" android:textColor="#E5EBDF" />
+        <TextView android:id="@+id/widget_item_title" android:layout_width="match_parent" android:layout_height="28dp" android:gravity="center_vertical" android:maxLines="2" android:ellipsize="end" android:textSize="13sp" android:textColor="#E5EBDF" />
         <TextView android:id="@+id/widget_item_detail" android:layout_width="match_parent" android:layout_height="20dp" android:maxLines="1" android:ellipsize="end" android:textSize="10sp" android:textColor="#B8C4AD" />
     </LinearLayout>
-    <TextView android:id="@+id/widget_done" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="Done…" android:contentDescription="Open completion form" android:textSize="11sp" android:textColor="@color/household_accent" />
-    <TextView android:id="@+id/widget_move" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="Date…" android:contentDescription="Open date controls" android:textSize="11sp" android:textColor="@color/household_accent" />
+    <TextView android:id="@+id/widget_done" android:background="@drawable/widget_button" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="Done…" android:contentDescription="Open completion form" android:textSize="11sp" android:textColor="@color/household_accent" />
+    <TextView android:id="@+id/widget_move" android:background="@drawable/widget_button" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="Date…" android:contentDescription="Open date controls" android:textSize="11sp" android:textColor="@color/household_accent" />
 </LinearLayout>

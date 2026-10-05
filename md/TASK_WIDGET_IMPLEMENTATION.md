@@ -130,13 +130,13 @@ at the configured secondary location. The preceding deployment image is retained
 locally for rollback. Machine identifiers, paths, digests and evidence stay in
 ignored local reports.
 
-## Mini Agenda columns (awaiting batch integration)
+## Mini Agenda columns
 
-At 320dp wide the widget shows Tasks alongside Calendar for the next seven days
+At 250dp wide the widget shows Tasks alongside Calendar for the next seven days
 of its downloaded snapshot. Narrower sizes keep one task column. Each column
-respects the configured limit (up to five); five 52dp rows fit at 392dp height,
+respects the configured limit (up to five); five 48dp rows fit at 392dp height,
 including the column headings. Remaining counts appear in the column headings.
-The downloaded timestamp remains visible. Calendar refresh failures are marked
+A small updated-time label appears above the outlined footer controls. Calendar refresh failures are marked
 in the calendar heading; old caches request an app refresh.
 
 Calendar combines events and dated tasks using the existing task-calendar
@@ -156,3 +156,11 @@ isolated server read-only/privacy test, two client navigation tests, web
 TypeScript check, package boundaries, code statistics and staged source audit.
 Full regression, distribution builds and actual launcher/device checks are
 reserved for combined batch release verification. This change is not deployed.
+
+The responsive renderer uses actual launcher-provided sizes on Android 12 and newer,
+with orientation-specific bounds on older launchers or when exact sizes are absent.
+This avoids choosing between fixed-width templates that could hide the calendar
+on a large widget. A smaller header, compact rows and outlined controls preserve
+space for content. Existing per-widget item limits and privacy settings are retained.
+Native layout checks include two columns at 280dp; OEM launcher behavior still
+requires confirmation on the phone after installing the updated APK.

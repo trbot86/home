@@ -115,7 +115,7 @@ class TaskWidgetTest {
             assertFalse(model.items.any { it.title == "Partner private" })
         }
         assertEquals(5, TaskWidget.capacityForHeight(392))
-        assertEquals(3, TaskWidget.capacityForHeight(336))
+        assertEquals(4, TaskWidget.capacityForHeight(336))
         assertEquals(3, TaskWidgetModel.render(state, settings.copy(limit = 3), 5).items.size)
     }
     @Test fun headingAndMoreOpenAgendaWithProfileAndRecoveryGuards() {
@@ -207,7 +207,7 @@ class TaskWidgetTest {
         val context = ApplicationProvider.getApplicationContext<android.app.Application>()
         val settings = options.copy(includePrivate = true, limit = 5)
         val model = TaskWidgetModel.render(calendarState(), settings, 5)
-        val root = TaskWidget.views(context, 40, model, settings, true).apply(context, LinearLayout(context))
+        val root = TaskWidget.views(context, 40, model, settings, TaskWidget.twoColumns(280)).apply(context, LinearLayout(context))
         val density = context.resources.displayMetrics.density
         root.measure(View.MeasureSpec.makeMeasureSpec((320 * density).toInt(), View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec((392 * density).toInt(), View.MeasureSpec.EXACTLY))
@@ -222,6 +222,9 @@ class TaskWidgetTest {
         assertEquals("owner-client", intent.getStringExtra("clientId"))
         assertEquals("epoch", intent.getStringExtra("serverEpoch"))
         assertFalse(intent.hasExtra("title"))
+        assertTrue(TaskWidget.twoColumns(250))
+        assertTrue(TaskWidget.twoColumns(300))
+        assertFalse(TaskWidget.twoColumns(220))
         val narrow = TaskWidget.views(context, 41, model, settings).apply(context, LinearLayout(context))
         assertEquals(View.GONE, narrow.findViewById<View>(R.id.widget_calendar_column).visibility)
     }

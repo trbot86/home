@@ -92,20 +92,24 @@ class TaskWidget : AppWidgetProvider() {
             for (id in ids(context)) {
                 val options = TaskWidgetSettings(context).read(id)
                 fun forRows(count: Int, wide: Boolean) = views(context, id, TaskWidgetModel.render(state, options, count), options, wide)
-                val responsive = if (Build.VERSION.SDK_INT >= 31) {
-                    // Let the launcher select a layout for its actual bounds, including rotations and foldables.
-                    RemoteViews(listOf(220f, 320f).flatMap { width -> (0..5).map { count ->
-                        SizeF(width, 132f + 52f * count) to forRows(count, width >= 320f) } }.toMap())
+                val bounds = manager.getAppWidgetOptions(id)
+                val sizes = if (Build.VERSION.SDK_INT >= 31) bounds.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)?.filter { it.width.isFinite() && it.height.isFinite() && it.width > 0 && it.height > 0 }?.distinct()?.take(16) else null
+                val responsive = if (!sizes.isNullOrEmpty()) {
+                    // Use the launcher's actual dp sizes, not competing fixed-size
+                    // templates whose largest fitting area may select one column.
+                    RemoteViews(sizes.associateWith {
+                        forRows(capacityForHeight(it.height.toInt()), twoColumns(it.width.toInt()))
+                    })
                 } else {
-                    val bounds = manager.getAppWidgetOptions(id)
-                    fun forBounds(height: String, width: String) = forRows(capacityForHeight(bounds.getInt(height, 320)), bounds.getInt(width, 220) >= 320)
+                    fun forBounds(height: String, width: String) = forRows(capacityForHeight(bounds.getInt(height, 320)), twoColumns(bounds.getInt(width, 280)))
                     RemoteViews(forBounds(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH),
                         forBounds(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH))
                 }
                 manager.updateAppWidget(id, responsive)
             }
         }
-        internal fun capacityForHeight(height: Int): Int = ((height - 132) / 52).coerceIn(0, 5)
+        internal fun twoColumns(width: Int): Boolean = width >= 250
+        internal fun capacityForHeight(height: Int): Int = ((height - 144) / 48).coerceIn(0, 5)
 
         internal fun views(context: Context, id: Int, model: TaskWidgetView, options: TaskWidgetOptions?, wide: Boolean = false): RemoteViews {
                 val views = shell(context, id, model.heading, if (wide && model.calendar.isNotEmpty()) "" else model.message)
@@ -115,7 +119,7 @@ class TaskWidget : AppWidgetProvider() {
                 // The smallest layout has room for either the timestamp or the resize hint.
                 views.setViewVisibility(R.id.widget_sampled, if (model.ready && model.total > 0 && model.items.isEmpty()) View.GONE else View.VISIBLE)
                 views.setTextViewText(R.id.widget_sampled, model.sampledAt?.let {
-                    "Downloaded " + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it))
+                    "Updated " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))
                 } ?: "")
                 views.setTextViewText(R.id.widget_more, if (model.total > model.items.size) "Agenda · ${model.total - model.items.size} more" else if (model.ready) "Open Agenda" else "Open app")
                 if (model.ready && options != null) {
