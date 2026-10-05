@@ -1056,6 +1056,16 @@ function AppContent({ client }: { client: ClientPlatform }) {
             ) : (
               <>
                 {(view === 'inbox' || view === 'suggestions') && draft && (
+                  <details className="capture-disclosure" key={`${state.session.person.personId}/${view}`}
+                    open={view === 'suggestions' ? true : undefined}
+                    onToggle={(event) => {
+                      if (event.currentTarget.open) textRef.current?.focus();
+                    }}>
+                    <summary>
+                      <span className="capture-icon"><Icon name="plus" /></span>
+                      {view === 'suggestions' ? 'Suggest an improvement' : 'What’s on your mind?'}
+                      {(text.trim() || draft.attachments.length > 0) && <span className="fine">Draft saved</span>}
+                    </summary>
                   <form
                     className={`capture ${transfer.dragging ? 'photo-dragging' : ''}`}
                     aria-label={view === 'suggestions' ? 'Suggestion capture' : 'Inbox capture'}
@@ -1075,10 +1085,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                     }}
                   >
                     <div className="capture-heading">
-                      <span className="capture-icon">
-                        <Icon name="plus" />
-                      </span>
-                      <label htmlFor="capture-text">
+                      <label className="sr-only" htmlFor="capture-text">
                         {view === 'suggestions' ? 'Suggest an improvement' : 'What’s on your mind?'}
                       </label>
                       <span className="draft-state" aria-live="polite">
@@ -1098,7 +1105,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                       placeholder={
                         view === 'suggestions'
                           ? 'What could work better? Add a screenshot if it helps…'
-                          : 'A thought, a link, something for the house…'
+                          : 'A thought or link…'
                       }
                       onChange={(event) => {
                         setText(event.target.value);
@@ -1132,7 +1139,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                       <p className="photo-transfer-hint fine">
                         {transfer.dragging
                           ? 'Drop to add photos'
-                          : 'Paste a screenshot here or drop PNG, JPEG or WebP files.'}
+                          : 'Paste or drop photos here.'}
                       </p>
                     )}
                     <div className="capture-footer">
@@ -1188,6 +1195,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                       </div>
                     </div>
                   </form>
+                  </details>
                 )}
                 {pending.length > 0 && (
                   <section className="pending-section" aria-label="Local drafts and pending captures">
@@ -1219,6 +1227,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                                 setDraft(item);
                                 setText(item.text);
                                 setCaptureScope(item.scopeId);
+                                textRef.current?.closest('details')?.setAttribute('open', '');
                                 textRef.current?.focus();
                               }}
                             >
