@@ -3,14 +3,46 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { runInNewContext } from 'node:vm';
+import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
 import {
   captureCreateArguments,
   captureHealthCommand,
+  captureIdentityScript,
   readCaptureDescriptor,
   stopCaptureCompanion,
   validateCaptureDescriptor,
   withCaptureCompanionUpgrade,
 } from './capture-companion.mjs';
+
+test('actual capture identity probe accepts historical newline variants but rejects changed SQL', () => {
+  const require = createRequire(import.meta.url);
+  const lf = 'CREATE TABLE example (id INTEGER);\n';
+  for (const original of [lf, lf.replace(/\n/g, '\r\n')]) {
+    for (const current of [lf, lf.replace(/\n/g, '\r\n'), lf.replace('INTEGER', 'TEXT')]) {
+      let result, closed = false;
+      class Database {
+        constructor(_path, options) { assert.equal(options.readonly, true); }
+        prepare(sql) {
+          if (sql.includes('schema_migrations')) return { all: () => [{ version: '001_example.sql', checksum: createHash('sha256').update(original).digest('hex') }] };
+          assert.match(sql, /installation_state/);
+          return { get: () => ({ installation_id: 'fixture', recovery_epoch: 'epoch', recovery_mode: 'normal' }) };
+        }
+        close() { closed = true; }
+      }
+      runInNewContext(captureIdentityScript, {
+        require: name => name === 'node:fs' ? { readdirSync: () => ['001_example.sql'], readFileSync: () => Buffer.from(current) }
+          : name === 'node:module' ? { createRequire: () => () => Database } : require(name),
+        console: { log: value => { result = JSON.parse(value); } },
+      });
+      assert.equal(result.schemaCurrent, !current.includes('TEXT'));
+      assert.equal(result.installationId, 'fixture');
+      assert.equal(result.epoch, 'epoch');
+      assert.equal(closed, true);
+    }
+  }
+});
 
 const oldImage = 'sha256:' + '1'.repeat(64),
   newImage = 'sha256:' + '2'.repeat(64);

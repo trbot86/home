@@ -145,7 +145,7 @@ export function validateCaptureContainer(container, descriptor, state, workspace
 }
 
 // Reads only deployment metadata, never household notes, people, media or credentials.
-const identityScript = String.raw`
+export const captureIdentityScript = String.raw`
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const D=require('node:module').createRequire('/app/apps/server/package.json')('better-sqlite3');
 const db=new D('/data/db/household.sqlite',{readonly:true});
@@ -153,7 +153,12 @@ try{
  const root='/app/apps/server/migrations';
  const applied=db.prepare('SELECT version,checksum FROM schema_migrations ORDER BY version').all();
  const files=fs.readdirSync(root).filter(x=>/^\d+_[\w-]+\.sql$/.test(x)).sort();
- const schemaCurrent=JSON.stringify(files)===JSON.stringify(applied.map(x=>x.version))&&applied.every(x=>crypto.createHash('sha256').update(fs.readFileSync(path.join(root,x.version))).digest('hex')===x.checksum);
+ const digest=value=>crypto.createHash('sha256').update(value).digest('hex');
+ const schemaCurrent=JSON.stringify(files)===JSON.stringify(applied.map(x=>x.version))&&applied.every(x=>{
+   const bytes=fs.readFileSync(path.join(root,x.version));
+   const lf=bytes.toString('utf8').replace(/\r\n/g,'\n');
+   return [bytes,lf,lf.replace(/\n/g,'\r\n')].some(value=>digest(value)===x.checksum);
+ });
  const row=db.prepare('SELECT installation_id,recovery_epoch,recovery_mode FROM installation_state WHERE singleton=1').get();
  console.log(JSON.stringify({installationId:row.installation_id,epoch:row.recovery_epoch,normal:row.recovery_mode==='normal',schemaCurrent}));
 }finally{db.close()}
@@ -290,7 +295,7 @@ export async function withCaptureCompanionUpgrade({
     await pause();
     if (!descriptor.enabled) return upgrade();
     const identity = async (app) => {
-      const value = JSON.parse(await run('exec', app.Id, 'node', '-e', identityScript));
+      const value = JSON.parse(await run('exec', app.Id, 'node', '-e', captureIdentityScript));
       if (
         value.installationId !== state.installationId ||
         value.epoch !== epoch ||
