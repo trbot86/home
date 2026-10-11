@@ -18,6 +18,37 @@ import java.util.concurrent.Callable
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], manifest = Config.NONE)
 class CaptureStoreTest {
+    @Test fun downloadingFreshCacheDoesNotDrainOrAlterFrozenCaptures() = background {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "test-${newId()}.sqlite"
+        val db = LocalDatabase.open(context, name)
+        try {
+            val client = newId(); val epoch = newId()
+            val session = JSONObject().put("clientId", client).put("serverEpoch", epoch)
+            val store = CaptureStore(db)
+            val draft = store.create(client, newId())
+            store.save(client, draft.draftId, "Offline capture", draft.scopeId)
+            val frozen = store.freeze(client, draft.draftId, epoch)
+            val paths = mutableListOf<String>()
+            val api = object : JsonTransport {
+                override fun json(path: String, method: String, body: String?, clientId: String?): JSONObject {
+                    paths.add(path)
+                    assertEquals("GET", method)
+                    return when (path) {
+                        "/session" -> session
+                        "/cache/inbox" -> JSONObject().put("serverEpoch", epoch).put("sampledAt", 2000)
+                            .put("entries", JSONArray()).put("taskWidget", JSONObject().put("sampledAt", 2000))
+                        else -> error("A manual download must not drain uploads")
+                    }
+                }
+            }
+            SyncEngine(db, store, api) { _, _, _, _ -> error("No uploads during refresh") }.refresh(session)
+            assertEquals(listOf("/session", "/cache/inbox"), paths)
+            assertEquals(frozen, store.draft(client, draft.draftId))
+            assertEquals(2000L, JSONObject(db.dao().value("$client:cache")!!).getLong("sampledAt"))
+        } finally { db.close(); context.deleteDatabase(name) }
+    }
+
     @Test fun secureDraftSurvivesReopenAndFreezeWithoutRewritingOlderRequests() = background {
         val context = ApplicationProvider.getApplicationContext<Context>(); val name = "test-${newId()}.sqlite"
         var db = LocalDatabase.open(context, name)

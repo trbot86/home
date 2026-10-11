@@ -32,7 +32,7 @@ class TaskWidget : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == REFRESH && ids(context).isNotEmpty()) {
-            refreshAll(context); TaskWidgetWorker.schedule(context); UploadWorker.schedule(context)
+            TaskWidgetRefreshWorker.request(context); TaskWidgetWorker.schedule(context)
         }
     }
     companion object {
@@ -123,11 +123,18 @@ class TaskWidget : AppWidgetProvider() {
                 views.setViewVisibility(R.id.widget_calendar_column, if (wide && model.ready) View.VISIBLE else View.GONE)
                 views.removeAllViews(R.id.widget_calendar_items)
                 views.setViewVisibility(R.id.widget_capture, if (model.ready) View.VISIBLE else View.GONE)
-                // The smallest layout has room for either the timestamp or the resize hint.
-                views.setViewVisibility(R.id.widget_sampled, if (model.ready && model.total > 0 && model.items.isEmpty()) View.GONE else View.VISIBLE)
-                views.setTextViewText(R.id.widget_sampled, model.sampledAt?.let {
+                val feedback = TaskWidgetRefreshWorker.feedback(context)
+                views.setViewVisibility(R.id.widget_sampled, if (feedback.isEmpty() && model.ready && model.total > 0 && model.items.isEmpty()) View.GONE else View.VISIBLE)
+                views.setTextViewText(R.id.widget_sampled, feedback.ifEmpty { model.sampledAt?.let {
                     DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it))
-                } ?: "")
+                } ?: "" })
+                views.setContentDescription(R.id.widget_refresh, when (feedback) {
+                    "Refreshing…" -> "Refreshing widget"
+                    "Unreachable" -> "Server unreachable. Check Tailscale and tap to retry."
+                    "Open app" -> "Open the app to reconnect your profile."
+                    "Try again" -> "Refresh failed. Tap to retry."
+                    else -> "Refresh widget"
+                })
                 if (model.ready && options != null) {
                     val agenda = Intent(context, MainActivity::class.java).setAction(WidgetNavigation.ACTION)
                         .putExtra("clientId", options.clientId).putExtra("serverEpoch", options.serverEpoch)

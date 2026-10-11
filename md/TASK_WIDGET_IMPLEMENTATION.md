@@ -183,3 +183,11 @@ There is no title or footer; tapping the background opens Agenda. Task boxes in
 either column open their specific occurrence, while calendar events open Agenda.
 All navigation retains the configured profile and recovery guards. The 48dp header
 replaces the former header/footer combination, leaving more vertical room for rows.
+
+Manual refresh downloads a new authorised snapshot in a separate one-time worker,
+so offline capture-upload retries cannot delay it. Repeated taps coalesce while
+an attempt runs. The header shows Refreshing while downloading and Unreachable
+on a network failure; the next tap retries immediately. Successful downloads
+redraw the widget and restore the last-download time. Frozen captures and their
+upload retry queue remain intact. Transient feedback expires after two minutes
+to avoid leaving a stale progress message after process termination.
