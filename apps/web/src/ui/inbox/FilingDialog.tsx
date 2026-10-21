@@ -8,7 +8,7 @@ import { AttachmentGallery } from '../AttachmentGallery.js';
 import './filing.css';
 import { FilingSuggestions } from './FilingSuggestions.js';
 
-export type FilingMode = 'task' | 'project' | 'shopping' | 'recipe';
+export type FilingMode = 'task' | 'project' | 'shopping' | 'recipe' | 'note';
 
 export function FilingDialog({
   client,
@@ -38,6 +38,7 @@ export function FilingDialog({
     sourceBlockId: crypto.randomUUID(),
     title: entry.text.trim().split(/\r?\n/)[0]?.slice(0, 300) || '',
     notes: entry.text,
+    category: '',
     context: 'home',
     targetDate: '',
     quantity: '',
@@ -58,7 +59,13 @@ export function FilingDialog({
       entry.revision,
       session.serverEpoch,
       onError,
-      (saved) => ({ newProjectId: crypto.randomUUID(), newProjectTitle: '', targetRevision: '', ...saved }),
+      (saved) => ({
+        category: '',
+        newProjectId: crypto.randomUUID(),
+        newProjectTitle: '',
+        targetRevision: '',
+        ...saved,
+      }),
     ),
     form = buffer.values;
   const [busy, setBusy] = useState(false),
@@ -89,6 +96,7 @@ export function FilingDialog({
       ? !!selected
       : !!form.title.trim() &&
         (form.mode === 'task' ||
+          form.mode === 'note' ||
           form.mode === 'recipe' ||
           (form.mode === 'shopping'
             ? lists.some((l) => l.recordId === form.listId)
@@ -147,6 +155,18 @@ export function FilingDialog({
           label: form.title.trim(),
           quantity: form.quantity,
           notes: form.notes,
+        },
+      };
+    if (form.mode === 'note')
+      return {
+        kind: 'CreateNote',
+        arguments: {
+          recordId: form.recordId,
+          scopeId: entry.scopeId,
+          title: form.title.trim(),
+          body: form.notes,
+          category: form.category.trim(),
+          attachments: entry.attachments.map((a) => ({ ...a, attachmentId: crypto.randomUUID() })),
         },
       };
     if (form.mode === 'project')
@@ -316,6 +336,7 @@ export function FilingDialog({
               onChange={(e) => buffer.field('mode', e.target.value)}
             >
               <option value="task">New task</option>
+              <option value="note">Thought</option>
               <option value="shopping">Shopping item</option>
               <option value="project">New project page</option>
               <option value="recipe">New recipe</option>
@@ -366,6 +387,17 @@ export function FilingDialog({
                   onChange={(e) => buffer.field('title', e.target.value)}
                 />
               </label>
+              {form.mode === 'note' && (
+                <label>
+                  Category
+                  <input
+                    value={form.category}
+                    maxLength={120}
+                    placeholder="Optional"
+                    onChange={(e) => buffer.field('category', e.target.value)}
+                  />
+                </label>
+              )}
               {form.mode === 'task' && (
                 <>
                   <label>

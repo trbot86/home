@@ -44,6 +44,7 @@ export function recordReferences(state: ClientState): RecordReference[] {
       note.text,
     );
   for (const task of state.tasks.definitions) add(task, 'Task', task.title, task.instructions);
+  for (const note of state.notes ?? []) add(note, 'Thought', note.title, note.body);
   for (const occurrence of state.tasks.occurrences) {
     const task = state.tasks.definitions.find((t) => t.recordId === occurrence.taskId);
     add(

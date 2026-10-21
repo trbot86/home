@@ -9,6 +9,8 @@ import { recipeImportCommands } from './recipe-import.js';
 import { viewCommands } from './views.js';
 import { projectCommands } from './projects.js';
 import { calendarCommands } from './calendars.js';
+import { noteCommands } from './notes.js';
+export * from './notes.js';
 import { inboxFilingCommands, type InboxFiling } from './inbox-filing.js';
 import { suggestionCommands } from './suggestions.js';
 import { suggestionReleaseCommands } from './suggestion-releases.js';
@@ -102,6 +104,7 @@ export const argumentSchemas = {
   ...viewCommands,
   ...projectCommands,
   ...calendarCommands,
+  ...noteCommands,
   SetRecordAttachments,
   CreateInboxEntry,
   SetInboxEntryText,

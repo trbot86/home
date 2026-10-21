@@ -101,7 +101,7 @@ export async function buildApp(options: AppOptions) {
     throw error;
   }
   const access = new AccessService(db, now);
-  const { inbox, shopping, shoppingGroups, home, tasks, recipes, projects, suggestions, records, filing } =
+  const { inbox, shopping, shoppingGroups, home, tasks, recipes, projects, notes, suggestions, records, filing } =
     createRecordFeatures(db, access, options.householdTimeZone);
   const history = new HistoryService(db, records, access);
   const sharing = new RecordSharing(db, access, records);
@@ -118,6 +118,7 @@ export async function buildApp(options: AppOptions) {
     tasks.commands(),
     home.commands(),
     recipes.commands(),
+    notes.commands(),
     recipeImports.commands(),
     views.commands(),
     calendars.commands(),
@@ -300,6 +301,7 @@ export async function buildApp(options: AppOptions) {
       home: home.snapshot(context),
       recipes: recipes.snapshot(context),
       projects: projects.snapshot(context),
+      notes: notes.snapshot(context),
       recipeImports: recipeImports.snapshot(context),
       views: views.snapshot(context),
       suggestions: suggestions.snapshot(context),

@@ -9,6 +9,7 @@ const pin = {
 };
 export const navigationSections = [
   'inbox',
+  'thoughts',
   'shopping',
   'tasks',
   'agenda',
@@ -27,14 +28,17 @@ const orderSchema = (ids: readonly NavigationSection[]) =>
     maxItems: ids.length,
     uniqueItems: true,
   });
-// Retain old frozen requests and saved layouts; clients insert Calendar beside Agenda.
+// Retain old frozen requests and saved layouts; clients insert newly introduced sections.
 export const NavigationOrder = Type.Union([
   orderSchema(navigationSections),
+  orderSchema(navigationSections.filter((id) => id !== 'thoughts')),
+  orderSchema(navigationSections.filter((id) => id !== 'thoughts' && id !== 'calendar')),
   orderSchema(navigationSections.filter((id) => id !== 'calendar')),
 ]);
 export function completeNavigationOrder(order: readonly NavigationSection[]): NavigationSection[] {
   const result = [...order];
   if (!result.includes('calendar')) result.splice(result.indexOf('agenda') + 1, 0, 'calendar');
+  if (!result.includes('thoughts')) result.splice(result.indexOf('inbox') + 1, 0, 'thoughts');
   return result;
 }
 export const viewCommands = {

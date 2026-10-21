@@ -382,7 +382,7 @@ test('sharing migration preserves all existing rows and installation identity', 
         )
         .all() as { name: string }[]
     ).map((row) => row.name);
-    const snapshot = () => tables.map((table) => f.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
+    const snapshot = () => tables.map((table) => f.db.prepare(`SELECT * FROM ${table} ${table === 'record_kinds' ? "WHERE kind <> 'note'" : ''} ORDER BY rowid`).all());
     const before = snapshot();
     migrate(f.db);
     assert.deepEqual(snapshot(), before);

@@ -12,6 +12,7 @@ import { RecordRegistry } from '../features/records/record-registry.js';
 import { ProjectsRepository } from '../features/projects/projects.js';
 import { InboxFiling } from './inbox-filing.js';
 import { SuggestionsRepository } from '../features/suggestions/suggestions.js';
+import { NotesRepository } from '../features/notes/notes.js';
 
 /** One complete adapter set for every writer; constructing features grants no HTTP routes or commands. */
 export function createRecordFeatures(db: Sqlite, access: AccessService, householdTimeZone?: string) {
@@ -23,6 +24,7 @@ export function createRecordFeatures(db: Sqlite, access: AccessService, househol
   const tasks = new TasksRepository(db, access, householdTimeZone, home, recipes);
   const projects = new ProjectsRepository(db, access);
   const suggestions = new SuggestionsRepository(db, access);
+  const notes = new NotesRepository(db, access);
   const records = new RecordRegistry(db, [
     inboxRecordAdapter(inbox),
     ...shopping.adapters(),
@@ -32,6 +34,7 @@ export function createRecordFeatures(db: Sqlite, access: AccessService, househol
     shoppingGroups.adapter(),
     ...projects.adapters(),
     ...suggestions.adapters(),
+    ...notes.adapters(),
   ]);
   const filing = new InboxFiling(db, access, inbox, records, {
     CreateRecipe: recipes.commands(),
@@ -39,6 +42,7 @@ export function createRecordFeatures(db: Sqlite, access: AccessService, househol
     AddShoppingEntry: shopping.commands(),
     CreateProjectPage: projects.commands(),
     CreateProject: projects.commands(),
+    CreateNote: notes.commands(),
   });
-  return { inbox, shopping, shoppingGroups, tasks, home, recipes, projects, suggestions, records, filing };
+  return { inbox, shopping, shoppingGroups, tasks, home, recipes, projects, notes, suggestions, records, filing };
 }

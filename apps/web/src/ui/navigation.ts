@@ -1,5 +1,6 @@
 export const navigationItems = [
   { id: 'inbox', label: 'Inbox', compactLabel: 'Inbox', icon: 'inbox' },
+  { id: 'thoughts', label: 'Thoughts', compactLabel: 'Thoughts', icon: 'note' },
   { id: 'shopping', label: 'Shopping', compactLabel: 'Shopping', icon: 'shopping' },
   { id: 'tasks', label: 'Tasks', compactLabel: 'Tasks', icon: 'tasks' },
   { id: 'agenda', label: 'Agenda', compactLabel: 'Agenda', icon: 'tasks' },

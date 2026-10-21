@@ -42,6 +42,7 @@ export type Draft = {
   settled?: boolean;
 };
 export type ClientState = {
+  notes?: import('@our-place/contracts').Note[];
   session: Session | null;
   entries: InboxEntry[];
   shopping: ShoppingSnapshot;

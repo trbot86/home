@@ -77,6 +77,7 @@ class ClientCore private constructor(val context: Context) {
             .put("home", cache?.optJSONObject("home") ?: JSONObject().put("assets", JSONArray()).put("serviceRecords", JSONArray()))
             .put("recipes", cache?.optJSONObject("recipes") ?: JSONObject().put("recipes", JSONArray()).put("collections", JSONArray()).put("cookingRecords", JSONArray()))
             .put("projects", cache?.optJSONObject("projects") ?: JSONObject().put("projects", JSONArray()).put("pages", JSONArray()))
+            .put("notes", cache?.optJSONArray("notes") ?: JSONArray())
             .put("suggestions", cache?.optJSONObject("suggestions") ?: JSONObject().put("workflows", JSONArray()).put("messages", JSONArray()).put("questions", JSONArray()).put("work", JSONArray()).put("bridgeSeenAt", JSONObject.NULL).put("messagesPerSuggestion", 100))
             .put("recipeImports", cache?.optJSONArray("recipeImports") ?: JSONArray())
             .put("views", cache?.optJSONArray("views") ?: JSONArray())

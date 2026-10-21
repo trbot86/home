@@ -40,6 +40,7 @@ interface LocalSchema extends DBSchema {
       home?: HomeSnapshot;
       recipes?: RecipeSnapshot;
       projects?: ProjectSnapshot;
+      notes?: import('@our-place/contracts').Note[];
       recipeImports?: RecipeImportSummary[];
       views?: SavedView[];
       agenda?: AgendaSnapshot;

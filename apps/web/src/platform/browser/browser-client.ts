@@ -165,6 +165,7 @@ export class BrowserClient implements ClientPlatform {
       home: cache?.home ?? emptyHome(),
       recipes: cache?.recipes ?? emptyRecipes(),
       projects: cache?.projects ?? emptyProjects(),
+      notes: cache?.notes ?? [],
       suggestions: cache?.suggestions ?? emptySuggestions(),
       recipeImports: cache?.recipeImports ?? [],
       views: cache?.views ?? [],
@@ -276,6 +277,7 @@ export class BrowserClient implements ClientPlatform {
       home?: HomeSnapshot;
       recipes?: RecipeSnapshot;
       projects?: ProjectSnapshot;
+      notes?: import('@our-place/contracts').Note[];
       recipeImports?: RecipeImportSummary[];
       views?: SavedView[];
       agenda?: AgendaSnapshot;

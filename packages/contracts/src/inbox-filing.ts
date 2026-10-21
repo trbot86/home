@@ -4,6 +4,7 @@ import { taskCommands } from './tasks.js';
 import { shoppingCommands } from './shopping.js';
 import { recipeCommands } from './recipes.js';
 import { projectCommands } from './projects.js';
+import { noteCommands } from './notes.js';
 
 export const InboxDestination = object({ recordId: Id, filedAt: Instant });
 export type InboxDestination = Static<typeof InboxDestination>;
@@ -20,6 +21,7 @@ export function filingOf(entry: InboxFiling) {
 export const FilingDestination = Type.Union([
   object({ kind: Type.Literal('existing'), recordId: Id, expectedRevision: Type.Optional(Revision) }),
   object({ kind: Type.Literal('CreateRecipe'), arguments: recipeCommands.CreateRecipe }),
+  object({ kind: Type.Literal('CreateNote'), arguments: noteCommands.CreateNote }),
   object({ kind: Type.Literal('CreateTask'), arguments: taskCommands.CreateTask }),
   object({ kind: Type.Literal('AddShoppingEntry'), arguments: shoppingCommands.AddShoppingEntry }),
   object({

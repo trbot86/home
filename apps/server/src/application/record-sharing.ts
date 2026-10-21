@@ -8,6 +8,7 @@ import { Rejection } from './errors.js';
 
 // Scope-bearing relational payloads. History and receipts retain their original bytes.
 const tables = [
+  'notes',
   'shopping_lists',
   'restock_items',
   'shopping_entries',

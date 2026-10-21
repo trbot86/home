@@ -9,6 +9,7 @@ export function Icon({
     | 'food'
     | 'projects'
     | 'inbox'
+    | 'note'
     | 'shopping'
     | 'tasks'
     | 'trash'
@@ -42,6 +43,7 @@ export function Icon({
     food: 'M4 3v5a3 3 0 0 0 6 0V3M7 3v18M17 3c-4 3-4 9 1 9V3m0 9v9',
     projects: 'M3 4h7v7H3ZM14 4h7v11h-7ZM3 15h7v6H3Zm11 4h7v2h-7Z',
     inbox: 'M3 4h18v16H3ZM3 13h5l2 3h4l2-3h5',
+    note: 'M4 3h16v13l-5 5H4ZM15 21v-5h5M8 8h8M8 12h8',
     shopping: 'M3 8h18l-2 13H5ZM7 8l3-6m7 6-3-6M9 12v5m6-5v5',
     tasks: 'M9 3h6v4H9ZM9 5H5v16h14V5h-4M8 13l3 3 5-6',
     trash: 'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7',

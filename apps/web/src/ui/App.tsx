@@ -12,6 +12,7 @@ import { NavigationOrderEditor } from './NavigationOrderEditor.js';
 import { CardOrderControls } from './inbox/CardOrderControls.js';
 import { personalCardOrder, moveVisibleCard } from './inbox/card-order.js';
 import { navigationItems } from './navigation.js';
+import { Thoughts } from './notes/Thoughts.js';
 import { Photo } from './Photo.js';
 import { EntryDialog } from './EntryDialog.js';
 import { suggestionCompleted, suggestionStatus } from './suggestions/status.js';
@@ -94,6 +95,7 @@ type View =
   | 'home'
   | 'food'
   | 'projects'
+  | 'thoughts'
   | 'trash'
   | 'storage'
   | 'activity'
@@ -189,6 +191,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
     setView(
       reference.kind.startsWith('task')
         ? 'tasks'
+        : reference.kind === 'note' ? 'thoughts'
         : reference.kind.startsWith('project')
           ? 'projects'
           : reference.kind.startsWith('recipe')
@@ -1009,6 +1012,13 @@ function AppContent({ client }: { client: ClientPlatform }) {
                 onPhotosSaved={acceptOutcome}
                 onOpenRecord={openLinkedRecord}
               />
+            ) : view === 'thoughts' ? (
+              <Thoughts
+                key={linkedTarget ?? 'thoughts'}
+                initialRecordId={linkedTarget}
+                client={client} state={state} run={runCommand}
+                onError={showError} onPhotosSaved={acceptOutcome}
+              />
             ) : view === 'storage' ? (
               <>
                 <section className="storage">
@@ -1562,6 +1572,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                                   {(
                                     [
                                       ['task', 'To task'],
+                                      ['note', 'To Thoughts'],
                                       ['project', 'Into project'],
                                       ['shopping', 'To shopping'],
                                       ['recipe', 'To food'],

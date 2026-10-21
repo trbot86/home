@@ -184,7 +184,7 @@ test('025 adds completion without changing existing rows or identity and rolls b
       columns: (f.db.pragma(`table_info(${name})`) as { name: string }[]).map((c) => c.name).join(','),
     }));
     const snapshot = () =>
-      tables.map(({ name, columns }) => f.db.prepare(`SELECT ${columns} FROM ${name} ORDER BY rowid`).all());
+      tables.map(({ name, columns }) => f.db.prepare(`SELECT ${columns} FROM ${name} ${name === 'record_kinds' ? "WHERE kind <> 'note'" : ''} ORDER BY rowid`).all());
     const before = snapshot();
     const filename = '025_suggestion_completion.sql';
     const sql = await readFile(join(migrationsRoot, filename), 'utf8');

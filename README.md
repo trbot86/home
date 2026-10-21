@@ -76,6 +76,7 @@ flowchart TB
   Inbox --> Shopping[Shopping]
   Inbox --> Projects[Project pages]
   Inbox --> Recipes[Recipes]
+  Inbox --> Thoughts[Thoughts]
   Recipes -->|ingredients| Shopping
   Recipes -->|cooking| Tasks
   Projects -->|references| Tasks
@@ -159,6 +160,12 @@ note's visibility. **Back to inbox** retains its links; **Unlink** keeps the
 destination itself. Filing supports guarded undo, durable unfinished forms and
 Ctrl+Enter. Offline drafts are editable; filing waits for connection. See
 [inbox filing](md/INBOX_FILING_IMPLEMENTATION.md) for transaction and retention details.
+
+**Thoughts** holds long-lived notes with optional categories, photos and search.
+Create one directly or use **To Thoughts** in Inbox. Notes default to Just me;
+filing preserves visibility and Secure status. Editing, history, guarded undo,
+sharing and reversible deletion use the existing record infrastructure. Saved
+thoughts are readable offline. See [Thoughts](md/THOUGHTS_IMPLEMENTATION.md).
 
 Shopping supports named shared/private lists for groceries, household purchases,
 wants and gifts. Add quantities and notes, move items between lists of the same

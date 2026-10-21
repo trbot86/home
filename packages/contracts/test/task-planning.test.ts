@@ -21,6 +21,21 @@ test('legacy navigation orders gain Calendar beside Agenda without invalidating 
   );
   assert.equal(Value.Check(NavigationOrder, [...legacy.slice(1), legacy[1]]), false);
 });
+test('pre-Thoughts navigation requests keep their order while adding Thoughts beside Inbox', () => {
+  for (const missingCalendar of [false, true]) {
+    const legacy = [...navigationSections]
+      .reverse()
+      .filter((id) => id !== 'thoughts' && (!missingCalendar || id !== 'calendar'));
+    assert.equal(Value.Check(NavigationOrder, legacy), true);
+    const current = completeNavigationOrder(legacy);
+    assert.equal(current[current.indexOf('inbox') + 1], 'thoughts');
+    assert.deepEqual(
+      current.filter((id) => id !== 'thoughts' && (!missingCalendar || id !== 'calendar')),
+      legacy,
+    );
+    assert.equal(Value.Check(NavigationOrder, current), true);
+  }
+});
 const base = { revision: 1, createdAt: 0, updatedAt: 0, scopeId: 'scope', deletedAt: null };
 const task: TaskDefinition = {
   ...base,

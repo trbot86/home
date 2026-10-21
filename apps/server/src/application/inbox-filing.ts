@@ -43,9 +43,16 @@ export class InboxFiling {
         if (kind === 'FileInboxEntry') {
           const destination = args.destination;
           const sharedGroceries = args.shareToGroceries === true;
-          if (sharedGroceries && (destination.kind !== 'AddShoppingEntry' ||
-              isSecure(this.db, source.inboxId) || !canShareToGroceries(this.db, source.scopeId,
-                this.records.get(context, destination.arguments.listId))))
+          if (
+            sharedGroceries &&
+            (destination.kind !== 'AddShoppingEntry' ||
+              isSecure(this.db, source.inboxId) ||
+              !canShareToGroceries(
+                this.db,
+                source.scopeId,
+                this.records.get(context, destination.arguments.listId),
+              ))
+          )
             throw new Rejection('invalid_shared_grocery_destination');
           if (args.suggestedTarget) {
             const { recordId, expectedRevision } = args.suggestedTarget;
@@ -128,7 +135,9 @@ export class InboxFiling {
     let destinationScope: string;
     try {
       destinationScope =
-        destination.kind === 'CreateTask' || destination.kind === 'CreateRecipe'
+        destination.kind === 'CreateTask' ||
+        destination.kind === 'CreateRecipe' ||
+        destination.kind === 'CreateNote'
           ? destination.arguments.scopeId
           : this.records.get(
               context,
@@ -141,7 +150,8 @@ export class InboxFiling {
       throw error;
     }
     // Creating from captured content must never silently broaden or change its audience.
-    if (destinationScope !== scopeId && !sharedGroceries) throw new Rejection('filing_requires_same_visibility');
+    if (destinationScope !== scopeId && !sharedGroceries)
+      throw new Rejection('filing_requires_same_visibility');
     const mutation = this.creators[destination.kind].execute(context, destination.kind, args, now);
     if (mutation.afterHistory) throw new Error('Filing creator requires unsupported post-history work');
     const target = mutation.records.find((r) => r.recordId === args.recordId);

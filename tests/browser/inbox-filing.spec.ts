@@ -7,6 +7,7 @@ const png = Buffer.from(
 async function login(page: Page, name = 'Alex') {
   await page.goto('/');
   await page.getByRole('button', { name, exact: true }).click();
+  await page.locator('.capture-disclosure > summary').click();
   await expect(page.getByLabel('What’s on your mind?')).toBeVisible();
   await page.getByLabel('Who can see this capture').selectOption({ label: 'Shared' });
   await page.evaluate(async () => {

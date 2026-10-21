@@ -435,7 +435,7 @@ test('calendar migration preserves all pre-calendar rows and installation identi
           name,
           f.db
             .prepare(
-              `SELECT * FROM "${name}" ${name === 'record_kinds' ? "WHERE kind NOT IN ('suggestion_workflow','suggestion_message')" : ''} ORDER BY rowid`,
+              `SELECT * FROM "${name}" ${name === 'record_kinds' ? "WHERE kind NOT IN ('suggestion_workflow','suggestion_message','note')" : ''} ORDER BY rowid`,
             )
             .all(),
         ]),
