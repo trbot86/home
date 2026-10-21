@@ -34,6 +34,8 @@ export const inboxFilingCommands = {
   FileInboxEntry: object({
     ...source,
     destination: FilingDestination,
+    // Explicit click publishes only the grocery item; the source note keeps its visibility.
+    shareToGroceries: Type.Optional(Type.Boolean()),
     suggestedTarget: Type.Optional(object({ recordId: Id, expectedRevision: Revision })),
   }),
   ReturnInboxEntry: object(source),

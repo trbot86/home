@@ -2,10 +2,12 @@ import { test, expect, type Page } from '@playwright/test';
 async function login(page: Page) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Alex', exact: true }).click();
+  await page.locator('.capture-disclosure > summary').click();
   await expect(page.getByLabel('What’s on your mind?')).toBeVisible();
 }
-async function capture(page: Page, text: string) {
-  await page.getByLabel('Who can see this capture').selectOption({ label: 'Shared' });
+async function capture(page: Page, text: string, visibility = 'Shared') {
+  if (!(await page.locator('#capture-text').isVisible())) await page.locator('.capture-disclosure > summary').click();
+  await page.getByLabel('Who can see this capture').selectOption({ label: visibility });
   await page.getByLabel('What’s on your mind?').fill(text);
   await page.getByLabel('What’s on your mind?').press('Control+Enter');
   const card = page
@@ -45,6 +47,35 @@ async function command(page: Page, kind: string, args: object) {
 async function snapshot(page: Page) {
   return (await page.request.get('/api/cache/inbox')).json();
 }
+
+test('Groceries files a private capture to the shared list in one click and undo restores it', async ({ page }) => {
+  await login(page);
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('.settings-section > summary').filter({ hasText: /^Note suggestions$/ }).click();
+  const settings = page.getByRole('region', { name: 'Note suggestion settings' });
+  await settings.getByLabel('Allow requests from this profile').check();
+  await settings.getByLabel('My private inbox text', { exact: true }).check();
+  await settings.getByRole('button', { name: 'Save suggestion permissions' }).click();
+  await expect(settings.getByText('Suggestion permissions saved.')).toBeVisible();
+  await page.getByRole('navigation').getByRole('button', { name: 'Inbox', exact: true }).click();
+  const session = await (await page.request.get('/api/session')).json();
+  const listId = crypto.randomUUID(), scopeId = session.scopes.find((s: any) => s.kind === 'shared').scopeId;
+  await command(page, 'CreateShoppingList', { recordId: listId, scopeId, name: 'Groceries', purpose: 'groceries' });
+  await page.getByRole('button', { name: 'Refresh and sync' }).click();
+  const card = await capture(page, 'Buy synthetic apples', 'Just me');
+  await card.getByRole('button', { name: 'Suggest filing', exact: true }).click();
+  const action = card.getByRole('button', { name: 'File to Groceries · Shared', exact: true });
+  await expect(action).toBeVisible();
+  await action.click();
+  await expect(card).toHaveCount(0);
+  const data = await snapshot(page), note = data.entries.find((e: any) => e.text === 'Buy synthetic apples');
+  expect(note.scopeId).toBe(session.scopes.find((s: any) => s.kind === 'private').scopeId);
+  const item = data.shopping.entries.find((e: any) => e.label === note.text);
+  expect(item.listId).toBe(listId);
+  expect(item.scopeId).toBe(scopeId);
+  await page.keyboard.press('Control+z');
+  await expect(card).toHaveCount(1);
+});
 
 test('ranked destinations appear on the card; one click files a project page and undo preserves the original', async ({
   page,
@@ -274,6 +305,7 @@ test('Secure capture persists offline and excludes requests; existing-note toggl
   await expect(page.getByLabel('Secure — exclude from AI context', { exact: true })).toBeChecked();
   await expect(page.getByLabel('What’s on your mind?')).toHaveValue('Synthetic protected offline capture');
   await context.setOffline(false);
+  await page.locator('.capture-disclosure > summary').click();
   await page.getByRole('button', { name: 'Save to inbox', exact: true }).click();
   const card = page.locator('.entry-card').filter({ hasText: 'Synthetic protected offline capture' });
   await expect(card).toHaveCount(1);

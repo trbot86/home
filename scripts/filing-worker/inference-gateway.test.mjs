@@ -42,6 +42,37 @@ test('gateway withholds tool calls, unknown events and incomplete responses', ()
   assert.throws(() => validateStream('data: {"type":"response.in_progress"}\n\n'));
 });
 
+test('subscription metadata is removed while assistant output and tool rejection remain strict', () => {
+  const metadata = 'data: ' + JSON.stringify({type:'response.metadata', private:'never relay', response:{output:[{type:'function_call'}]}}) + '\n\n';
+  assert.equal(validateStream(metadata + completion()), completion());
+  assert.throws(() => validateStream(metadata));
+  assert.throws(() => validateStream(metadata + completion([{type:'function_call'}])));
+});
+
+test('authenticated model catalogue is confined to its fixed endpoint and pinned CLI effort values', async () => {
+  let calls = 0;
+  const server = http.createServer(inferenceHandler(async (url, options) => {
+    calls++;
+    assert.equal(url, 'https://chatgpt.com/backend-api/codex/models?client_version=0.126.0-alpha.8');
+    assert.equal(options.method, 'GET');
+    assert.equal(options.redirect, 'error');
+    assert.equal(options.headers['x-private'], undefined);
+    return Response.json({models:[{slug:'gpt-5.6-luna',default_reasoning_level:'max',supported_reasoning_levels:[{effort:'low'},{effort:'max'}]}]});
+  }));
+  server.listen(0, 'localhost'); await once(server, 'listening');
+  const base = `http://localhost:${server.address().port}`;
+  try {
+    assert.equal((await fetch(base + '/models')).status, 403);
+    const headers = {authorization:'Bearer synthetic', 'x-private':'excluded'};
+    assert.equal((await fetch(base + '/models?redirect=example.com', {headers})).status, 502);
+    assert.equal((await fetch(base + '/models?client_version=0.126.0-alpha.8', {headers})).status, 200);
+    const model = (await (await fetch(base + '/models?client_version=0.126.0-alpha.8', {headers})).json()).models[0];
+    assert.equal(model.default_reasoning_level, 'low');
+    assert.deepEqual(model.supported_reasoning_levels, [{effort:'low'}]);
+    assert.equal(calls, 2);
+  } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+});
+
 test('gateway accepts 1000 destinations without a schema enum and rejects unbounded aggregate context', () => {
   const request = wire();
   const choices = Array.from({ length: 1003 }, (_, i) => ({ key: String(i), label: `Project ${i}` }));

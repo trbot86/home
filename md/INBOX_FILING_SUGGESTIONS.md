@@ -261,3 +261,25 @@ are not regenerated automatically; request Think harder for a new result.
 Four category labels add 28 characters to the destination-title budget; the wire
 boundary allows 10,004 choices and 240,032 label characters. The three-result cap,
 validation against offered keys and isolated tool-free model boundary remain.
+
+An unambiguous grocery list is also offered as a built-in destination, even when
+custom destination-title context is disabled. This exports only the fixed grocery
+purpose label. A grocery recommendation files directly to that list; multiple
+grocery lists require title context for a specific recommendation. Shared grocery
+lists take precedence over personal lists. The model prefers groceries for food
+and ordinary supermarket purchases, retaining generic Shopping for other purchases.
+
+For a private note, the button explicitly says Shared. Clicking it creates a shared
+shopping item and retains the original private note. The filing command requires
+the explicit shareToGroceries flag and accepts it only for an active, non-Secure,
+shared grocery list. Other destinations retain the same-visibility requirement.
+The normal receipt, revision guards, retry and undo paths apply. Secure source
+notes cannot use this sharing exception. Existing cached recommendations can be
+regenerated with Think harder.
+
+The isolated inference gateway supports authenticated read-only model-catalogue
+requests to one fixed upstream endpoint. It removes effort metadata unsupported
+by the pinned CLI and strips subscription metadata events from the SSE response.
+Model output still requires a completed, validated text response; tool calls and
+unknown output events remain blocked. A synthetic real-model rehearsal verifies
+that an ordinary food-purchase note ranks Groceries first.

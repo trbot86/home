@@ -28,7 +28,9 @@ export function FilingAdviceActions({
   const [busy, setBusy] = useState(false),
     [issue, setIssue] = useState('');
   const [picker, setPicker] = useState<FilingAdvice | null>(null);
-  const refs = recordReferences(state).filter((r) => r.scopeId === entry.scopeId && r.deletedAt === null);
+  const shared = new Set(state.session!.scopes.filter((s) => s.kind === 'shared').map((s) => s.scopeId));
+  const sharedGroceries = state.shopping.lists.filter((r) => shared.has(r.scopeId) && r.purpose === 'groceries' && r.deletedAt === null);
+  const refs = recordReferences(state).filter((r) => (r.scopeId === entry.scopeId || sharedGroceries.some((list) => list.recordId === r.recordId)) && r.deletedAt === null);
   const lists = state.shopping.lists.filter((r) => r.scopeId === entry.scopeId && r.deletedAt === null);
   const projects = state.projects.projects.filter(
     (r) => r.scopeId === entry.scopeId && r.deletedAt === null && !r.archived,
@@ -39,6 +41,8 @@ export function FilingAdviceActions({
         choice.category
       ];
     const target = refs.find((r) => r.recordId === choice.recordId);
+    if (target?.kind === 'shopping_list' && state.shopping.lists.find((list) => list.recordId === target.recordId)?.purpose === 'groceries')
+      return (target.title.toLowerCase() === 'groceries' ? 'Groceries' : `Groceries: ${target.title}`) + (target.scopeId !== entry.scopeId ? ' · Shared' : '');
     return target ? `${target.label}: ${target.title}` : 'Unavailable destination';
   }
   async function apply(offered: FilingAdvice, selected?: FilingAdvice) {
@@ -72,6 +76,7 @@ export function FilingAdviceActions({
       const title = entry.text.trim().split(/\r?\n/)[0]?.slice(0, 300) || 'Captured note';
       const id = crypto.randomUUID();
       let destination: FilingDestination;
+      let shareToGroceries = false;
       const guard =
         choice.kind === 'existing'
           ? { recordId: choice.recordId, expectedRevision: choice.revision }
@@ -112,6 +117,7 @@ export function FilingAdviceActions({
         const target = refs.find((r) => r.recordId === choice.recordId);
         if (!target) throw Error('This destination is no longer available.');
         if (target.kind === 'shopping_list') {
+          shareToGroceries = target.scopeId !== entry.scopeId && sharedGroceries.some((list) => list.recordId === target.recordId);
           if (entry.text.length > 10000) {
             edit(choice);
             return;
@@ -157,6 +163,7 @@ export function FilingAdviceActions({
           inboxId: entry.inboxId,
           expectedRevision: entry.revision,
           destination,
+          ...(shareToGroceries ? { shareToGroceries: true } : {}),
           ...(guard ? { suggestedTarget: guard } : {}),
         },
         'Note filed',

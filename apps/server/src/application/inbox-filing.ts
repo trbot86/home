@@ -1,4 +1,5 @@
 import { isSecure } from './record-security.js';
+import { canShareToGroceries } from './grocery-filing.js';
 import { categoryOf, filingOf, type Command, type FilingDestination } from '@our-place/contracts';
 import type { Sqlite } from '../infrastructure/database.js';
 import type { AccessService, HumanRequestContext } from '../features/access/access.js';
@@ -41,6 +42,11 @@ export class InboxFiling {
         let created: RecordMutation = { records: [], changes: [] };
         if (kind === 'FileInboxEntry') {
           const destination = args.destination;
+          const sharedGroceries = args.shareToGroceries === true;
+          if (sharedGroceries && (destination.kind !== 'AddShoppingEntry' ||
+              isSecure(this.db, source.inboxId) || !canShareToGroceries(this.db, source.scopeId,
+                this.records.get(context, destination.arguments.listId))))
+            throw new Rejection('invalid_shared_grocery_destination');
           if (args.suggestedTarget) {
             const { recordId, expectedRevision } = args.suggestedTarget;
             const related =
@@ -53,7 +59,7 @@ export class InboxFiling {
             if (!related) throw new Rejection('invalid_suggested_target');
             const target = this.records.requireRevision(context, recordId, expectedRevision);
             if (
-              target.content.scopeId !== source.scopeId ||
+              (target.content.scopeId !== source.scopeId && !sharedGroceries) ||
               target.content.deletedAt !== null ||
               isSecure(this.db, recordId)
             )
@@ -68,7 +74,7 @@ export class InboxFiling {
               this.records.requireRevision(context, id, destination.expectedRevision);
           } else {
             if (filing.destinations.length >= 20) throw new Rejection('inbox_destination_limit');
-            created = this.create(context, source.scopeId, destination, now);
+            created = this.create(context, source.scopeId, destination, now, sharedGroceries);
             id = destination.arguments.recordId;
             if (isSecure(this.db, source.inboxId)) {
               // Include an inline-created project, whose title may come from the protected note.
@@ -105,6 +111,7 @@ export class InboxFiling {
     scopeId: string,
     destination: Exclude<FilingDestination, { kind: 'existing' }>,
     now: number,
+    sharedGroceries = false,
   ) {
     const args = destination.arguments;
     let project: RecordMutation = { records: [], changes: [] };
@@ -134,11 +141,11 @@ export class InboxFiling {
       throw error;
     }
     // Creating from captured content must never silently broaden or change its audience.
-    if (destinationScope !== scopeId) throw new Rejection('filing_requires_same_visibility');
+    if (destinationScope !== scopeId && !sharedGroceries) throw new Rejection('filing_requires_same_visibility');
     const mutation = this.creators[destination.kind].execute(context, destination.kind, args, now);
     if (mutation.afterHistory) throw new Error('Filing creator requires unsupported post-history work');
     const target = mutation.records.find((r) => r.recordId === args.recordId);
-    if (!target || target.content.scopeId !== scopeId)
+    if (!target || target.content.scopeId !== destinationScope)
       throw new Error('Filing creator returned the wrong target');
     return {
       records: [...project.records, ...mutation.records],

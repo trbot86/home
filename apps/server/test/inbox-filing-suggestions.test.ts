@@ -93,6 +93,67 @@ async function fixture(provider?: FilingAdviceProvider) {
   };
 }
 
+test('groceries advice works without title context and explicit filing shares only the item', async () => {
+  const f = await fixture();
+  try {
+    const listId = randomUUID(), otherId = randomUUID();
+    for (const [recordId, purpose] of [[listId, 'groceries'], [otherId, 'household']])
+      assert.equal(f.run('CreateShoppingList', { recordId, scopeId: f.shared, name: 'Do not export custom list name', purpose }).status, 'Applied');
+    const note = f.note(f.privateScope);
+    const service = f.advice(async (input) => {
+      assert.equal(input.choices.some((choice) => choice.label.includes('Do not export')), false);
+      const offered = input.choices.find((choice) => choice.label === 'Groceries (shopping list)');
+      assert.ok(offered);
+      return [offered.key];
+    }, false, [f.privateScope]);
+    const review = await service.suggest(f.a, note.inboxId, note.revision);
+    assert.deepEqual(review?.choices, [{ kind: 'existing', recordId: listId, revision: 1 }]);
+    const args = {
+      inboxId: note.inboxId, expectedRevision: note.revision,
+      destination: { kind: 'AddShoppingEntry', arguments: { recordId: randomUUID(), listId, groupId: null, label: note.text, quantity: '', notes: note.text } },
+      suggestedTarget: { recordId: listId, expectedRevision: 1 },
+    };
+    assert.equal(f.run('FileInboxEntry', args).status, 'Rejected');
+    const unrelated = structuredClone(args);
+    unrelated.destination.arguments.listId = otherId;
+    unrelated.suggestedTarget.recordId = otherId;
+    assert.equal(f.run('FileInboxEntry', { ...unrelated, shareToGroceries: true }).status, 'Rejected');
+    const result = f.run('FileInboxEntry', { ...args, shareToGroceries: true });
+    assert.equal(result.status, 'Applied');
+    assert.equal(f.service.inbox.get(f.a, note.inboxId).scopeId, f.privateScope);
+    const item = f.records.get(f.b, args.destination.arguments.recordId);
+    assert.equal(item.content.scopeId, f.shared);
+    assert.equal(item.content.listId, listId);
+    assert.throws(() => f.service.inbox.get(f.b, note.inboxId));
+    if (result.status === 'Applied') {
+      assert.equal(f.run('UndoChangeSet', { changeSetId: result.changeSetId }).status, 'Applied');
+      assert.equal(f.service.inbox.get(f.a, note.inboxId).filedAt, null);
+      assert.notEqual(f.records.get(f.a, args.destination.arguments.recordId).content.deletedAt, null);
+    }
+  } finally { await f.close(); }
+});
+
+test('ambiguous or secure grocery lists are not offered as a blind shortcut', async () => {
+  const f = await fixture();
+  try {
+    const ids = [randomUUID(), randomUUID()];
+    for (const recordId of ids) f.run('CreateShoppingList', { recordId, scopeId: f.shared, name: 'Groceries', purpose: 'groceries' });
+    const note = f.note();
+    let labels: string[] = [];
+    const service = f.advice(async (input) => { labels = input.choices.map((c) => c.label); return ['1']; });
+    await service.suggest(f.a, note.inboxId, 1);
+    assert.equal(labels.includes('Groceries (shopping list)'), false);
+    assert.equal(labels.includes('shopping'), true);
+    for (const recordId of ids)
+      assert.equal((await f.api(`/api/records/${recordId}/security`, {
+        secure: true, expectedRevision: 0, expectedServerEpoch: 'fixture-epoch',
+      })).statusCode, 200);
+    const next = f.note();
+    await service.suggest(f.a, next.inboxId, 1);
+    assert.equal(labels.includes('Groceries (shopping list)'), false);
+  } finally { await f.close(); }
+});
+
 test('dedicated adapter preserves durable dispatch and original data through the suggestion route', async () => {
   let calls = 0;
   const provider = dedicatedCodexProvider(
