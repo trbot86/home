@@ -161,6 +161,10 @@ destination itself. Filing supports guarded undo, durable unfinished forms and
 Ctrl+Enter. Offline drafts are editable; filing waits for connection. See
 [inbox filing](md/INBOX_FILING_IMPLEMENTATION.md) for transaction and retention details.
 
+**To groceries** is a permanent Inbox action independent of AI suggestions. It
+adds a shared grocery item while preserving the source note's visibility, and
+asks which list when several shared grocery lists exist. The action supports undo.
+
 **Thoughts** holds long-lived notes with optional categories, photos and search.
 Create one directly or use **To Thoughts** in Inbox. Notes default to Just me;
 filing preserves visibility and Secure status. Editing, history, guarded undo,

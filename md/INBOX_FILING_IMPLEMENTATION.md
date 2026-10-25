@@ -14,6 +14,13 @@ shopping cards also provide a source link. Photos stay attached to the source;
 deleting that source follows ordinary deleted-media retention, rather than
 copying its photos permanently into every destination.
 
+**To groceries** is also available directly on unfiled Inbox cards, without AI
+permissions or a saved suggestion. It targets shared grocery lists and preserves
+the original note's visibility. Multiple lists require an explicit choice. The
+shortcut keeps unfinished filing drafts and refuses to publish private Secure
+content. It uses the same revision-guarded filing command and atomic undo as the
+AI-offered grocery action; no model request is sent.
+
 Back to inbox makes a note unfiled while retaining its destination links. Unlink
 removes one reference, never the destination, and returns the note to Inbox if
 no links remain. A deleted target leaves an unavailable-destination indicator.

@@ -48,6 +48,134 @@ async function snapshot(page: Page) {
   return (await page.request.get('/api/cache/inbox')).json();
 }
 
+test.describe('manual grocery shortcuts', () => {
+  const createdLists: string[] = [];
+  test.afterEach(async ({ page }) => {
+    const state = await snapshot(page);
+    for (const id of createdLists.splice(0)) {
+      const list = state.shopping.lists.find((l: any) => l.recordId === id);
+      if (list && !list.deletedAt)
+        await command(page, 'DeleteShoppingList', {
+          recordId: id,
+          expectedRevision: list.revision,
+          members: state.shopping.entries
+            .filter((e: any) => e.listId === id && !e.deletedAt)
+            .map((e: any) => ({ recordId: e.recordId, expectedRevision: e.revision })),
+        });
+    }
+  });
+  test('manual To groceries is available with AI disabled and shares only the item, with undo', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await login(page);
+    const session = await (await page.request.get('/api/session')).json();
+    const scopeId = session.scopes.find((s: any) => s.kind === 'shared').scopeId,
+      listId = crypto.randomUUID();
+    createdLists.push(listId);
+    await command(page, 'CreateShoppingList', {
+      recordId: listId,
+      scopeId,
+      name: 'Groceries',
+      purpose: 'groceries',
+    });
+    await page.getByRole('button', { name: 'Refresh and sync' }).click();
+    const settings = await (await page.request.get('/api/filing-advice/settings')).json();
+    expect(settings.enabled).toBe(false);
+    const card = await capture(page, 'Manual synthetic grocery\nKeep this detail', 'Just me');
+    await expect(card.locator('[aria-label="Suggested destinations"] button')).toHaveCount(0);
+    await expect(card.getByRole('button', { name: 'To groceries', exact: true })).toBeEnabled();
+    for (const width of [320, 390, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: '.cache/manual-groceries-phone.png', fullPage: true });
+    await card.getByRole('button', { name: 'To groceries', exact: true }).click();
+    await expect(card).toHaveCount(0);
+    const data = await snapshot(page),
+      note = data.entries.find((e: any) => e.text.startsWith('Manual synthetic grocery'));
+    expect(note.scopeId).toBe(session.scopes.find((s: any) => s.kind === 'private').scopeId);
+    const items = data.shopping.entries.filter((e: any) => e.label === 'Manual synthetic grocery');
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ listId, scopeId, notes: note.text });
+    await page.keyboard.press('Control+z');
+    await expect(card).toHaveCount(1);
+    const undone = await snapshot(page);
+    expect(
+      undone.shopping.entries.find((e: any) => e.recordId === items[0].recordId).deletedAt,
+    ).not.toBeNull();
+  });
+
+  test('manual groceries asks which shared grocery list when several exist', async ({ page }) => {
+    await login(page);
+    const session = await (await page.request.get('/api/session')).json();
+    const scopeId = session.scopes.find((s: any) => s.kind === 'shared').scopeId;
+    const ids = [crypto.randomUUID(), crypto.randomUUID()];
+    createdLists.push(...ids);
+    for (const [i, recordId] of ids.entries())
+      await command(page, 'CreateShoppingList', {
+        recordId,
+        scopeId,
+        name: `Groceries ${i + 1}`,
+        purpose: 'groceries',
+      });
+    await page.getByRole('button', { name: 'Refresh and sync' }).click();
+    const card = await capture(page, 'Choose a grocery list');
+    await card.getByRole('button', { name: 'To groceries', exact: true }).click();
+    const picker = card.getByRole('group', { name: 'Choose grocery list' });
+    await expect(picker).toBeVisible();
+    expect(
+      (await snapshot(page)).shopping.entries.some((e: any) => e.label === 'Choose a grocery list'),
+    ).toBe(false);
+    await picker.getByRole('button', { name: 'Groceries 2 · Shared', exact: true }).click();
+    await expect(card).toHaveCount(0);
+    expect(
+      (await snapshot(page)).shopping.entries.find((e: any) => e.label === 'Choose a grocery list').listId,
+    ).toBe(ids[1]);
+  });
+
+  test('manual groceries preserves a filing draft and refuses to share a private Secure note', async ({
+    page,
+  }) => {
+    await login(page);
+    const session = await (await page.request.get('/api/session')).json();
+    const scopeId = session.scopes.find((s: any) => s.kind === 'shared').scopeId;
+    const listId = crypto.randomUUID();
+    createdLists.push(listId);
+    await command(page, 'CreateShoppingList', {
+      recordId: listId,
+      scopeId,
+      name: 'Groceries',
+      purpose: 'groceries',
+    });
+    await page.getByRole('button', { name: 'Refresh and sync' }).click();
+    const card = await capture(page, 'A synthetic draft to keep', 'Just me');
+    await card.getByRole('button', { name: 'To task', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'File this note', exact: true });
+    await dialog.getByLabel('Title', { exact: true }).fill('My unfinished task title');
+    await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
+    await card.getByRole('button', { name: 'To groceries', exact: true }).click();
+    await expect(card.getByRole('status')).toContainText('unfinished filing draft');
+    await card.getByRole('button', { name: 'Review filing draft', exact: true }).click();
+    await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue('My unfinished task title');
+    await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
+    const secure = await capture(page, 'A protected synthetic note', 'Just me');
+    const source = (await snapshot(page)).entries.find((e: any) => e.text === 'A protected synthetic note');
+    expect(
+      (
+        await page.request.post(`/api/records/${source.inboxId}/security`, {
+          headers: { origin: 'http://127.0.0.1:4173' },
+          data: { secure: true, expectedRevision: 0, expectedServerEpoch: session.serverEpoch },
+        })
+      ).ok(),
+    ).toBe(true);
+    await secure.getByRole('button', { name: 'To groceries', exact: true }).click();
+    await expect(secure.getByRole('status')).toContainText('Secure note stays private');
+    expect((await snapshot(page)).shopping.entries.some((e: any) => e.label === source.text)).toBe(false);
+  });
+});
+
 test('Groceries files a private capture to the shared list in one click and undo restores it', async ({ page }) => {
   await login(page);
   await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();

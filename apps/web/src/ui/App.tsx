@@ -13,6 +13,7 @@ import { CardOrderControls } from './inbox/CardOrderControls.js';
 import { personalCardOrder, moveVisibleCard } from './inbox/card-order.js';
 import { navigationItems } from './navigation.js';
 import { Thoughts } from './notes/Thoughts.js';
+import { ToGroceries } from './inbox/ToGroceries.js';
 import { Photo } from './Photo.js';
 import { EntryDialog } from './EntryDialog.js';
 import { suggestionCompleted, suggestionStatus } from './suggestions/status.js';
@@ -1569,6 +1570,10 @@ function AppContent({ client }: { client: ClientPlatform }) {
                               )}
                               {view !== 'trash' && categoryOf(entry) === 'inbox' && (
                                 <>
+                                  {filingOf(entry).filedAt === null && (
+                                    <ToGroceries client={client} state={state} entry={entry} run={runCommand}
+                                      reviewDraft={() => { setFilingMode('shopping'); setFilingId(entry.inboxId); }} />
+                                  )}
                                   {(
                                     [
                                       ['task', 'To task'],
