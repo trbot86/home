@@ -99,6 +99,7 @@ export type RunRecordCommand = (
   epoch?: string,
 ) => Promise<CommandOutcome | null>;
 export interface ClientPlatform {
+  einkPreview?(request: import('@our-place/contracts').EinkPreviewRequest): Promise<import('@our-place/contracts').EinkPreview>;
   recordSecurity(
     recordId: string,
     request?: import('@our-place/contracts').RecordSecurityRequest,

@@ -79,6 +79,9 @@ export class BrowserClient implements ClientPlatform {
   filingAdviceSettings(): Promise<import('@our-place/contracts').FilingAdviceSettings> {
     return this.request('/filing-advice/settings', {}, this.requireSession().clientId);
   }
+  einkPreview(request: import('@our-place/contracts').EinkPreviewRequest): Promise<import('@our-place/contracts').EinkPreview> {
+    return this.post('/displays/preview',request,this.requireSession().clientId);
+  }
   saveFilingAdviceSettings(
     expectedRevision: number,
     preferences: import('@our-place/contracts').FilingAdvicePreferences,

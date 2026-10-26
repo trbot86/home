@@ -1,6 +1,7 @@
 import { registerIngredientSourcingRoutes } from './application/ingredient-sourcing.js';
 import { registerShoppingPreferencesRoutes } from './application/shopping-preferences-routes.js';
 import { registerRecordSecurityRoutes } from './application/record-security.js';
+import { registerEinkRoutes } from './features/displays/routes.js';
 import { RecordSharing } from './application/record-sharing.js';
 import { registerFilingAdviceRoutes } from './application/inbox-filing-advice-routes.js';
 import type { FilingAdviceProvider } from './application/inbox-filing-suggestions.js';
@@ -205,6 +206,7 @@ export async function buildApp(options: AppOptions) {
   });
   app.get('/health', async () => ({ status: 'ok', contractVersion: 1, development: !!options.development }));
   registerRecordSecurityRoutes(app, db, records, authenticate);
+  registerEinkRoutes(app, authenticate, access, {tasks, shopping, recipes, views, calendars}, now);
   registerShoppingPreferencesRoutes(app, db, authenticate);
   registerIngredientSourcingRoutes(app, db, records, authenticate, options.filingAdviceProvider);
   const filingAdvice = registerFilingAdviceRoutes(

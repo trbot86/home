@@ -1,7 +1,9 @@
 # E-ink dashboards: integration plan
 
 Status: repository and manufacturer documentation reviewed on 2026-10-26.
-This is an implementation proposal, not a deployed feature or hardware test.
+The server renderer and authenticated browser/Android previews are implemented.
+Device registration, LAN access and firmware remain planned; no hardware test
+has been performed. Exact release verification is kept in ignored local metadata.
 
 ## Hardware and agreed behaviour
 
@@ -13,7 +15,7 @@ wake; retain the last image on network failure and skip unchanged images.
 
 The kitchen display is for shared calendars, meals, shopping, chores and weather.
 The desk display is for a selected person's schedule, tasks and reminders.
-Desk location (home or office) remains to be confirmed before choosing ingress.
+Both displays will stay at home on home Wi-Fi, confirmed on 2026-10-26.
 
 ## Fit with the current application
 
@@ -43,9 +45,10 @@ session or making it impersonate a human.
    resolution/palette interface. It produces one canonical monochrome raster;
    the browser preview and device download encode those same pixels. Start with
    large text, two columns and bounded overflow rather than shrinking the normal
-   application UI. Keep font/assets local. Select the rendering library after a
-   small font, wrapping and container-build compatibility check; the server
-   currently has no image-rendering dependency.
+   application UI. The first slice uses pinned `@resvg/resvg-js` and bundled,
+   unmodified Atkinson Hyperlegible fonts under their included SIL Open Font
+   License. System fonts and external image/font fetches are not used. The
+   canonical raster is encoded directly as 1-bit grayscale PNG and 1-bit BMP.
 4. **Image protocol.** Prefer a versioned manifest plus a content-addressed
    1-bit BMP for compatibility with the documented TRMNL path. Its pixel payload
    is 48,000 bytes, plus BMP headers and palette. Raw framebuffer transport can
@@ -86,8 +89,9 @@ The existing household endpoint is reachable through Tailscale. Do not assume an
 ESP32 can use that route directly. For home devices, propose a separately scoped
 LAN display listener/proxy serving only display endpoints, with authenticated
 requests and verified TLS. Keep the general app listener protected. Office use
-requires a different connectivity design; resolve this before opening listeners
-or changing firewall rules. Hostnames, addresses, Wi-Fi secrets and device tokens
+would require a different connectivity design. Both current displays are at home;
+opening the restricted listener and configuring TLS remain setup work.
+Hostnames, addresses, Wi-Fi secrets and device tokens
 belong in ignored local provisioning files.
 
 Use full refresh first; test partial refresh only after confirming the actual
@@ -125,3 +129,31 @@ follow the backup-verified upgrade procedure in AGENTS.md; no live data resets.
 
 No firmware has been flashed, live credentials issued, network listeners opened
 or household schema changed as part of this review.
+
+## First slice: exact previews
+
+Settings → E-ink dashboards offers kitchen and desk layouts, a two/seven-day
+calendar window, an explicit calendar allowlist and private-item opt-in for the
+desk. Changing options clears the old image and discards in-flight responses.
+Preview downloads include a PNG and an 800 × 480 1-bit BMP (48,062 bytes including
+headers/palette). A resolution-aware renderer supports other dimensions without
+changing projection code; the present UI targets the purchased 800 × 480 panels.
+
+`POST /api/displays/preview` requires an existing human browser/Android session.
+It is a read-only projection, writes no household records and returns `no-store`.
+It is not a device endpoint or provisioning route. Kitchen filtering excludes
+private scopes, work calendars and sensitive/private events even when the owner
+could read them elsewhere. The desk uses the requesting profile's permissions;
+it cannot choose another person through request parameters. Meeting descriptions,
+URLs, note bodies and provider credentials are not projected.
+
+Rendered pixels include no poll timestamp; unchanged visible content retains its
+digest. Calendar coverage/failure notices appear alongside the preview. Recipes
+use existing Make soon pins; groceries show needed items from shared grocery
+lists. Weather is visibly unconnected. There is no battery reading, background
+30-minute fetch, device credential, or physical-display update in this slice.
+
+Isolated tests check scope/assignment/calendar filtering, exclusive all-day ends,
+household timezones, stable hashes, exact PNG/BMP pixel equivalence including BMP
+row padding, request validation and read-only behaviour. Browser tests check
+exact dimensions, downloads, private defaults, phone overflow and stale responses.

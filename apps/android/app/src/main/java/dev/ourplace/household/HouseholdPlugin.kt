@@ -59,7 +59,7 @@ class HouseholdPlugin : Plugin() {
             } catch (error: Exception) { call.reject("Invalid web link", error) }
             return
         }
-        val networkMethods = setOf("authenticationOptions", "login", "logout", "refresh", "sync", "command", "submitAttachmentDraft", "history", "shoppingHistory", "recordHistory", "sharingPreview", "recordSecurity", "ingredientSourcing", "shoppingSettings", "filingAdviceSettings", "saveFilingAdviceSettings", "filingAdvice", "recipeImport", "photoPath", "storage", "backups", "createBackup", "recoverDraft", "reconcileEdits")
+        val networkMethods = setOf("einkPreview", "authenticationOptions", "login", "logout", "refresh", "sync", "command", "submitAttachmentDraft", "history", "shoppingHistory", "recordHistory", "sharingPreview", "recordSecurity", "ingredientSourcing", "shoppingSettings", "filingAdviceSettings", "saveFilingAdviceSettings", "filingAdvice", "recipeImport", "photoPath", "storage", "backups", "createBackup", "recoverDraft", "reconcileEdits")
         (if (method in networkMethods) network else core.executor).execute {
             try {
                 val result: Any? = when (method) {
@@ -95,6 +95,7 @@ class HouseholdPlugin : Plugin() {
                     "ingredientSourcing" -> core.ingredientSourcing(args.requireText("recipeId"), args.optJSONObject("request"))
                     "shoppingSettings" -> core.shoppingSettings(if (args.has("preferences")) args else null)
                     "filingAdviceSettings" -> core.filingAdviceSettings()
+                    "einkPreview" -> core.einkPreview(args.getJSONObject("request"))
                     "saveFilingAdviceSettings" -> core.saveFilingAdviceSettings(args.getLong("expectedRevision"), args.getJSONObject("preferences"))
                     "filingAdvice" -> core.filingAdvice(args.requireText("inboxId"), args.optJSONObject("request"))
                     "recordHistory" -> core.recordHistory(args.requireText("recordId"))

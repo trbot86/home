@@ -14,6 +14,7 @@ import { personalCardOrder, moveVisibleCard } from './inbox/card-order.js';
 import { navigationItems } from './navigation.js';
 import { Thoughts } from './notes/Thoughts.js';
 import { ToGroceries } from './inbox/ToGroceries.js';
+import { EinkPreview } from './displays/EinkPreview.js';
 import { Photo } from './Photo.js';
 import { EntryDialog } from './EntryDialog.js';
 import { suggestionCompleted, suggestionStatus } from './suggestions/status.js';
@@ -1056,6 +1057,7 @@ function AppContent({ client }: { client: ClientPlatform }) {
                   />
                 </details>
                 <CalendarSettings client={client} state={state} run={runCommand} />
+                <EinkPreview key={state.session.person.personId} client={client} state={state} />
                 <Storage client={client} state={state} onError={showError} />
                 <AppUpdates client={client} online={state.online} onError={showError} version={appVersion} />
                 {state.session.isAdministrator && (

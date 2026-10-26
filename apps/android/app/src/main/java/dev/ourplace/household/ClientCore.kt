@@ -160,6 +160,7 @@ class ClientCore private constructor(val context: Context) {
     }
     fun shoppingSettings(request: JSONObject?): JSONObject = api.json("/shopping/settings", if (request == null) "GET" else "POST", request?.toString(), clientId())
     fun filingAdviceSettings(): JSONObject = api.json("/filing-advice/settings", clientId = clientId())
+    fun einkPreview(request: JSONObject): JSONObject = api.json("/displays/preview", "POST", request.toString(), clientId())
     fun saveFilingAdviceSettings(revision: Long, preferences: JSONObject): JSONObject = api.json("/filing-advice/settings", "POST", JSONObject().put("expectedRevision", revision).put("preferences", preferences).toString(), clientId())
     fun filingAdvice(id: String, request: JSONObject?): JSONObject {
         require(id.matches(Regex("[a-zA-Z0-9_-]{8,80}")))

@@ -171,6 +171,10 @@ filing preserves visibility and Secure status. Editing, history, guarded undo,
 sharing and reversible deletion use the existing record infrastructure. Saved
 thoughts are readable offline. See [Thoughts](md/THOUGHTS_IMPLEMENTATION.md).
 
+Settings includes **E-ink dashboards** with exact monochrome kitchen/desk previews
+and 1-bit BMP downloads. Calendar selection and private desk items are explicit.
+Physical device provisioning is still planned; see the [e-ink integration plan](md/EINK_DASHBOARDS_PLAN.md).
+
 Shopping supports named shared/private lists for groceries, household purchases,
 wants and gifts. Add quantities and notes, move items between lists of the same
 visibility, and check off purchases with who bought them and when. Save reusable

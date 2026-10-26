@@ -1,0 +1,4 @@
+Atkinson Hyperlegible Regular and Bold, copyright Braille Institute of America.
+Unmodified font files from https://github.com/google/fonts/tree/main/ofl/atkinsonhyperlegible
+Downloaded 2026-10-26. Redistribution license: OFL.txt in this directory.
+Exact file digests are verified by scripts/check-public-source.mjs.

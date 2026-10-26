@@ -23,6 +23,7 @@ import type {
   SuggestionMessage,
 } from '@our-place/contracts';
 type NativeMethod =
+  | 'einkPreview'
   | 'openWidgetSetup'
   | 'recordSecurity'
   | 'ingredientSourcing'
@@ -104,6 +105,9 @@ export class AndroidClient implements ClientPlatform {
   }
   filingAdviceSettings(): Promise<import('@our-place/contracts').FilingAdviceSettings> {
     return this.invoke('filingAdviceSettings');
+  }
+  einkPreview(request: import('@our-place/contracts').EinkPreviewRequest): Promise<import('@our-place/contracts').EinkPreview> {
+    return this.invoke('einkPreview',{request});
   }
   saveFilingAdviceSettings(
     expectedRevision: number,

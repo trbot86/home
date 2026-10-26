@@ -41,7 +41,12 @@ for (const path of paths) {
   catch { report(path, 'cannot inspect candidate bytes'); continue; }
   if (bytes.subarray(0, 16).toString() === 'SQLite format 3\0') report(path, 'SQLite database content');
   if (bytes.length > 2 * 1024 * 1024) report(path, 'unexpected large file');
-  const binaryAllowed = path === 'apps/android/gradle/wrapper/gradle-wrapper.jar' || /^apps\/android\/app\/src\/main\/res\/[^/]+\/[^/]+\.png$/.test(path);
+  const fontDigests = {
+    'apps/server/assets/eink/AtkinsonHyperlegible-Regular.ttf': '7fb917c89019896d0b52ee84b7cbb3304c18cb90b19a62f5e32712bd23e97669',
+    'apps/server/assets/eink/AtkinsonHyperlegible-Bold.ttf': '5a3b0c8cc8ca545155150b4512a1fa248298df121c50d6557e651e61fbdab92f',
+  };
+  const reviewedFont = Object.hasOwn(fontDigests, path) && createHash('sha256').update(bytes).digest('hex') === fontDigests[path];
+  const binaryAllowed = reviewedFont || path === 'apps/android/gradle/wrapper/gradle-wrapper.jar' || /^apps\/android\/app\/src\/main\/res\/[^/]+\/[^/]+\.png$/.test(path);
   if (path === 'apps/android/gradle/wrapper/gradle-wrapper.jar' && createHash('sha256').update(bytes).digest('hex') !== '7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172') report(path, 'Gradle wrapper differs from verified official checksum');
   if (bytes.includes(0)) { if (!binaryAllowed) report(path, 'unreviewed binary'); continue; }
   const content = bytes.toString('utf8');

@@ -11,6 +11,7 @@ import { projectCommands } from './projects.js';
 import { calendarCommands } from './calendars.js';
 import { noteCommands } from './notes.js';
 export * from './notes.js';
+export * from './eink.js';
 import { inboxFilingCommands, type InboxFiling } from './inbox-filing.js';
 import { suggestionCommands } from './suggestions.js';
 import { suggestionReleaseCommands } from './suggestion-releases.js';
