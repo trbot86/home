@@ -44,7 +44,7 @@ Concrete examples beyond those below will come later; further brainstorming can 
 - Suggested maintenance appropriate to the home, plus an ability to pin priorities.
 - Project boards with photos, screenshots, notes, hyperlinks, and mixed media, potentially nested like hierarchical pinboards.
 - Preserve the distinction between storing reference material and making priorities, ordering, and next actions visually clear.
-- Potential future desk and kitchen e-ink displays. No hardware has been bought for this purpose yet.
+- Desk and kitchen e-ink displays: two Seeed Studio TRMNL 7.5-inch OG DIY kits have been purchased. See [the integration plan](EINK_DASHBOARDS_PLAN.md) for the hardware handoff, proposed server-rendered dashboards and remaining network decision.
 
 ### Capture
 
