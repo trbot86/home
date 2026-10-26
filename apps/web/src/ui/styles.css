@@ -664,7 +664,6 @@ a {
   color: var(--muted);
 }
 .entry-actions button:first-child {
-  padding-left: 0;
   color: var(--green);
 }
 .action-spacer {
@@ -1344,9 +1343,6 @@ a {
   }
   .scope-badge {
     font-size: 10px;
-  }
-  .entry-actions button:first-child {
-    padding-right: 13px;
   }
   .collection-footer {
     margin-top: 22px;
